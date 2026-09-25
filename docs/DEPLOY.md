@@ -1,6 +1,6 @@
 # Deploying on Coolify (behind Cloudflare)
 
-The whole stack runs from one `docker-compose.yml`: `web` (SvelteKit), `worker` (scanner +
+The whole stack runs from one `docker-compose.yaml`: `web` (SvelteKit), `worker` (scanner +
 Chromium), `postgres`, `redis`. Only `web` is exposed; Cloudflare proxies it and the VPS firewall
 accepts web traffic from Cloudflare only.
 
@@ -30,7 +30,7 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 ## 3. Coolify
 
 1. **Projects → New resource → Docker Compose** from this Git repository, branch `main`
-   (base directory `/`, compose file `/docker-compose.yml`).
+   (base directory `/`, compose file `/docker-compose.yaml`).
 2. Set the domain on the `web` service: `https://scanner.example.com` (port `3000`).
 3. **Environment Variables** — only three are required:
 
@@ -50,7 +50,7 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 
 ### Resources
 
-Defaults in `docker-compose.yml`: web 512 MB, worker 2 GB (Chromium), Postgres 512 MB, Redis 160 MB. A 4 GB VPS runs it comfortably with `SCAN_CONCURRENCY=2`. If memory is tight, set `BROWSER_ENABLED=false` (screenshots then come from PageSpeed Insights instead) and the worker needs ~300 MB.
+Defaults in `docker-compose.yaml`: web 512 MB, worker 2 GB (Chromium), Postgres 512 MB, Redis 160 MB. A 4 GB VPS runs it comfortably with `SCAN_CONCURRENCY=2`. If memory is tight, set `BROWSER_ENABLED=false` (screenshots then come from PageSpeed Insights instead) and the worker needs ~300 MB.
 
 ### Free API keys (optional)
 
