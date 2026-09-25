@@ -49,7 +49,10 @@ export const config = {
   behindCloudflare: env.BEHIND_CLOUDFLARE !== 'false',
   maxQueueDepth: Number(env.MAX_QUEUE_DEPTH ?? 20),
   abuseContact: env.ABUSE_CONTACT || (env.ADMIN_EMAIL ?? '').trim(),
-  siteName: env.SITE_NAME ?? 'Site Scanner'
+  siteName: env.SITE_NAME ?? 'Site Scanner',
+  /** Optional self-hosted Umami analytics for the scanner's own pages. */
+  umamiScriptUrl: env.UMAMI_SCRIPT_URL ?? '',
+  umamiWebsiteId: env.UMAMI_WEBSITE_ID ?? ''
 };
 
 export const SCAN_QUEUE = 'scan';

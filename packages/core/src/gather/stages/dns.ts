@@ -3,7 +3,7 @@ import { checkIp, ipVersion, reverseName } from '../ip.js';
 import type { DnsRecords, IpInfo } from '../../types.js';
 
 /** Common DKIM selectors; a hit is informational only ("DKIM appears configured"). */
-const DKIM_SELECTORS = ['default', 'google', 'selector1', 'selector2', 'k1', 'k2', 'mail', 'dkim', 'smtp', 's1', 's2', 'mandrill', 'mailchimp', 'pm', 'protonmail', 'zoho', 'mailgun', 'sendgrid', 'amazonses', 'fm1', 'everlytickey1', 'krs'];
+const DKIM_SELECTORS = ['default', 'google', 'google2', 'selector1', 'selector2', 'k1', 'k2', 'k3', 'mail', 'dkim', 'dkim1', 'smtp', 's1', 's2', 's1024', 'sig1', 'sig2', 'cm', 'mandrill', 'mailchimp', 'pm', 'protonmail', 'protonmail2', 'zoho', 'zmail', 'mailgun', 'mg', 'sendgrid', 'ses', 'amazonses', 'fm1', 'fm2', 'fm3', 'mailjet', 'brevo', 'sendinblue', 'postmark', 'hs1', 'mte1', 'zendesk1', 'everlytickey1', 'krs'];
 
 export interface DnsStageResult {
   records: DnsRecords;

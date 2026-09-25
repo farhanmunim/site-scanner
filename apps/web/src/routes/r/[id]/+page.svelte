@@ -82,6 +82,16 @@
   let techFilter = $state('');
   let techs = $derived((report?.technologies ?? []).filter((t) => !techFilter || t.name.toLowerCase().includes(techFilter.toLowerCase()) || t.categories.some((c) => c.name.toLowerCase().includes(techFilter.toLowerCase()))));
   let hasCms = $derived(!!report?.cms);
+  /** Categories that are infrastructure or metadata rather than "what the site is built with". */
+  const notBuiltWith = /^(Webmail|Hosting|CDN|Miscellaneous|Email|Security|PaaS|IaaS|Reverse proxies|Load balancers|SSL\/TLS certificate authorities|Domain parking|Web servers)$/;
+  let builtWith = $derived((report?.technologies ?? []).filter((t) => !t.implied && t.confidence !== 'low' && !t.categories.every((c) => notBuiltWith.test(c.name))).slice(0, 14));
+  const typeLabel = (t: { name: string; categories: { name: string }[] }) => (/ DNS$/.test(t.name) ? 'DNS provider' : t.categories.map((c) => c.name).join(', '));
+  let serverSoftware = $derived.by(() => {
+    const s = report?.http?.server;
+    if (!s) return 'Not disclosed';
+    if (report?.infra.cdn && new RegExp(report.infra.cdn.name.split(' ')[0]!, 'i').test(s)) return `Not disclosed (behind ${report.infra.cdn.name})`;
+    return s;
+  });
 </script>
 
 <svelte:head>
@@ -93,10 +103,10 @@
 
 <div class="report-head">
   <div>
-    <h1 style="margin-bottom: 2px"><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank" style="color: inherit">{data.scan.displayHost}</a></h1>
-    <div class="muted small">
+    <h1><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank" style="color: inherit">{data.scan.displayHost}</a></h1>
+    <div class="meta">
       <span class="pill {status === 'complete' ? 'green' : status === 'failed' ? 'red' : running ? 'blue' : 'amber'}">{statusText[status] ?? status}</span>
-      · scanned {ago(data.scan.createdAt)}{#if data.scan.durationMs} in {fmtMs(data.scan.durationMs)}{/if}
+      <span>Scanned {ago(data.scan.createdAt)}{#if data.scan.durationMs}&nbsp;in {fmtMs(data.scan.durationMs)}{/if}</span>
     </div>
   </div>
   <div class="row">
@@ -150,7 +160,7 @@
           <table class="kv">
             <tbody>
               {#if report.cms}<tr><td>Platform</td><td>{report.cms.platform === 'wordpress' ? 'WordPress' : 'Shopify'}{#if report.cms.version} {report.cms.version}{/if}{#if report.cms.theme} · theme: {report.cms.theme.name ?? report.cms.theme.slug}{/if}</td></tr>{/if}
-              <tr><td>Built with</td><td class="chips">{#each report.technologies.filter((t) => !t.implied && t.confidence !== 'low').slice(0, 14) as t}<a class="pill" href="#tech-{t.slug}">{t.name}</a>{:else}<span class="muted">Nothing identified with confidence</span>{/each}</td></tr>
+              <tr><td>Built with</td><td class="chips">{#each builtWith as t}<a class="pill" href="#tech-{t.slug}">{t.name}</a>{:else}<span class="muted">Nothing identified with confidence</span>{/each}</td></tr>
               <tr><td>Hosting</td><td>{#if report.infra.hosting}{report.infra.hosting.name} <span class="muted small">({confWord[report.infra.hosting.confidence].toLowerCase()})</span>{:else if report.infra.cdn}Hidden behind {report.infra.cdn.name}{:else}Unknown{/if}</td></tr>
               <tr><td>CDN / firewall</td><td>{report.infra.cdn?.name ?? 'None seen'}{#if report.infra.waf && report.infra.waf.name !== report.infra.cdn?.name} · {report.infra.waf.name.replace(/ \(.*\)$/, '')}{/if}</td></tr>
               <tr><td>DNS provider</td><td>{report.infra.dnsProvider?.name ?? '—'}</td></tr>
@@ -172,11 +182,13 @@
           </div>
         </div>
         <div class="panel">
-          <header><h2>Scan details</h2></header>
-          <div class="body small">
-            <Stages {stages} {running} />
-            <p class="muted" style="margin: 10px 0 0">Scanner {report.scan.scannerVersion}{#if report.scan.fingerprintsVersion} · fingerprints {report.scan.fingerprintsVersion}{/if}</p>
-          </div>
+          <details style="margin: 0">
+            <summary style="padding: 12px 18px; color: var(--text-2); font-weight: 500; font-size: 14px">Scan details</summary>
+            <div class="body small" style="padding-top: 0">
+              <Stages {stages} {running} />
+              <p class="muted" style="margin: 10px 0 0">Scanner {report.scan.scannerVersion}{#if report.scan.fingerprintsVersion} · fingerprints {report.scan.fingerprintsVersion}{/if}</p>
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -195,7 +207,7 @@
               <tr id="tech-{t.slug}">
                 <td class="w-status"><Light status={confLight[t.confidence]} label={confWord[t.confidence]} /></td>
                 <td class="w-label">{#if t.website}<a href={t.website} rel="noopener nofollow" target="_blank">{t.name}</a>{:else}{t.name}{/if}</td>
-                <td>{t.categories.map((c) => c.name).join(', ')}</td>
+                <td>{typeLabel(t)}</td>
                 <td>{t.version ?? '—'}</td>
                 <td class="wrap">{#if t.implied}<span class="muted">Implied by {t.evidence[0]?.value.replace('implied by ', '') ?? 'another technology'}</span>{:else}<details><summary>{t.evidence.length} signal{t.evidence.length === 1 ? '' : 's'}</summary><Evidence items={t.evidence} /></details>{/if}</td>
               </tr>
@@ -215,9 +227,9 @@
       <table class="kv">
         <tbody>
           <tr><td>CDN / reverse proxy</td><td>{#if report.infra.cdn}{report.infra.cdn.name}<details><summary>Evidence</summary><Evidence items={report.infra.cdn.evidence} /></details>{:else}None seen{/if}</td></tr>
-          <tr><td>Firewall / bot protection</td><td>{#if report.infra.waf}{report.infra.waf.name}{#if report.infra.waf.evidence.length}<details><summary>Evidence</summary><Evidence items={report.infra.waf.evidence} /></details>{/if}{:else}None seen{/if}</td></tr>
+          <tr><td>Firewall / bot protection</td><td>{#if report.infra.waf}{report.infra.waf.name}{#if report.infra.waf.evidence.length === 1 && report.infra.waf.evidence[0]?.source === 'implied'} <span class="muted small">— {report.infra.waf.evidence[0].value}</span>{:else if report.infra.waf.evidence.length}<details><summary>Evidence</summary><Evidence items={report.infra.waf.evidence} /></details>{/if}{:else}None seen{/if}</td></tr>
           <tr><td>Hosting provider</td><td>{#if report.infra.hosting}{report.infra.hosting.name} <Light status={confLight[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} /><details><summary>Evidence</summary><Evidence items={report.infra.hosting.evidence} /></details>{:else if report.infra.cdn}<strong>Not publicly visible.</strong> The site is served through {report.infra.cdn.name}, which hides the real server.{:else}Unknown{/if}</td></tr>
-          <tr><td>Web server software</td><td>{report.http?.server ?? 'Not disclosed'}{#if report.http?.poweredBy} · {report.http.poweredBy}{/if}</td></tr>
+          <tr><td>Web server software</td><td>{serverSoftware}{#if report.http?.poweredBy} · {report.http.poweredBy}{/if}</td></tr>
           <tr><td>Connection</td><td>{report.tls?.alpn === 'h2' ? 'HTTP/2' : (report.tls?.alpn ?? '—')}{#if report.http?.http3} · HTTP/3 available{/if}{#if report.http?.compression} · {report.http.compression} compression{/if}</td></tr>
           {#each report.infra.ips as ip}<tr><td>IP address</td><td class="mono small">{ip.ip}{#if ip.asn} · AS{ip.asn} {ip.asnOrg ?? ''}{/if}{#if ip.country} · {ip.country}{/if}{#if ip.reverseDns} · {ip.reverseDns}{/if}</td></tr>{/each}
           {#if report.external.greenHosting}<tr><td>Green hosting</td><td>{report.external.greenHosting.green ? `Yes — ${report.external.greenHosting.hostedBy ?? 'listed by the Green Web Foundation'}` : 'Not listed by the Green Web Foundation'}</td></tr>{/if}

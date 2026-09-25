@@ -12,27 +12,22 @@
 
 <div class="hero">
   <h1>How is this website built?</h1>
-  <p>Enter any website. You'll get a plain-English report on what it's built with, where it's hosted, how secure its setup is, how it performs and who it shares data with.</p>
+  <p>Enter any website for a plain-English report on what it's built with, where it's hosted, how secure its setup is, how fast it is and who it shares data with.</p>
   <form method="POST" class="scan-form" use:enhance={() => { busy = true; return async ({ update }) => { busy = false; await update(); }; }}>
     <label class="sr-only" for="url">Website address</label>
     <input id="url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="example.com" value={form?.input ?? ''} required />
     <button class="primary" type="submit" disabled={busy}>{busy ? 'Starting…' : 'Analyse'}</button>
     {#if data.turnstileSiteKey}<div class="cf-turnstile" data-sitekey={data.turnstileSiteKey} data-size="flexible"></div>{/if}
   </form>
-  {#if form?.error}<p class="alert red" role="alert" style="max-width: 620px; margin: 12px auto 0">{form.error}</p>{/if}
+  {#if form?.error}<p class="alert red" role="alert" style="max-width: 560px">{form.error}</p>{/if}
+  <p class="muted small" style="margin-top: 12px">Takes 10–40 seconds. No account needed.</p>
 </div>
 
-<div class="panel features">
-  <header><h2>What the report covers</h2><span class="hint">Takes 10–40 seconds</span></header>
-  <table>
-    <tbody>
-      <tr><td>Technology</td><td>CMS, frameworks, libraries, analytics, payments — each with the evidence and a confidence level.</td></tr>
-      <tr><td>Hosting &amp; infrastructure</td><td>CDN, firewall, hosting provider, IP and network, DNS provider, registrar, certificate.</td></tr>
-      <tr><td>Security setup</td><td>HTTPS, security headers, cookies, email spoofing protection and Google Safe Browsing — as a simple traffic light.</td></tr>
-      <tr><td>WordPress &amp; Shopify</td><td>Version, theme, plugins, and whether any are out of date or have known security issues.</td></tr>
-      <tr><td>SEO &amp; performance</td><td>Titles, descriptions, sitemap, social previews; Lighthouse scores and Core Web Vitals.</td></tr>
-      <tr><td>Privacy</td><td>Trackers, ad pixels, cookies set on arrival, consent banner, third-party services.</td></tr>
-    </tbody>
-  </table>
-  <p class="note">Read-only: the scanner only loads pages a normal visitor would, never logs in or probes for hidden files. <a href="/bot">How it works and how to opt out</a>.</p>
+<div class="features">
+  <div><h3>Technology</h3><p>CMS, frameworks, libraries, analytics and payments — each with the evidence and a confidence level.</p></div>
+  <div><h3>Hosting &amp; infrastructure</h3><p>CDN, firewall, hosting provider, IP and network, DNS provider, registrar and certificate.</p></div>
+  <div><h3>Security setup</h3><p>HTTPS, security headers, cookies, email spoofing protection and Safe Browsing — as a simple traffic light.</p></div>
+  <div><h3>WordPress &amp; Shopify</h3><p>Version, theme and plugins, and whether any are out of date or have known security issues.</p></div>
+  <div><h3>SEO &amp; performance</h3><p>Titles, descriptions, sitemap and social previews; Lighthouse scores and Core Web Vitals.</p></div>
+  <div><h3>Privacy</h3><p>Trackers, ad pixels, cookies set on arrival, consent banner and third-party services.</p></div>
 </div>

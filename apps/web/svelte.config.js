@@ -11,11 +11,11 @@ export default {
       mode: 'auto',
       directives: {
         'default-src': ['self'],
-        'script-src': ['self', 'https://challenges.cloudflare.com'],
+        'script-src': ['self', 'https://challenges.cloudflare.com', 'https://mochi.farhan.app'],
         'style-src': ['self', 'unsafe-inline'],
         'img-src': ['self', 'data:', 'blob:'],
         'font-src': ['self'],
-        'connect-src': ['self'],
+        'connect-src': ['self', 'https://mochi.farhan.app'],
         'frame-src': ['https://challenges.cloudflare.com'],
         'frame-ancestors': ['none'],
         'base-uri': ['self'],

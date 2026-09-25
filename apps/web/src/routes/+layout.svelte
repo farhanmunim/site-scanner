@@ -4,11 +4,15 @@
   let { children, data } = $props();
 </script>
 
+<svelte:head>
+  {#if data.umami}<script defer src={data.umami.script} data-website-id={data.umami.websiteId}></script>{/if}
+</svelte:head>
+
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="22" height="22" /> {data.siteName}</a>
+    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="26" height="26" /> {data.siteName}</a>
     <nav class="nav" aria-label="Main">
-      <a href="/bot">About the scanner</a>
+      <a href="/bot">How it works</a>
       <a href="/privacy">Privacy</a>
       {#if page.data.admin}<a href="/admin">Admin</a>{/if}
     </nav>

@@ -94,7 +94,7 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   const wafTech = techs.find((t) => !t.implied && t.categories.some((c) => c.id === 16) && WAF_NAMES.test(t.name));
   if (challenge) waf = { name: challenge.vendor, evidence: [{ source: 'html', value: challenge.evidence }] };
   else if (wafTech) waf = { name: wafTech.name, evidence: ev(wafTech) };
-  else if (cdn && /Cloudflare|Akamai|Imperva|Sucuri|Fastly/i.test(cdn.name)) waf = { name: `${cdn.name} (edge security available; configuration not observable)`, evidence: [] };
+  else if (cdn && /Cloudflare|Akamai|Imperva|Sucuri|Fastly/i.test(cdn.name)) waf = { name: cdn.name, evidence: [{ source: 'implied', value: `${cdn.name} sits in front of the site; whether its firewall/bot protection is switched on is not observable from outside` }] };
 
   // DNS provider from NS records.
   let dnsProvider: InfraSummary['dnsProvider'] = null;

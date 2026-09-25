@@ -86,7 +86,7 @@ export function analyseSeo(html: ParsedHtml, finalUrl: string, robots: RobotsSum
   else findings.push({ id: 'og', title: 'Social sharing preview', status: og['og:image'] ? 'good' : 'info', observed: `${Object.keys(og).length} og: tag(s)${og['og:image'] ? ' including an image' : ', no og:image'}.` });
 
   const missingAlt = html.images.filter((i) => i.alt === null || i.alt === undefined).length;
-  if (html.images.length) findings.push({ id: 'img-alt', title: 'Image descriptions (alt text)', status: missingAlt === 0 ? 'good' : missingAlt / html.images.length > 0.3 ? 'warn' : 'info', observed: `${missingAlt} of ${html.images.length} images have no alt attribute.` });
+  if (html.images.length) findings.push({ id: 'img-alt', title: 'Image descriptions (alt text)', status: missingAlt === 0 ? 'good' : missingAlt / html.images.length > 0.3 ? 'warn' : 'info', observed: missingAlt === 0 ? `All ${html.images.length} image${html.images.length === 1 ? '' : 's'} have alt text.` : `${missingAlt} of ${html.images.length} images lack alt text.` });
 
   const types = new Set<string>();
   const walk = (v: unknown, depth = 0) => {

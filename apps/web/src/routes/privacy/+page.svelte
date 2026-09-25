@@ -16,7 +16,7 @@
   <p>Results are reachable only through the unguessable link you receive. There is no public directory of scans and report pages are marked <code>noindex</code>. The operator can see all scans.</p>
   <h2>What we do not do</h2>
   <ul>
-    <li>No advertising, no third-party analytics, no tracking cookies. The only cookie is an admin session for the operator.</li>
+    <li>No advertising and no tracking cookies. Page views are counted with self-hosted, cookieless Umami analytics run by the operator; the only cookie is an admin session for the operator.</li>
     <li>Cloudflare sits in front of this site for protection; its <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">privacy policy</a> applies to that traffic. If a human check appears, that is Cloudflare Turnstile.</li>
     <li>Scanned websites receive only ordinary read requests; see <a href="/bot">about the scanner</a>. Set-Cookie values from scanned sites are redacted before storage.</li>
   </ul>
