@@ -49,4 +49,6 @@ COPY --from=build /app/apps/worker ./apps/worker
 COPY --from=build /app/scripts ./scripts
 RUN mkdir -p /data/screenshots && chown -R pwuser:pwuser /data /app
 USER pwuser
-CMD ["node", "--import", "tsx", "apps/worker/src/index.ts"]
+# Run from the worker package so Node resolves `tsx` (and everything else) from its node_modules.
+WORKDIR /app/apps/worker
+CMD ["node", "--import", "tsx", "src/index.ts"]
