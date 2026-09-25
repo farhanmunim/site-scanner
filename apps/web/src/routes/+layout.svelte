@@ -19,7 +19,7 @@
 </main>
 <footer class="site-footer">
   <div class="container">
-    {data.siteName} analyses publicly accessible website responses only. It never logs in, submits forms or probes for hidden files. Results describe what was observed and are not a security audit.
-    {#if data.abuseContact}<br />Site owners can opt out on the <a href="/bot">bot page</a> or contact <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>.{/if}
+    {data.siteName} reads only what any visitor's browser would. Results describe what was observed and are not a security audit.
+    Site owners can <a href="/bot#opt-out">opt out</a>{#if data.abuseContact} or contact <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}.
   </div>
 </footer>

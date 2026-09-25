@@ -12,13 +12,13 @@
       <dl class="kv">
         <dt>{w.id}</dt><dd>{w.role}{w.browser ? ' + browser' : ''} · v{w.version} · {w.memoryMb} MB · {w.scansDone} scans · seen {ago(w.lastSeenAt)}{#if w.currentScanId} · <a href="/r/{w.currentScanId}">busy</a>{/if}</dd>
       </dl>
-    {:else}<p class="alert bad">No worker heartbeat. Scans will queue but never run.</p>{/each}
+    {:else}<p class="alert red">No worker heartbeat. Scans will queue but never run.</p>{/each}
   </div>
   <div class="card">
     <h2>Queue &amp; Redis</h2>
     {#if data.redis.ok}
-      <dl class="kv"><dt>Redis</dt><dd><span class="pill good">connected</span></dd>{#each Object.entries(data.redis.queue ?? {}) as [k, v]}<dt>{k}</dt><dd>{v}</dd>{/each}<dt>DB queued/running</dt><dd>{data.queuedScans}</dd></dl>
-    {:else}<p class="alert bad">Redis unreachable.</p>{/if}
+      <dl class="kv"><dt>Redis</dt><dd><span class="pill green">connected</span></dd>{#each Object.entries(data.redis.queue ?? {}) as [k, v]}<dt>{k}</dt><dd>{v}</dd>{/each}<dt>DB queued/running</dt><dd>{data.queuedScans}</dd></dl>
+    {:else}<p class="alert red">Redis unreachable.</p>{/if}
   </div>
   <div class="card">
     <h2>Egress IP reputation</h2>

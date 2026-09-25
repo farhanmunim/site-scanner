@@ -38,7 +38,7 @@
       <input name="contact" type="text" placeholder="you@example.com (optional)" style="max-width: 280px" />
       <button class="primary" type="submit">Opt out</button>
     </form>
-    {#if form?.error}<p class="alert bad" role="alert">{form.error}</p>{/if}
+    {#if form?.error}<p class="alert red" role="alert">{form.error}</p>{/if}
   {/if}
   {#if data.abuseContact}<p class="small muted" style="margin-top: 10px">Questions or abuse reports: <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>.</p>{/if}
 </div>

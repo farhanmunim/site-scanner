@@ -5,9 +5,10 @@ import { readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, blocklist, createDb, domains, eq, gt, isNotNull, lookups, lt, runMigrations, scans, scanTechnologies, settings, SETTINGS_KEYS, sql, workers, apiCache, type Db } from '@site-scanner/db';
 import { analyse, gather, loadFingerprints, prepareTarget, ScanRefused, LIMITS, isRestrictedStatus, SCANNER_VERSION, type GatheredData, type StageName } from '@site-scanner/core';
-import { config, SCAN_QUEUE } from './config.js';
+import { config, PDF_QUEUE, SCAN_QUEUE } from './config.js';
 import { log } from './log.js';
 import { closeBrowser, renderPage } from './browser.js';
+import { closePdfBrowser, renderPdf } from './pdf.js';
 
 /**
  * Scan worker. Consumes `scan` jobs, runs gather → analyse, writes progress to Postgres
@@ -163,12 +164,14 @@ async function housekeeping() {
     // Expire cache rows.
     await db.delete(apiCache).where(lt(apiCache.expiresAt, new Date()));
     // Expire screenshots.
-    const files = await readdir(config.screenshotDir).catch(() => [] as string[]);
     const maxAge = config.screenshotRetentionDays * 86_400_000;
+    for (const dir of [config.screenshotDir, config.pdfDir]) {
+    const files = await readdir(dir).catch(() => [] as string[]);
     for (const f of files) {
-      const p = join(config.screenshotDir, f);
+      const p = join(dir, f);
       const s = await stat(p).catch(() => null);
-      if (s && Date.now() - s.mtimeMs > maxAge) await unlink(p).catch(() => {});
+      if (s?.isFile() && Date.now() - s.mtimeMs > maxAge) await unlink(p).catch(() => {});
+    }
     }
     // Forget dead workers.
     await db.delete(workers).where(lt(workers.lastSeenAt, new Date(Date.now() - 10 * 60_000)));
@@ -187,6 +190,11 @@ const worker = new Worker<{ scanId: string }>(SCAN_QUEUE, processScan, {
   removeOnFail: { count: 1000 }
 });
 worker.on('failed', (job, err) => log.error({ scanId: job?.data.scanId, err: err.message }, 'job failed'));
+
+const pdfWorker = new Worker<{ scanId: string }>(PDF_QUEUE, async (job) => {
+  await renderPdf(job.data.scanId);
+}, { connection: new IORedis(config.redisUrl, { maxRetriesPerRequest: null }), concurrency: 1, lockDuration: 90_000 });
+pdfWorker.on('failed', (job, err) => log.error({ scanId: job?.data.scanId, err: err.message }, 'pdf job failed'));
 worker.on('error', (err) => log.error({ err: err.message }, 'worker error'));
 
 await heartbeat();
@@ -199,7 +207,9 @@ async function shutdown(signal: string) {
   clearInterval(hb);
   clearInterval(hk);
   await worker.close();
+  await pdfWorker.close();
   await closeBrowser();
+  await closePdfBrowser();
   await db.delete(workers).where(eq(workers.id, config.workerId)).catch(() => {});
   await client.end({ timeout: 5 });
   await connection.quit();

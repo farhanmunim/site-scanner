@@ -2,8 +2,8 @@
   import type { StageMeta, StageName } from '@site-scanner/core/types';
   let { stages, running }: { stages: Partial<Record<StageName, StageMeta>>; running: boolean } = $props();
   const order: StageName[] = ['dns', 'http', 'files', 'cert', 'rdap', 'browser', 'external'];
-  const label: Record<StageName, string> = { dns: 'DNS and IP lookup', http: 'Fetching the page', files: 'robots.txt, sitemap and scripts', cert: 'TLS certificate', rdap: 'Domain registration', browser: 'Rendering in a browser', external: 'Performance and safety checks' };
-  const word: Record<string, string> = { pending: 'waiting', complete: 'done', failed: 'failed', restricted: 'restricted by site', skipped: 'skipped' };
+  const label: Record<StageName, string> = { dns: 'Looking up DNS and IP', http: 'Loading the page', files: 'Reading robots.txt, sitemap and scripts', cert: 'Checking the certificate', rdap: 'Checking domain registration', browser: 'Rendering in a browser', external: 'Performance and safety checks' };
+  const word: Record<string, string> = { pending: 'waiting', complete: 'done', failed: 'failed', restricted: 'blocked by the site', skipped: 'skipped' };
 </script>
 
 <ul class="stage-list" aria-live="polite">

@@ -25,6 +25,9 @@ export const config = {
   browserEnabled: process.env.BROWSER_ENABLED !== 'false',
   browserConcurrency: Number(process.env.BROWSER_CONCURRENCY ?? 1),
   screenshotDir: process.env.SCREENSHOT_DIR ?? '/data/screenshots',
+  pdfDir: process.env.PDF_DIR ?? (process.env.SCREENSHOT_DIR ?? '/data/screenshots') + '/pdf',
+  /** Where the worker reaches the web app to render report pages for PDF export. */
+  internalWebUrl: (process.env.INTERNAL_WEB_URL ?? 'http://web:3000').replace(/\/$/, ''),
   screenshotRetentionDays: Number(process.env.SCREENSHOT_RETENTION_DAYS ?? 90),
   ipRetentionDays: Number(process.env.IP_RETENTION_DAYS ?? 30),
   googleApiKey: process.env.GOOGLE_API_KEY || undefined,
@@ -36,3 +39,4 @@ export const config = {
 };
 
 export const SCAN_QUEUE = 'scan';
+export const PDF_QUEUE = 'pdf';

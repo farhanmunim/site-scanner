@@ -51,22 +51,22 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
   const flags: Finding[] = [];
   const wpJson = files?.cms.find((f) => f.path.endsWith('/wp-json/'));
   if (wpJson) {
-    flags.push(wpJson.status === 200 ? { id: 'wp-rest', title: 'REST API', status: 'info', observed: '/wp-json/ responds publicly (normal for WordPress; the block editor and many plugins need it).' } : { id: 'wp-rest', title: 'REST API', status: 'info', observed: `/wp-json/ returned HTTP ${wpJson.status}.` });
+    flags.push(wpJson.status === 200 ? { id: 'wp-rest', title: 'REST API exposed', status: 'info', observed: '/wp-json/ responds publicly (normal for WordPress; the block editor and many plugins need it).' } : { id: 'wp-rest', title: 'REST API exposed', status: 'info', observed: `/wp-json/ returned HTTP ${wpJson.status}.` });
   }
-  if (headers['x-pingback']) flags.push({ id: 'wp-xmlrpc', title: 'XML-RPC', status: 'info', observed: 'X-Pingback header advertises xmlrpc.php.', detail: 'XML-RPC is legacy; it is a common target for automated password guessing (system.multicall). Disable it unless the Jetpack/mobile app needs it.', owasp: 'A07', evidence: [{ source: 'header', key: 'x-pingback', value: headers['x-pingback'] }] });
+  if (headers['x-pingback']) flags.push({ id: 'wp-xmlrpc', title: 'XML-RPC enabled', status: 'info', observed: 'X-Pingback header advertises xmlrpc.php.', detail: 'XML-RPC is legacy; it is a common target for automated password guessing (system.multicall). Disable it unless the Jetpack/mobile app needs it.', owasp: 'A07', evidence: [{ source: 'header', key: 'x-pingback', value: headers['x-pingback'] }] });
   if (version) {
-    flags.push({ id: 'wp-version', title: 'WordPress version', status: 'info', observed: `Version ${version} is exposed in the page source.`, detail: 'Exposing the exact version makes it easier to match known issues. Keeping WordPress current matters more than hiding the number.' });
+    flags.push({ id: 'wp-version', title: 'Version visible', status: 'info', observed: `Version ${version} is exposed in the page source.`, detail: 'Exposing the exact version makes it easier to match known issues. Keeping WordPress current matters more than hiding the number.' });
   }
   const outdated = plugins.filter((p) => external?.wordpressOrg?.[p.slug]?.version && p.version && external.wordpressOrg[p.slug]!.version !== p.version && cmpVer(p.version, external.wordpressOrg[p.slug]!.version!) < 0);
-  if (outdated.length) flags.push({ id: 'wp-plugins-outdated', title: 'Plugins behind latest release', status: 'warn', observed: outdated.map((p) => `${p.name ?? p.slug} ${p.version} → ${external!.wordpressOrg![p.slug]!.version}`).join('; '), detail: 'Versions compared against WordPress.org. Out-of-date plugins are the most common cause of compromised WordPress sites.', owasp: 'A06' });
+  if (outdated.length) flags.push({ id: 'wp-plugins-outdated', title: 'Out-of-date plugins', status: 'warn', observed: outdated.map((p) => `${p.name ?? p.slug} ${p.version} → ${external!.wordpressOrg![p.slug]!.version}`).join('; '), detail: 'Versions compared against WordPress.org. Out-of-date plugins are the most common cause of compromised WordPress sites.', owasp: 'A06' });
   const stale = plugins.filter((p) => {
     const lu = external?.wordpressOrg?.[p.slug]?.lastUpdated;
     return lu && Date.now() - Date.parse(lu) > 2 * 365 * 86_400_000;
   });
-  if (stale.length) flags.push({ id: 'wp-plugins-stale', title: 'Plugins not updated in 2+ years', status: 'warn', observed: stale.map((p) => `${p.name ?? p.slug} (last update ${external!.wordpressOrg![p.slug]!.lastUpdated!.slice(0, 10)})`).join('; '), detail: 'A plugin with no releases for years may be abandoned and will not receive security fixes.', owasp: 'A06' });
+  if (stale.length) flags.push({ id: 'wp-plugins-stale', title: 'Possibly abandoned plugins', status: 'warn', observed: stale.map((p) => `${p.name ?? p.slug} (last update ${external!.wordpressOrg![p.slug]!.lastUpdated!.slice(0, 10)})`).join('; '), detail: 'A plugin with no releases for years may be abandoned and will not receive security fixes.', owasp: 'A06' });
   if (external?.wordfence) {
     const adv = plugins.filter((p) => external.wordfence![p.slug]?.count);
-    if (adv.length) flags.push({ id: 'wp-plugins-advisories', title: 'Plugins with published security advisories', status: 'warn', observed: adv.map((p) => `${p.name ?? p.slug}: ${external.wordfence![p.slug]!.count} advisor${external.wordfence![p.slug]!.count === 1 ? 'y' : 'ies'}${external.wordfence![p.slug]!.affectedBelow ? ` (fixed in ${external.wordfence![p.slug]!.affectedBelow})` : ''}`).join('; '), detail: 'From the Wordfence Intelligence feed. An advisory for a plugin does not mean this site runs an affected version; compare the installed version with the fixed version.', owasp: 'A06' });
+    if (adv.length) flags.push({ id: 'wp-plugins-advisories', title: 'Plugins with known security issues', status: 'warn', observed: adv.map((p) => `${p.name ?? p.slug}: ${external.wordfence![p.slug]!.count} advisor${external.wordfence![p.slug]!.count === 1 ? 'y' : 'ies'}${external.wordfence![p.slug]!.affectedBelow ? ` (fixed in ${external.wordfence![p.slug]!.affectedBelow})` : ''}`).join('; '), detail: 'From the Wordfence Intelligence feed. An advisory for a plugin does not mean this site runs an affected version; compare the installed version with the fixed version.', owasp: 'A06' });
   }
 
   return { platform: 'wordpress', version, theme, plugins, flags };

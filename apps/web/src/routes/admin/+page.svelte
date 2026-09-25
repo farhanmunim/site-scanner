@@ -14,14 +14,14 @@
     <div class="stat"><span class="value">{data.stats.failed24}</span><span class="label">failed, 24h</span></div>
     <div class="stat"><span class="value">{data.stats.scansAll}</span><span class="label">scans total</span></div>
     <div class="stat"><span class="value">{data.stats.queued}</span><span class="label">in queue</span></div>
-    <div class="stat"><span class="value {data.stats.workers ? '' : 'pill bad'}">{data.stats.workers}</span><span class="label">workers online</span></div>
+    <div class="stat"><span class="value {data.stats.workers ? '' : 'pill red'}">{data.stats.workers}</span><span class="label">workers online</span></div>
   </div>
 </div>
 <div class="grid" style="margin-top: 14px">
   <div class="card" style="grid-column: span 2">
     <h2>Recent scans</h2>
     <div class="table-wrap"><table><thead><tr><th>Site</th><th>Status</th><th>When</th><th>Took</th><th>From</th></tr></thead><tbody>
-      {#each data.recent as s}<tr><td><a href="/r/{s.id}">{s.host}</a></td><td><span class="pill {s.status === 'complete' ? 'good' : s.status === 'failed' ? 'bad' : 'warn'}">{s.status}</span></td><td>{ago(s.createdAt)}</td><td>{fmtMs(s.durationMs)}</td><td>{s.country ?? '—'}</td></tr>{/each}
+      {#each data.recent as s}<tr><td><a href="/r/{s.id}">{s.host}</a></td><td><span class="pill {s.status === 'complete' ? 'green' : s.status === 'failed' ? 'red' : 'amber'}">{s.status}</span></td><td>{ago(s.createdAt)}</td><td>{fmtMs(s.durationMs)}</td><td>{s.country ?? '—'}</td></tr>{/each}
     </tbody></table></div>
   </div>
   <div class="card">

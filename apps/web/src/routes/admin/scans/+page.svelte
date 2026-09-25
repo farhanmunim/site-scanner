@@ -11,7 +11,7 @@
   <select name="status" style="max-width: 160px"><option value="">any status</option>{#each ['complete', 'partial', 'restricted', 'failed', 'queued', 'running'] as s}<option value={s} selected={data.status === s}>{s}</option>{/each}</select>
   <button class="secondary" type="submit">Filter</button>
 </form>
-{#if form?.error}<p class="alert bad">{form.error}</p>{/if}
+{#if form?.error}<p class="alert red">{form.error}</p>{/if}
 {#if form?.scanId}<p class="alert">Re-scan queued: <a href="/r/{form.scanId}">open report</a></p>{/if}
 <div class="card table-wrap">
   <table>
@@ -21,7 +21,7 @@
         <tr>
           <td class="small">{fmtDate(s.createdAt, true)}</td>
           <td><a href="/r/{s.id}">{s.host}</a><div class="muted small mono">{s.url}</div></td>
-          <td><span class="pill {s.status === 'complete' ? 'good' : s.status === 'failed' ? 'bad' : 'warn'}">{s.status}</span>{#if s.error}<div class="small muted">{s.error.slice(0, 80)}</div>{/if}</td>
+          <td><span class="pill {s.status === 'complete' ? 'green' : s.status === 'failed' ? 'red' : 'amber'}">{s.status}</span>{#if s.error}<div class="small muted">{s.error.slice(0, 80)}</div>{/if}</td>
           <td>{s.techCount}</td>
           <td>{fmtMs(s.durationMs)}</td>
           <td>{s.country ?? '—'}</td>

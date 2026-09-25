@@ -349,6 +349,13 @@ export function detectTechnologies(input: DetectInput, db: FingerprintDb, catego
     }
   }
 
+  // A technology seen *only* inside someone else's script (e.g. "/wp-content" in gtag.js) is noise.
+  if (input.thirdPartyScripts?.size) {
+    for (const [name, h] of [...hits.entries()]) {
+      if (h.score < 50 && h.evidence.every((e) => e.source === 'script-content' && input.thirdPartyScripts!.has(e.key ?? ''))) hits.delete(name);
+    }
+  }
+
   // requires / requiresCategory / excludes / implies
   const has = (n: string) => hits.has(n);
   const catOf = (n: string) => db[n]?.cats ?? [];

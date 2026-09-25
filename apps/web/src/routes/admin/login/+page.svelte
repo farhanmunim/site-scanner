@@ -7,7 +7,7 @@
 <div class="card" style="max-width: 420px; margin: 40px auto">
   <h1>Owner login</h1>
   {#if !data.configured}
-    <p class="alert warn">Set <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> (8+ characters) in the environment.</p>
+    <p class="alert amber">Set <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> (8+ characters) in the environment.</p>
   {/if}
   <form method="POST">
     <label for="username">Username</label>
@@ -20,5 +20,5 @@
     {/if}
     <button class="primary" type="submit" style="margin-top: 14px">Log in</button>
   </form>
-  {#if form?.error}<p class="alert bad" role="alert" style="margin-top: 10px">{form.error}</p>{/if}
+  {#if form?.error}<p class="alert red" role="alert" style="margin-top: 10px">{form.error}</p>{/if}
 </div>

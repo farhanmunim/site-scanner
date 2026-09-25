@@ -17,7 +17,7 @@
           <td>{d.scanCount}</td>
           <td class="small">{fmtDate(d.firstScannedAt)}</td>
           <td class="small">{fmtDate(d.lastScannedAt, true)}</td>
-          <td class="small">{#if d.cooldownUntil && d.cooldownUntil > new Date()}<span class="pill warn">until {fmtDate(d.cooldownUntil, true)}</span> {d.cooldownReason}{:else}—{/if}</td>
+          <td class="small">{#if d.cooldownUntil && d.cooldownUntil > new Date()}<span class="pill amber">until {fmtDate(d.cooldownUntil, true)}</span> {d.cooldownReason}{:else}—{/if}</td>
           <td>{#if d.cooldownUntil && d.cooldownUntil > new Date()}<form method="POST" action="?/clearCooldown" use:enhance><input type="hidden" name="domain" value={d.registrableDomain} /><button class="secondary" type="submit">Clear</button></form>{/if}</td>
         </tr>
       {:else}<tr><td colspan="6" class="muted">No domains yet.</td></tr>{/each}

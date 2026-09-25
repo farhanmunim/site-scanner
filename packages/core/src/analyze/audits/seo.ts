@@ -50,28 +50,28 @@ export function analyseSeo(html: ParsedHtml, finalUrl: string, robots: RobotsSum
   const xRobots = headers['x-robots-tag'] ?? null;
   const pageHost = new URL(finalUrl).hostname;
 
-  if (!title) findings.push({ id: 'title', title: 'Title', status: 'bad', observed: 'No <title> element.' });
-  else if (title.length < 15) findings.push({ id: 'title', title: 'Title', status: 'warn', observed: `"${title}" (${title.length} characters) — short.` });
-  else if (title.length > 65) findings.push({ id: 'title', title: 'Title', status: 'warn', observed: `${title.length} characters — search results typically truncate after ~60.` });
-  else findings.push({ id: 'title', title: 'Title', status: 'good', observed: `"${title}" (${title.length} characters).` });
+  if (!title) findings.push({ id: 'title', title: 'Page title', status: 'bad', observed: 'No <title> element.' });
+  else if (title.length < 15) findings.push({ id: 'title', title: 'Page title', status: 'warn', observed: `"${title}" (${title.length} characters) — short.` });
+  else if (title.length > 65) findings.push({ id: 'title', title: 'Page title', status: 'warn', observed: `${title.length} characters — search results typically truncate after ~60.` });
+  else findings.push({ id: 'title', title: 'Page title', status: 'good', observed: `"${title}" (${title.length} characters).` });
 
-  if (!desc) findings.push({ id: 'description', title: 'Meta description', status: 'warn', observed: 'Not present. Search engines will generate their own snippet.' });
-  else if (desc.length > 160) findings.push({ id: 'description', title: 'Meta description', status: 'warn', observed: `${desc.length} characters — often truncated after ~155.` });
-  else findings.push({ id: 'description', title: 'Meta description', status: 'good', observed: `${desc.length} characters.` });
+  if (!desc) findings.push({ id: 'description', title: 'Search description', status: 'warn', observed: 'Not present. Search engines will generate their own snippet.' });
+  else if (desc.length > 160) findings.push({ id: 'description', title: 'Search description', status: 'warn', observed: `${desc.length} characters — often truncated after ~155.` });
+  else findings.push({ id: 'description', title: 'Search description', status: 'good', observed: `${desc.length} characters.` });
 
-  if (!html.canonical) findings.push({ id: 'canonical', title: 'Canonical URL', status: 'info', observed: 'No canonical link. Fine for single-URL pages; helps when content is reachable at several URLs.' });
-  else if (html.canonical.replace(/\/$/, '') !== finalUrl.replace(/\/$/, '')) findings.push({ id: 'canonical', title: 'Canonical URL', status: 'info', observed: `Canonical points to ${html.canonical} (differs from the scanned URL).` });
-  else findings.push({ id: 'canonical', title: 'Canonical URL', status: 'good', observed: 'Self-referencing canonical present.' });
+  if (!html.canonical) findings.push({ id: 'canonical', title: 'Canonical address', status: 'info', observed: 'No canonical link. Fine for single-URL pages; helps when content is reachable at several URLs.' });
+  else if (html.canonical.replace(/\/$/, '') !== finalUrl.replace(/\/$/, '')) findings.push({ id: 'canonical', title: 'Canonical address', status: 'info', observed: `Canonical points to ${html.canonical} (differs from the scanned URL).` });
+  else findings.push({ id: 'canonical', title: 'Canonical address', status: 'good', observed: 'Self-referencing canonical present.' });
 
   const noindex = /noindex/i.test(robotsMeta ?? '') || /noindex/i.test(xRobots ?? '');
-  if (noindex) findings.push({ id: 'indexable', title: 'Indexability', status: 'warn', observed: `noindex is set via ${/noindex/i.test(robotsMeta ?? '') ? 'meta robots' : 'X-Robots-Tag'}. Search engines will not index this page.` });
-  else if (robots?.disallowAll) findings.push({ id: 'indexable', title: 'Indexability', status: 'warn', observed: 'robots.txt disallows all crawling for every user agent.' });
-  else findings.push({ id: 'indexable', title: 'Indexability', status: 'good', observed: 'No noindex directive; crawling permitted.' });
+  if (noindex) findings.push({ id: 'indexable', title: 'Search engines allowed', status: 'warn', observed: `noindex is set via ${/noindex/i.test(robotsMeta ?? '') ? 'meta robots' : 'X-Robots-Tag'}. Search engines will not index this page.` });
+  else if (robots?.disallowAll) findings.push({ id: 'indexable', title: 'Search engines allowed', status: 'warn', observed: 'robots.txt disallows all crawling for every user agent.' });
+  else findings.push({ id: 'indexable', title: 'Search engines allowed', status: 'good', observed: 'No noindex directive; crawling permitted.' });
 
   const h1 = html.headings['h1'] ?? [];
-  if (h1.length === 0) findings.push({ id: 'h1', title: 'H1 heading', status: 'warn', observed: 'No H1 found in the HTML.' });
-  else if (h1.length > 1) findings.push({ id: 'h1', title: 'H1 heading', status: 'info', observed: `${h1.length} H1 headings.` });
-  else findings.push({ id: 'h1', title: 'H1 heading', status: 'good', observed: `"${h1[0]!.slice(0, 80)}"` });
+  if (h1.length === 0) findings.push({ id: 'h1', title: 'Main heading (H1)', status: 'warn', observed: 'No H1 found in the HTML.' });
+  else if (h1.length > 1) findings.push({ id: 'h1', title: 'Main heading (H1)', status: 'info', observed: `${h1.length} H1 headings.` });
+  else findings.push({ id: 'h1', title: 'Main heading (H1)', status: 'good', observed: `"${h1[0]!.slice(0, 80)}"` });
 
   if (!html.lang) findings.push({ id: 'lang', title: 'Page language', status: 'warn', observed: 'No lang attribute on <html>.', detail: 'Helps screen readers and search engines pick the right language.' });
   if (!m('viewport')) findings.push({ id: 'viewport', title: 'Viewport', status: 'warn', observed: 'No viewport meta tag; the page may not be mobile-friendly.' });
@@ -82,11 +82,11 @@ export function analyseSeo(html: ParsedHtml, finalUrl: string, robots: RobotsSum
     if (k.startsWith('og:')) og[k] = v[0]!;
     if (k.startsWith('twitter:')) tw[k] = v[0]!;
   }
-  if (!og['og:title'] && !og['og:image']) findings.push({ id: 'og', title: 'Open Graph', status: 'info', observed: 'No Open Graph tags; link previews on social platforms will be generic.' });
-  else findings.push({ id: 'og', title: 'Open Graph', status: og['og:image'] ? 'good' : 'info', observed: `${Object.keys(og).length} og: tag(s)${og['og:image'] ? ' including an image' : ', no og:image'}.` });
+  if (!og['og:title'] && !og['og:image']) findings.push({ id: 'og', title: 'Social sharing preview', status: 'info', observed: 'No Open Graph tags; link previews on social platforms will be generic.' });
+  else findings.push({ id: 'og', title: 'Social sharing preview', status: og['og:image'] ? 'good' : 'info', observed: `${Object.keys(og).length} og: tag(s)${og['og:image'] ? ' including an image' : ', no og:image'}.` });
 
   const missingAlt = html.images.filter((i) => i.alt === null || i.alt === undefined).length;
-  if (html.images.length) findings.push({ id: 'img-alt', title: 'Image alt text', status: missingAlt === 0 ? 'good' : missingAlt / html.images.length > 0.3 ? 'warn' : 'info', observed: `${missingAlt} of ${html.images.length} images have no alt attribute.` });
+  if (html.images.length) findings.push({ id: 'img-alt', title: 'Image descriptions (alt text)', status: missingAlt === 0 ? 'good' : missingAlt / html.images.length > 0.3 ? 'warn' : 'info', observed: `${missingAlt} of ${html.images.length} images have no alt attribute.` });
 
   const types = new Set<string>();
   const walk = (v: unknown, depth = 0) => {
@@ -103,7 +103,7 @@ export function analyseSeo(html: ParsedHtml, finalUrl: string, robots: RobotsSum
 
   findings.push(robots?.present ? { id: 'robots', title: 'robots.txt', status: 'good', observed: `Present (${robots.groups} group(s), ${robots.sitemaps.length} sitemap reference(s)).` } : { id: 'robots', title: 'robots.txt', status: 'info', observed: 'Not found.' });
   const sitemapOk = sitemap && sitemap.status === 200 && /<(urlset|sitemapindex)/i.test(sitemap.body ?? '');
-  findings.push(sitemapOk ? { id: 'sitemap', title: 'XML sitemap', status: 'good', observed: `/sitemap.xml present (${/<sitemapindex/i.test(sitemap!.body!) ? 'sitemap index' : `${(sitemap!.body!.match(/<loc>/g) ?? []).length}${sitemap!.truncated ? '+' : ''} URLs`}).` } : robots?.sitemaps.length ? { id: 'sitemap', title: 'XML sitemap', status: 'good', observed: `Referenced from robots.txt: ${robots.sitemaps[0]}` } : { id: 'sitemap', title: 'XML sitemap', status: 'info', observed: 'No /sitemap.xml and none referenced in robots.txt.' });
+  findings.push(sitemapOk ? { id: 'sitemap', title: 'Sitemap', status: 'good', observed: `/sitemap.xml present (${/<sitemapindex/i.test(sitemap!.body!) ? 'sitemap index' : `${(sitemap!.body!.match(/<loc>/g) ?? []).length}${sitemap!.truncated ? '+' : ''} URLs`}).` } : robots?.sitemaps.length ? { id: 'sitemap', title: 'Sitemap', status: 'good', observed: `Referenced from robots.txt: ${robots.sitemaps[0]}` } : { id: 'sitemap', title: 'Sitemap', status: 'info', observed: 'No /sitemap.xml and none referenced in robots.txt.' });
 
   let internal = 0,
     external = 0,

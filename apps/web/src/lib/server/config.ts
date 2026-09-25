@@ -44,6 +44,7 @@ export const config = {
   turnstileSecret: env.TURNSTILE_SECRET_KEY ?? '',
   ipHashSalt: env.IP_HASH_SALT || env.SERVICE_PASSWORD_IPSALT || derived('ip-salt', adminPassword, dbPassword),
   screenshotDir: env.SCREENSHOT_DIR ?? '/data/screenshots',
+  pdfDir: env.PDF_DIR ?? (env.SCREENSHOT_DIR ?? '/data/screenshots') + '/pdf',
   /** Trust Cloudflare's CF-Connecting-IP header (safe when the site is proxied through Cloudflare). */
   behindCloudflare: env.BEHIND_CLOUDFLARE !== 'false',
   maxQueueDepth: Number(env.MAX_QUEUE_DEPTH ?? 20),

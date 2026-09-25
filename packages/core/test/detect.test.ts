@@ -111,7 +111,6 @@ describe('false-positive guards', () => {
   it('treats a match inside a third-party script as low confidence', () => {
     const base = input('<html><body></body></html>');
     const techs = detectTechnologies({ ...base, scripts: { 'https://www.googletagmanager.com/gtag/js': 'var x="/wp-content/";' }, thirdPartyScripts: new Set(['https://www.googletagmanager.com/gtag/js']) }, db, categories);
-    const wp = techs.find((t) => t.name === 'WordPress');
-    expect(wp?.confidence ?? 'low').toBe('low');
+    expect(techs.find((t) => t.name === 'WordPress')).toBeUndefined();
   });
 });
