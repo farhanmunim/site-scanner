@@ -11,7 +11,7 @@ export default {
       mode: 'auto',
       directives: {
         'default-src': ['self'],
-        'script-src': ['self'],
+        'script-src': ['self', 'https://challenges.cloudflare.com'],
         'style-src': ['self', 'unsafe-inline'],
         'img-src': ['self', 'data:', 'blob:'],
         'font-src': ['self'],
