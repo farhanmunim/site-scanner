@@ -1,0 +1,30 @@
+{
+  "name": "@site-scanner/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": "./src/index.ts",
+    "./gather": "./src/gather/index.ts",
+    "./analyze": "./src/analyze/index.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "scan": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "ipaddr.js": "2.5.0",
+    "tldts": "7.4.15",
+    "linkedom": "0.18.13",
+    "undici": "8.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "vitest": "5.0.2"
+  }
+}

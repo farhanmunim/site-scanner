@@ -1,0 +1,21 @@
+{
+  "name": "site-scanner",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "fingerprints": "node scripts/fetch-fingerprints.mjs",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "scan": "pnpm --filter @site-scanner/core scan",
+    "hash-password": "node scripts/hash-password.mjs",
+    "db:generate": "pnpm --filter @site-scanner/db generate",
+    "db:migrate:local": "pnpm --filter @site-scanner/web exec wrangler d1 migrations apply site-scanner --local",
+    "db:migrate:remote": "pnpm --filter @site-scanner/web exec wrangler d1 migrations apply site-scanner --remote",
+    "dev:web": "pnpm --filter @site-scanner/web dev",
+    "dev:scanner": "pnpm --filter @site-scanner/scanner dev",
+    "deploy": "pnpm fingerprints && pnpm --filter @site-scanner/scanner deploy && pnpm --filter @site-scanner/web deploy"
+  }
+}

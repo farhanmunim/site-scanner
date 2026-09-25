@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /$
+Allow: /bot
+Allow: /privacy
+Disallow: /r/
+Disallow: /api/
+Disallow: /admin
+Disallow: /screenshots/

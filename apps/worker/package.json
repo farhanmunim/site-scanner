@@ -1,0 +1,26 @@
+{
+  "name": "@site-scanner/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "echo 'no tests'"
+  },
+  "dependencies": {
+    "@site-scanner/core": "workspace:*",
+    "@site-scanner/db": "workspace:*",
+    "bullmq": "6.3.9",
+    "ioredis": "6.0.0",
+    "pino": "10.3.1",
+    "playwright": "1.63.0",
+    "tldts": "7.4.15",
+    "tsx": "4.23.15"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "typescript": "6.0.3"
+  }
+}

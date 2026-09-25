@@ -1,0 +1,14 @@
+node_modules/
+.svelte-kit/
+dist/
+build/
+.wrangler/
+.dev.vars
+.env
+*.log
+.DS_Store
+# GPL-3.0 fingerprint data is fetched at build time (pnpm fingerprints), not committed
+packages/core/src/analyze/detect/data/fingerprints.json
+packages/core/src/analyze/detect/data/categories.json
+packages/core/src/analyze/detect/data/SOURCE.json
+.scratch/
