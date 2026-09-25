@@ -29,18 +29,22 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 
 ## 3. Coolify
 
-1. **Projects → New resource → Docker Compose** (from this Git repository, branch `main`).
-2. Set the domain on the `web` service: `https://scanner.example.com` → port `3000`.
-3. Environment variables — copy from `.env.example`. Generate secrets:
+1. **Projects → New resource → Docker Compose** from this Git repository, branch `main`
+   (base directory `/`, compose file `/docker-compose.yml`).
+2. Set the domain on the `web` service: `https://scanner.example.com` (port `3000`).
+3. **Environment Variables** — only three are required:
 
-   ```bash
-   openssl rand -hex 32      # SESSION_SECRET
-   openssl rand -hex 32      # IP_HASH_SALT
-   openssl rand -hex 24      # POSTGRES_PASSWORD
-   node scripts/hash-password.mjs 'your long admin password' --totp   # ADMIN_PASSWORD_HASH + ADMIN_TOTP_SECRET
-   ```
+   | Variable | Value |
+   |---|---|
+   | `ADMIN_EMAIL` | your email (shown as the contact on `/bot` and `/privacy`) |
+   | `ADMIN_USERNAME` | e.g. `admin` |
+   | `ADMIN_PASSWORD` | a long password (8+ chars, 16+ recommended) |
 
-   Set `OWN_HOSTS=scanner.example.com` and `OWN_IPS=<VPS public IPv4>,<IPv6>` so the scanner can never be pointed at itself or at other services on the same box.
+   Recommended, all free: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile),
+   `GOOGLE_API_KEY` (PageSpeed Insights + Safe Browsing). Optional: `OWN_IPS` (your VPS IPs).
+
+   Coolify generates `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_SESSION`,
+   `SERVICE_PASSWORD_IPSALT` and `SERVICE_URL_WEB` itself — leave them alone.
 4. Deploy. The worker applies database migrations on start.
 5. Open `/health` (expects `{"status":"ok"}`) and `/admin/health` (worker heartbeat present).
 
@@ -67,7 +71,7 @@ Defaults in `docker-compose.yml`: web 512 MB, worker 2 GB (Chromium), Postgres 5
 pnpm install && pnpm fingerprints
 # Postgres + Redis (any way you like), then:
 export DATABASE_URL=postgres://scanner:pw@localhost:5432/site_scanner REDIS_URL=redis://localhost:6379
-export PUBLIC_SITE_URL=http://localhost:3000 SESSION_SECRET=dev IP_HASH_SALT=dev ADMIN_PASSWORD_HASH=$(node scripts/hash-password.mjs 'devpassword123' | cut -d= -f2-)
+export PUBLIC_SITE_URL=http://localhost:3000 ADMIN_USERNAME=admin ADMIN_PASSWORD=devpassword123
 pnpm dev:scanner   # worker (applies migrations)
 pnpm dev:web       # http://localhost:3000
 pnpm scan example.com   # CLI scan without the web app

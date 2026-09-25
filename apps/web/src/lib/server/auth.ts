@@ -7,6 +7,24 @@ import { config } from './config.js';
  * optional TOTP, HMAC-signed session cookie. Login attempts are throttled by the caller.
  */
 
+/** True when admin login is usable at all. */
+export function adminConfigured(): boolean {
+  return config.adminPassword.length >= 8 || !!config.adminPasswordHash;
+}
+
+export function verifyCredentials(username: string, password: string): boolean {
+  const userOk = safeEqual(username.trim().toLowerCase(), config.adminUsername.toLowerCase());
+  // Simple mode: plain ADMIN_PASSWORD env var (single owner, secrets live in Coolify).
+  if (config.adminPassword) return userOk && safeEqual(password, config.adminPassword);
+  return userOk && verifyPassword(password);
+}
+
+function safeEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ba.length === bb.length && timingSafeEqual(ba, bb);
+}
+
 export function verifyPassword(password: string, stored = config.adminPasswordHash): boolean {
   const [algo, iter, saltB64, hashB64] = stored.split('$');
   if (algo !== 'pbkdf2' || !iter || !saltB64 || !hashB64) return false;

@@ -16,7 +16,7 @@ apps/web         SvelteKit (adapter-node): public UI, JSON API, admin console, S
 apps/worker      BullMQ worker: gather → analyse, Playwright screenshots, housekeeping
 packages/core    the scanner: URL/SSRF/target-safety policy, gather stages, fingerprint engine, audits
 packages/db      Drizzle schema + migrations (lookups, scans, scan_technologies, domains, blocklist…)
-scripts/         fetch-fingerprints.mjs (enthec/webappanalyzer, GPL-3.0), hash-password.mjs
+scripts/         fetch-fingerprints.mjs (enthec/webappanalyzer, GPL-3.0), hash-password.mjs (optional 2FA/hash mode)
 docker/          Dockerfile (web + worker targets); docker-compose.yml at the root for Coolify
 docs/            PLAN.md (product/architecture), DEPLOY.md (Cloudflare + Coolify runbook)
 ```

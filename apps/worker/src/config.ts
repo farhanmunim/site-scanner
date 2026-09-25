@@ -1,9 +1,23 @@
+function siteUrl(v: string | undefined): string {
+  let s = (v ?? '').trim().replace(/\/$/, '');
+  if (!s) return 'http://localhost:3000';
+  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
+  return s;
+}
+const publicSiteUrl = siteUrl(process.env.PUBLIC_SITE_URL || process.env.SERVICE_URL_WEB || process.env.SERVICE_FQDN_WEB);
+let ownHost = '';
+try {
+  ownHost = new URL(publicSiteUrl).hostname;
+} catch {
+  /* keep empty */
+}
+
 export const config = {
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
-  publicSiteUrl: (process.env.PUBLIC_SITE_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+  publicSiteUrl,
   /** Hostnames of this deployment: never scanned. */
-  ownHosts: (process.env.OWN_HOSTS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+  ownHosts: [...new Set([ownHost, ...(process.env.OWN_HOSTS ?? '').split(',').map((s) => s.trim())])].filter(Boolean),
   /** Public IPs of the VPS: never contacted by the scanner (hairpin protection). */
   ownIps: (process.env.OWN_IPS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   denySuffixes: (process.env.DENYLIST_EXTRA ?? '').split(',').map((s) => s.trim()).filter(Boolean),

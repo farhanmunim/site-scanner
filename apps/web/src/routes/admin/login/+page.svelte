@@ -7,10 +7,12 @@
 <div class="card" style="max-width: 420px; margin: 40px auto">
   <h1>Owner login</h1>
   {#if !data.configured}
-    <p class="alert warn">Set <code>ADMIN_PASSWORD_HASH</code> (run <code>pnpm hash-password</code>) and <code>SESSION_SECRET</code> in the environment.</p>
+    <p class="alert warn">Set <code>ADMIN_USERNAME</code> and <code>ADMIN_PASSWORD</code> (8+ characters) in the environment.</p>
   {/if}
   <form method="POST">
-    <label for="password">Password</label>
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" autocomplete="username" required />
+    <label for="password" style="margin-top: 10px; display: block">Password</label>
     <input id="password" name="password" type="password" autocomplete="current-password" required />
     {#if data.totp}
       <label for="code" style="margin-top: 10px; display: block">Authenticator code</label>
