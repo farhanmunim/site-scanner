@@ -35,7 +35,7 @@ export const LIMITS = {
 } as const;
 
 export const USER_AGENT = (siteUrl: string) =>
-  `Mozilla/5.0 (compatible; SiteScannerBot/1.0; +${siteUrl.replace(/\/$/, '')}/bot)`;
+  `Mozilla/5.0 (compatible; SiteScanBot/1.0; +${siteUrl.replace(/\/$/, '')}/bot)`;
 
 /** Paths we may request relative to the site root, independent of what we found. */
 export const WELL_KNOWN_PATHS = [

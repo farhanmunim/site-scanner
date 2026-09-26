@@ -153,7 +153,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   const t3 = Date.now();
   if (opts.browser && data.http?.final && data.stages.http.status === 'complete') {
     try {
-      const b = await opts.browser(data, { blockedIps, userAgent: `Mozilla/5.0 (compatible; SiteScannerBot/1.0; +${opts.selfUrl.replace(/\/$/, '')}/bot)` });
+      const b = await opts.browser(data, { blockedIps, userAgent: `Mozilla/5.0 (compatible; SiteScanBot/1.0; +${opts.selfUrl.replace(/\/$/, '')}/bot)` });
       data.browser = b;
       await done('browser', stageMeta(b ? (b.blocked ? 'restricted' : 'complete') : 'failed', t3, b?.blocked ? `${b.blocked.vendor}: ${b.blocked.evidence}` : b ? undefined : 'Browser rendering failed'));
     } catch (e) {

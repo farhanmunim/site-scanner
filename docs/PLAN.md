@@ -1,4 +1,4 @@
-# Site Scanner — Product & Architecture Plan
+# Site Scan — Product & Architecture Plan
 
 **Status:** v1 built (Phase 1 + browser stage + free enrichment). This document is the condensed,
 revised version of the original 180-section master plan. It keeps the principles, cuts the
@@ -33,7 +33,7 @@ detectable" are first-class answers; CDN ≠ origin; no single made-up "website 
 security.txt, ads.txt, llms.txt, favicon, scripts the page references, and for WordPress the
 theme `style.css` / plugin `readme.txt` / `/wp-json/` it references); ~25 requests per scan; 5
 redirects; 512 KB HTML / 256 KB per file; no retries on 401/403/429/challenge and a one-hour
-domain cool-down; never bypass bot protection; honest `SiteScannerBot/1.0 (+/bot)` UA with an
+domain cool-down; never bypass bot protection; honest `SiteScanBot/1.0 (+/bot)` UA with an
 opt-out form; denylist for `.gov/.mil/.nhs.uk/...`; external APIs cached and rate-respecting.
 
 **Towards our own infrastructure** — every address is checked against private, loopback,

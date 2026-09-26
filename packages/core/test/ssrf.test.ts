@@ -101,7 +101,7 @@ describe('safeFetch', () => {
     expect(r.status).toBe(302);
     expect(calls[0]!.method).toBe('GET');
     expect(calls[0]!.redirect).toBe('manual');
-    expect(String((calls[0]!.headers as Record<string, string>)['user-agent'])).toContain('SiteScannerBot');
+    expect(String((calls[0]!.headers as Record<string, string>)['user-agent'])).toContain('SiteScanBot');
   });
   it('refuses paths off the allowlist before any network call', async () => {
     let called = false;

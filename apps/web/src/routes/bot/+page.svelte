@@ -6,7 +6,7 @@
 
 <div class="prose">
   <h1>How the scanner works</h1>
-  <p class="lead">If you found <code>SiteScannerBot/1.0</code> in your logs, someone entered your website into this tool. Here is exactly what it does, and how to opt out.</p>
+  <p class="lead">If you found <code>SiteScanBot/1.0</code> in your logs, someone entered your website into this tool. Here is exactly what it does, and how to opt out.</p>
 
   <div class="card">
     <div class="card-h"><div class="card-title">What it loads</div></div>

@@ -6,6 +6,7 @@
   import { PROFILE_LABELS } from '@site-scanner/core/analyze/profile';
   import Badge from '$lib/components/Badge.svelte';
   import FindingsTable from '$lib/components/FindingsTable.svelte';
+  import FindingsList from '$lib/components/FindingsList.svelte';
   import ScanLog from '$lib/components/ScanLog.svelte';
   import { subscribeScan, TERMINAL } from '$lib/scan-events';
   import { daysUntil, fmtBytes, fmtDate, fmtMs } from '$lib/format';
@@ -25,14 +26,32 @@
       document.body.classList.add('print-mode');
       for (const d of document.querySelectorAll('details')) d.open = true;
     }
-    if (!running) return;
-    return subscribeScan(data.scan.id, (u) => {
+    // A hash link into a collapsed dropdown (e.g. #hsts) should open it.
+    const reveal = () => {
+      const id = location.hash.slice(1);
+      const el = id && document.getElementById(id);
+      if (!el) return;
+      let d = el.closest('details');
+      while (d) {
+        d.open = true;
+        d = d.parentElement?.closest('details') ?? null;
+      }
+      el.scrollIntoView({ block: 'start' });
+    };
+    reveal();
+    window.addEventListener('hashchange', reveal);
+    if (!running) return () => window.removeEventListener('hashchange', reveal);
+    const unsub = subscribeScan(data.scan.id, (u) => {
       status = u.status;
       if (u.stages) stages = u.stages;
       if (u.report) report = u.report;
       scanError = u.error ?? null;
       if (TERMINAL.has(u.status)) void fetch(`/api/scans/${data.scan.id}`).then((r) => r.json()).then((j: { durationMs?: number | null; report?: Report | null }) => { durationMs = j.durationMs ?? null; if (j.report) report = j.report; }).catch(() => {});
     });
+    return () => {
+      window.removeEventListener('hashchange', reveal);
+      unsub();
+    };
   });
 
   // ---------- helpers ----------
@@ -124,17 +143,29 @@
     if (st === null) return { c: 'neutral', t: 'No response' } as const;
     return { c: st < 400 ? 'pass' : 'fail', t: `HTTP ${st}` } as const;
   });
+  const sectionHref: Record<string, string> = { headers: '#c-headers', tls: '#c-tls', performance: '#c-vitals', seo: '#c-seo', email: '#c-email', privacy: '#c-privacy' };
+  const scoredNav = (id: string) => {
+    const s = scores?.sections.find((x) => x.id === id);
+    if (!s) return [];
+    return [{ href: sectionHref[id]!, label: s.label, value: running ? null : s.score === null ? (id === 'performance' ? 'Not measured' : 'Not scored') : `${s.score} / 100`, tone: running || s.score === null ? ('grey' as const) : scoreTone(s.score), title: s.note ?? undefined }];
+  };
   let nav = $derived([
-    ...(scores?.sections ?? []).map((s) => ({ href: `#c-${s.id === 'headers' ? 'headers' : s.id === 'tls' ? 'tls' : s.id === 'performance' ? 'vitals' : s.id}`, label: s.label, value: running ? null : s.score === null ? (s.id === 'performance' ? 'Not measured' : 'Not scored') : `${s.score} / 100`, tone: running || s.score === null ? 'grey' : scoreTone(s.score), title: s.note ?? undefined })),
-    { href: '#c-stack', label: 'Technology', value: `${report?.technologies.length ?? 0} found`, tone: 'grey' as const },
-    { href: '#c-hosting', label: 'Hosting & DNS', value: report?.infra.cdn?.name ?? report?.infra.hosting?.name ?? '', tone: 'grey' as const },
-    ...(report?.external.subdomains ? [{ href: '#c-subdomains', label: 'Subdomains', value: `${report.external.subdomains.total} found`, tone: 'grey' as const }] : []),
-    ...(report?.cms ? [{ href: '#c-cms', label: platformName, value: `${report.cms.plugins.length} plugins`, tone: 'grey' as const }] : []),
-    ...(report?.screenshot ? [{ href: '#c-shot', label: 'Screenshot', value: '', tone: 'grey' as const }] : [])
+    { href: '#c-overview', label: 'Overview', value: report?.profile ? PROFILE_LABELS[report.profile.kind] : '', tone: 'grey' as const, title: undefined },
+    { href: '#c-stack', label: 'Technology', value: `${report?.technologies.length ?? 0} found`, tone: 'grey' as const, title: undefined },
+    ...(report?.cms ? [{ href: '#c-cms', label: platformName, value: report.cms.plugins.length ? `${report.cms.plugins.length} plugins` : '', tone: 'grey' as const, title: undefined }] : []),
+    ...(report?.screenshot ? [{ href: '#c-shot', label: 'Screenshot', value: '', tone: 'grey' as const, title: undefined }] : []),
+    ...scoredNav('performance'),
+    ...scoredNav('headers'),
+    ...scoredNav('tls'),
+    ...scoredNav('seo'),
+    ...scoredNav('email'),
+    { href: '#c-hosting', label: 'Hosting & DNS', value: report?.infra.cdn?.name ?? report?.infra.hosting?.name ?? '', tone: 'grey' as const, title: undefined },
+    ...(report?.external.subdomains ? [{ href: '#c-subdomains', label: 'Subdomains', value: `${report.external.subdomains.total} found`, tone: 'grey' as const, title: undefined }] : []),
+    ...scoredNav('privacy')
   ]);
 
   // ---------- actions ----------
-  let shareLabel = $state('Share');
+  let shareLabel = $state('Copy link');
   async function share() {
     try {
       await navigator.clipboard.writeText(location.href);
@@ -142,7 +173,7 @@
     } catch {
       shareLabel = 'Copy failed';
     }
-    setTimeout(() => (shareLabel = 'Share'), 1500);
+    setTimeout(() => (shareLabel = 'Copy link'), 1500);
   }
   let pdfState = $state<'idle' | 'preparing' | 'error'>('idle');
   async function downloadPdf() {
@@ -199,14 +230,14 @@
         <span aria-hidden="true">·</span><span class="mono" title={data.scan.id}>ID: {data.scan.id.slice(0, 8)}…</span>
         <span aria-hidden="true" class="no-print">·</span><a class="link no-print" href="/api/scans/{data.scan.id}" rel="nofollow">JSON</a>
       </div>
-      {#if report?.profile}<div class="tmeta profile-line">{PROFILE_LABELS[report.profile.kind]}: {report.profile.signals.join(', ')}.{#if !report.profile.interactive}&nbsp;Checks that only matter for logins, forms and sessions are shown for information and not scored.{/if}</div>{/if}
+      {#if report?.profile}<div class="tmeta profile-line">{dot(...report.profile.signals)}{#if !report.profile.interactive}<span class="muted">&nbsp;· login and session checks shown for information only</span>{/if}</div>{/if}
     </div>
   </div>
   <div class="tactions no-print">
     <button class="btn btn-outline" type="button" onclick={share}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.59 13.51 6.83 3.98M15.41 6.51l-6.82 3.98" /></svg>{shareLabel}</button>
-    <a class="btn btn-outline" href="/?url={encodeURIComponent(data.scan.url)}" title="Runs a fresh scan if the cached result is older than 15 minutes"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>Re-run</a>
+    <a class="btn btn-outline" href="/?url={encodeURIComponent(data.scan.url)}" title="Runs a fresh scan if the cached result is older than 15 minutes"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 21h5v-5" /></svg>Scan again</a>
     {#if !running}<button class="btn btn-outline" type="button" onclick={downloadPdf} disabled={pdfState === 'preparing'} aria-live="polite">{pdfState === 'preparing' ? 'Preparing PDF…' : pdfState === 'error' ? 'PDF failed, retry' : 'Download PDF'}</button>{/if}
-    <a class="btn btn-primary" href="/">New target</a>
+    <a class="btn btn-primary" href="/">Scan another site</a>
   </div>
 </div>
 
@@ -237,15 +268,40 @@
       <div class="card checklist">
         <div class="lab">Report sections</div>
         {#each nav as n (n.href)}
-          <a class="chk" href={n.href} title={'title' in n ? n.title : undefined}><b>{n.label}</b>{#if n.value}<span class={toneClass[n.tone]}>{n.value}</span>{/if}</a>
+          <a class="chk" href={n.href} title={n.title}><b>{n.label}</b>{#if n.value}<span class={toneClass[n.tone]}>{n.value}</span>{/if}</a>
         {/each}
       </div>
     </aside>
 
     <div class="stream">
+      <!-- ===== Overview ===== -->
+      <div class="card allow-break" id="c-overview">
+        <div class="card-h"><div><div class="card-title">Overview</div><div class="card-sub">The essentials at a glance. Each row links to the section with the detail.</div></div>{#if report.profile}<span class="badge badge-info" title={report.profile.signals.join(' · ')}>{PROFILE_LABELS[report.profile.kind]}</span>{/if}</div>
+        <div class="table-wrap">
+          <table class="table kv compact">
+            <tbody>
+              <tr><td>Built with</td><td>{#if tiles.length}<span class="tags">{#each tiles.slice(0, 6) as t (t.slug)}<a class="tag" href="#c-stack">{t.name}{t.version ? ` ${t.version}` : ''}</a>{/each}{#if report.technologies.length > 6}<a class="tag" href="#c-stack">+{report.technologies.length - 6} more</a>{/if}</span>{:else}<span class="muted">Nothing identified with confidence</span>{/if}</td></tr>
+              {#if report.cms}<tr><td>Platform</td><td><a class="link" href="#c-cms">{platformName}{report.cms.version ? ` ${report.cms.version}` : ''}</a>{#if themeLine}<span class="muted">&nbsp;· theme {themeLine}</span>{/if}</td></tr>{/if}
+              <tr><td>Hosting</td><td>{#if report.infra.hosting}{report.infra.hosting.name}&nbsp;<Badge status={confBadge[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} />{:else if report.infra.cdn}Hidden behind {report.infra.cdn.name}{:else}Unknown{/if}</td></tr>
+              <tr><td>CDN / firewall</td><td>{dot(report.infra.cdn?.name ?? 'None seen', report.infra.waf && report.infra.waf.name !== report.infra.cdn?.name ? report.infra.waf.name : null)}</td></tr>
+              <tr><td>DNS provider</td><td>{report.infra.dnsProvider?.name ?? '—'}</td></tr>
+              <tr><td>Email provider</td><td>{report.infra.emailProvider?.name ?? 'No email set up'}</td></tr>
+              {#if report.domain}
+                <tr><td>Registered</td><td>{dot(fmtDate(report.domain.created), report.domain.registrar ? `with ${report.domain.registrar}` : null, report.external.wayback ? `online since at least ${fmtDate(report.external.wayback)}` : null)}</td></tr>
+                <tr><td>Domain expires</td><td>{fmtDate(report.domain.expires)}{#if daysUntil(report.domain.expires) !== null}{@const d = daysUntil(report.domain.expires)!}&nbsp;<Badge status={d < 30 ? 'fail' : d < 90 ? 'warn' : 'pass'} label="{d} days" />{/if}</td></tr>
+              {/if}
+              {#if report.cert?.notAfter}<tr><td>Certificate expires</td><td>{fmtDate(report.cert.notAfter)}{#if certDays !== null}&nbsp;<Badge status={certDays < 7 ? 'fail' : certDays < 21 ? 'warn' : 'pass'} label="{certDays} days" />{/if}{#if report.cert.issuer}<span class="muted">&nbsp;· {report.cert.issuer}</span>{/if}</td></tr>{/if}
+              <tr><td>Connection</td><td>{connectionLine}</td></tr>
+              {#if report.external.subdomains}<tr><td>Subdomains</td><td><a class="link" href="#c-subdomains">{report.external.subdomains.total} found</a></td></tr>{/if}
+              <tr><td>Third parties</td><td><a class="link" href="#c-privacy">{report.thirdParties.length} external service{report.thirdParties.length === 1 ? '' : 's'}</a>{#if report.privacy.find((f) => f.id === 'analytics')?.observed && !/^No /.test(report.privacy.find((f) => f.id === 'analytics')!.observed)}<span class="muted">&nbsp;· {report.privacy.find((f) => f.id === 'analytics')!.observed}</span>{/if}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- ===== Technology ===== -->
       <div class="card allow-break" id="c-stack">
-        <div class="card-h"><div><div class="card-title">Technology fingerprint</div><div class="card-sub">Platform, CDN, analytics and third-party scripts identified from the page, headers and DNS.</div></div><span class="badge badge-neutral">{report.technologies.length} detected</span></div>
+        <div class="card-h"><div><div class="card-title">Technology stack</div><div class="card-sub">Platform, CDN, analytics and third-party scripts identified from the page, headers and DNS.</div></div><span class="badge badge-neutral">{report.technologies.length} detected</span></div>
         {#if tiles.length}
           <div class="tiles">
             {#each tiles as t (t.slug)}
@@ -275,26 +331,43 @@
         {/if}
       </div>
 
-      <!-- ===== Security headers ===== -->
-      <div class="card allow-break" id="c-headers">
-        <div class="card-h"><div><div class="card-title">HTTP response defence matrix</div><div class="card-sub">{#if report.profile && !report.profile.interactive}Security directives on the homepage response. Browser-isolation headers (CSP, clickjacking, COOP) protect logins and sessions; this site has none, so they are listed as low impact and not scored.{:else}Security directives on the homepage response. "Warn" items are hardening opportunities, not proof of a vulnerability.{/if}</div></div><span class="row-inline" style="display: inline-flex; gap: 8px; align-items: center">{#if !running}{#if sectionScore('headers') !== null}<Badge status={scoreTone(sectionScore('headers'))} label="{sectionScore('headers')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}{#if headerFindings.length}<input class="filter no-print" placeholder="Filter directives…" aria-label="Filter directives" bind:value={headerFilter} />{/if}</span></div>
-        <FindingsTable findings={headerFindings} codes={HEADER_CODES} filter={headerFilter} empty="No page response to assess." />
-        {#if report.cookies.length}
-          <div class="card-h" style="border-top: 1px solid var(--border)"><div><div class="card-title">Cookies set on arrival</div><div class="card-sub">{report.cookies.length} cookie(s) before any interaction.</div></div></div>
-          <div class="table-wrap">
-            <table class="table compact">
-              <thead><tr><th>Name</th><th>Set by</th><th>Secure</th><th>HttpOnly</th><th>SameSite</th><th>Lasts</th></tr></thead>
-              <tbody>{#each report.cookies as c}<tr><td class="mono small">{c.name}</td><td class="mono small">{c.domain}{c.thirdParty ? ' (third party)' : ''}</td><td>{c.secure ? 'Yes' : 'No'}</td><td>{c.httpOnly ? 'Yes' : 'No'}</td><td>{c.sameSite ?? '—'}</td><td>{c.session ? 'This visit' : 'Persists'}</td></tr>{/each}</tbody>
-            </table>
-          </div>
-        {/if}
-      </div>
+      <!-- ===== CMS ===== -->
+      {#if report.cms}
+        <div class="card allow-break" id="c-cms">
+          <div class="card-h"><div><div class="card-title">{platformName}</div><div class="card-sub">{report.cms.platform === 'wordpress' ? 'Version, theme and plugins visible from the homepage.' : 'Theme and apps visible from the homepage.'}</div></div>{#if report.cms.version}<span class="tag">v{report.cms.version}</span>{/if}</div>
+          {#if report.cms.flags.length}<FindingsList findings={report.cms.flags} open={printMode} />{/if}
+          {#if report.cms.theme || report.cms.plugins.length}
+            <details class="show-all" open={printMode}>
+              <summary>{[report.cms.theme ? 'Theme' : null, report.cms.plugins.length ? `${report.cms.plugins.length} ${report.cms.platform === 'wordpress' ? 'plugins' : 'apps'}` : null].filter(Boolean).join(' and ')}</summary>
+              <div class="table-wrap">
+                <table class="table compact">
+                  <thead><tr><th>Component</th><th>Name</th><th>Version</th><th>Slug</th></tr></thead>
+                  <tbody>
+                    {#if report.cms.theme}<tr><td class="code-cell">theme</td><td>{themeLine}</td><td class="mono small">{report.cms.theme.version ?? '—'}</td><td class="mono small">{report.cms.theme.slug}</td></tr>{/if}
+                    {#each report.cms.plugins as p (p.slug)}<tr><td class="code-cell">{report.cms.platform === 'wordpress' ? 'plugin' : 'app'}</td><td>{p.name ?? '—'}</td><td class="mono small">{p.version ?? '—'}</td><td class="mono small">{p.slug}</td></tr>{/each}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          {:else}
+            <p class="note">The site runs {platformName}, but it doesn't reveal its version, theme or {report.cms.platform === 'wordpress' ? 'plugins' : 'apps'} from the homepage. That's normal for a hardened or heavily customised setup.</p>
+          {/if}
+        </div>
+      {/if}
+
+      <!-- ===== Screenshot ===== -->
+      {#if report.screenshot}
+        <div class="card" id="c-shot">
+          <div class="card-h"><div><div class="card-title">Screenshot</div><div class="card-sub">Desktop viewport, above the fold.</div></div></div>
+          {#if 'url' in report.screenshot}<a class="shot" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} /></a>{:else}<div class="shot"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
+        </div>
+      {/if}
 
       <!-- ===== Core Web Vitals ===== -->
       <div class="card" id="c-vitals">
         {#if report.performance}
           {@const p = report.performance}
-          <div class="card-h"><div><div class="card-title">Core Web Vitals benchmark</div><div class="card-sub">Lighthouse mobile: performance {p.scores.performance ?? '—'} · accessibility {p.scores.accessibility ?? '—'} · best practices {p.scores.bestPractices ?? '—'} · SEO {p.scores.seo ?? '—'}. Real-user data from Chrome where available.</div></div><span class="badge {needsWork ? 'badge-warn' : 'badge-pass'}">{needsWork ? `${needsWork} of ${vitalRows.length} need work` : 'All good'}</span></div>
+          <div class="card-h"><div><div class="card-title">Performance</div><div class="card-sub">Lighthouse mobile: performance {p.scores.performance ?? '—'} · accessibility {p.scores.accessibility ?? '—'} · best practices {p.scores.bestPractices ?? '—'} · SEO {p.scores.seo ?? '—'}. Real-user data from Chrome where available.</div></div><span class="badge {needsWork ? 'badge-warn' : 'badge-pass'}">{needsWork ? `${needsWork} of ${vitalRows.length} need work` : 'All good'}</span></div>
           <div class="quad">
             {#each vitalRows as v (v.metric)}
               <div class="vital" title={METRIC[v.metric].t}>
@@ -316,21 +389,42 @@
             </div>
           {/if}
           {#if p.accessibilityIssues.length}
-            <div class="findings">
-              {#each p.accessibilityIssues.slice(0, 6) as a (a.id)}
-                <div class="finding"><span class="badge badge-warn">A11y</span><div><b>{a.title}</b><p>Reported by Lighthouse's automated accessibility checks. Automated checks find only part of the picture.</p><div class="aff">{a.count} element{a.count === 1 ? '' : 's'}</div></div></div>
-              {/each}
-            </div>
+            <details class="show-all" open={printMode}>
+              <summary>{p.accessibilityIssues.length} accessibility issue{p.accessibilityIssues.length === 1 ? '' : 's'} flagged by Lighthouse</summary>
+              <div class="findings">
+                {#each p.accessibilityIssues.slice(0, 8) as a (a.id)}
+                  <div class="finding"><span class="badge badge-warn">A11y</span><div><b>{a.title}</b><div class="aff">{a.count} element{a.count === 1 ? '' : 's'}</div></div></div>
+                {/each}
+              </div>
+              <p class="note">Automated checks find only part of the accessibility picture.</p>
+            </details>
           {/if}
         {:else}
-          <div class="card-h"><div><div class="card-title">Core Web Vitals benchmark</div><div class="card-sub">Google PageSpeed Insights, mobile profile.</div></div><span class="badge badge-neutral">Not measured</span></div>
+          <div class="card-h"><div><div class="card-title">Performance</div><div class="card-sub">Google PageSpeed Insights, mobile profile.</div></div><span class="badge badge-neutral">Not measured</span></div>
           <p class="note">Performance data is not available for this scan{running ? ' yet' : ''}.</p>
+        {/if}
+      </div>
+
+      <!-- ===== Security headers ===== -->
+      <div class="card allow-break" id="c-headers">
+        <div class="card-h"><div><div class="card-title">Security headers</div><div class="card-sub">{#if report.profile && !report.profile.interactive}Directives on the homepage response. Browser-isolation headers (CSP, clickjacking, COOP) protect logins and sessions; this site has none, so they are listed as low impact and not scored.{:else}Directives on the homepage response. "Warn" items are hardening opportunities, not proof of a vulnerability.{/if}</div></div><span class="row-inline" style="display: inline-flex; gap: 8px; align-items: center">{#if !running}{#if sectionScore('headers') !== null}<Badge status={scoreTone(sectionScore('headers'))} label="{sectionScore('headers')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}{#if headerFindings.length}<input class="filter no-print" placeholder="Filter directives…" aria-label="Filter directives" bind:value={headerFilter} />{/if}</span></div>
+        <FindingsTable findings={headerFindings} codes={HEADER_CODES} filter={headerFilter} open={printMode} empty="No page response to assess." />
+        {#if report.cookies.length}
+          <details class="show-all" open={printMode}>
+            <summary>{report.cookies.length} cookie{report.cookies.length === 1 ? '' : 's'} set on arrival</summary>
+            <div class="table-wrap">
+              <table class="table compact">
+                <thead><tr><th>Name</th><th>Set by</th><th>Secure</th><th>HttpOnly</th><th>SameSite</th><th>Lasts</th></tr></thead>
+                <tbody>{#each report.cookies as c}<tr><td class="mono small">{c.name}</td><td class="mono small">{c.domain}{c.thirdParty ? ' (third party)' : ''}</td><td>{c.secure ? 'Yes' : 'No'}</td><td>{c.httpOnly ? 'Yes' : 'No'}</td><td>{c.sameSite ?? '—'}</td><td>{c.session ? 'This visit' : 'Persists'}</td></tr>{/each}</tbody>
+              </table>
+            </div>
+          </details>
         {/if}
       </div>
 
       <!-- ===== Certificate chain ===== -->
       <div class="card" id="c-tls">
-        <div class="card-h"><div><div class="card-title">Certificate chain</div><div class="card-sub">{report.tls?.source === 'handshake' ? 'TLS handshake and trust path to a public root.' : report.cert ? 'From Certificate Transparency logs; the handshake could not be completed.' : 'No certificate information available.'}</div></div>{#if report.tls?.protocol}<Badge status={certOk ? 'pass' : 'fail'} label={certOk ? `${report.tls.protocol} active` : 'Not valid'} />{/if}</div>
+        <div class="card-h"><div><div class="card-title">HTTPS &amp; certificate</div><div class="card-sub">{report.tls?.source === 'handshake' ? 'TLS handshake and trust path to a public root.' : report.cert ? 'From Certificate Transparency logs; the handshake could not be completed.' : 'No certificate information available.'}</div></div><span class="row-inline" style="display: inline-flex; gap: 8px">{#if !running}{#if sectionScore('tls') !== null}<Badge status={scoreTone(sectionScore('tls'))} label="{sectionScore('tls')} / 100" />{/if}{/if}{#if report.tls?.protocol}<Badge status={certOk ? 'pass' : 'fail'} label={certOk ? `${report.tls.protocol} active` : 'Not valid'} />{/if}</span></div>
         {#if chain.length}
           <div class="chain">
             {#each chain as c, i (i)}
@@ -351,48 +445,36 @@
             {/each}
           </div>
         {/if}
-        {#if tlsFindings.length}
-          <div class="findings">
-            {#each tlsFindings.filter((f) => f.status !== 'good') as f (f.id)}
-              <div class="finding"><Badge status={f.status} /><div><b>{f.title}</b><p>{f.observed}</p>{#if f.detail}<p>{f.detail}</p>{/if}</div></div>
-            {/each}
-            {#if tlsFindings.every((f) => f.status === 'good')}
-              <div class="finding"><span class="badge badge-pass">Pass</span><div><b>All HTTPS checks pass</b><p>{tlsFindings.map((f) => f.title).join(' · ')}</p></div></div>
-            {/if}
-          </div>
-        {/if}
+        {#if tlsFindings.length}<FindingsList findings={tlsFindings} open={printMode} />{/if}
       </div>
 
       <!-- ===== SEO ===== -->
       <div class="card allow-break" id="c-seo">
         <div class="card-h"><div><div class="card-title">SEO &amp; meta tags</div><div class="card-sub">Homepage metadata and crawl configuration.{#if !running && sectionScore('seo') === null && sectionNote('seo')}&nbsp;{sectionNote('seo')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('seo') !== null}<Badge status={scoreTone(sectionScore('seo'))} label="{sectionScore('seo')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
         {#if report.seo}
-          <FindingsTable findings={report.seo.findings} codes={SEO_CODES} values={seoValues} />
-          <div class="table-wrap">
-            <table class="table kv compact">
-              <tbody>
-                <tr><td>Headings</td><td class="small">{Object.entries(report.seo.headingCounts).filter(([, v]) => v).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(' · ') || '—'}</td></tr>
-                <tr><td>Links</td><td class="small">{report.seo.links.internal} internal · {report.seo.links.external} external</td></tr>
-                <tr><td>Images without alt text</td><td class="small">{report.seo.images.missingAlt} of {report.seo.images.total}</td></tr>
-                {#if report.seo.hreflang.length}<tr><td>Languages (hreflang)</td><td class="small">{report.seo.hreflang.slice(0, 10).join(', ')}</td></tr>{/if}
-                {#if report.robots}<tr><td>AI crawlers</td><td class="small">{#if report.robots.aiCrawlers.some((a) => a.blocked)}Blocked: {report.robots.aiCrawlers.filter((a) => a.blocked).map((a) => a.agent).join(', ')}{:else}All allowed (no AI-specific rules){/if}</td></tr>{/if}
-                <tr><td>Well-known files</td><td class="small">{[report.wellKnown.securityTxt && 'security.txt', report.wellKnown.adsTxt && 'ads.txt', report.wellKnown.llmsTxt && 'llms.txt'].filter(Boolean).join(', ') || 'None found'}</td></tr>
-              </tbody>
-            </table>
-          </div>
+          <FindingsTable findings={report.seo.findings} codes={SEO_CODES} values={seoValues} open={printMode} />
+          <details class="show-all" open={printMode}>
+            <summary>Page details</summary>
+            <div class="table-wrap">
+              <table class="table kv compact">
+                <tbody>
+                  <tr><td>Headings</td><td class="small">{Object.entries(report.seo.headingCounts).filter(([, v]) => v).map(([k, v]) => `${k.toUpperCase()}: ${v}`).join(' · ') || '—'}</td></tr>
+                  <tr><td>Links</td><td class="small">{report.seo.links.internal} internal · {report.seo.links.external} external</td></tr>
+                  <tr><td>Images without alt text</td><td class="small">{report.seo.images.missingAlt} of {report.seo.images.total}</td></tr>
+                  {#if report.seo.hreflang.length}<tr><td>Languages (hreflang)</td><td class="small">{report.seo.hreflang.slice(0, 10).join(', ')}</td></tr>{/if}
+                  {#if report.robots}<tr><td>AI crawlers</td><td class="small">{#if report.robots.aiCrawlers.some((a) => a.blocked)}Blocked: {report.robots.aiCrawlers.filter((a) => a.blocked).map((a) => a.agent).join(', ')}{:else}All allowed (no AI-specific rules){/if}</td></tr>{/if}
+                  <tr><td>Well-known files</td><td class="small">{[report.wellKnown.securityTxt && 'security.txt', report.wellKnown.adsTxt && 'ads.txt', report.wellKnown.llmsTxt && 'llms.txt'].filter(Boolean).join(', ') || 'None found'}</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
         {:else}<p class="note">No page to assess.</p>{/if}
       </div>
 
       <!-- ===== Email ===== -->
       <div class="card allow-break" id="c-email">
         <div class="card-h"><div><div class="card-title">Email protection</div><div class="card-sub">Whether others can send email pretending to be this domain.{#if !running && sectionScore('email') === null && sectionNote('email')}&nbsp;{sectionNote('email')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('email') !== null}<Badge status={scoreTone(sectionScore('email'))} label="{sectionScore('email')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
-        {#if report.email.length}
-          <div class="findings">
-            {#each [...report.email].sort((a, b) => ({ bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 }[a.status] ?? 9) - ({ bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 }[b.status] ?? 9)) as f (f.id)}
-              <div class="finding"><Badge status={f.status} /><div><b>{f.title}</b><p>{f.observed}</p>{#if f.detail}<p class="muted">{f.detail}</p>{/if}</div></div>
-            {/each}
-          </div>
-        {:else}<p class="note">DNS could not be read for this domain.</p>{/if}
+        <FindingsList findings={report.email} open={printMode} empty="DNS could not be read for this domain." />
       </div>
 
       <!-- ===== Hosting & DNS ===== -->
@@ -405,38 +487,45 @@
               <tr><td>Firewall / bot protection</td><td>{#if report.infra.waf}{report.infra.waf.name}{#if report.infra.waf.evidence.length === 1 && report.infra.waf.evidence[0]?.source === 'implied'}<div class="insight">{report.infra.waf.evidence[0].value}</div>{/if}{:else}None seen{/if}</td></tr>
               <tr><td>Hosting provider</td><td>{#if report.infra.hosting}{report.infra.hosting.name}&nbsp;<Badge status={confBadge[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} />{:else if report.infra.cdn}<strong>Not publicly visible.</strong> The site is served through {report.infra.cdn.name}, which hides the real server.{:else}Unknown{/if}</td></tr>
               <tr><td>Web server software</td><td>{serverLine}</td></tr>
-              <tr><td>Connection</td><td>{connectionLine}</td></tr>
               {#each report.infra.ips as ip (ip.ip)}<tr><td>IP address</td><td class="mono small">{ipLine(ip)}</td></tr>{/each}
               <tr><td>DNS provider</td><td>{report.infra.dnsProvider?.name ?? '—'}</td></tr>
-              <tr><td>Email provider</td><td>{report.infra.emailProvider?.name ?? 'No email set up'}</td></tr>
               {#if report.external.greenHosting}<tr><td>Green hosting</td><td>{report.external.greenHosting.green ? `Yes: ${report.external.greenHosting.hostedBy ?? 'listed by the Green Web Foundation'}` : 'Not listed by the Green Web Foundation'}</td></tr>{/if}
-              {#if report.http?.chain && report.http.chain.length > 1}<tr><td>Redirects</td><td>{#each report.http.chain as hop}<div class="mono small">{hop.location ? `${hop.status} ${hop.url} → ${hop.location}` : `${hop.status} ${hop.url}`}</div>{/each}</td></tr>{/if}
-              {#if Object.keys(report.http?.cacheHeaders ?? {}).length}<tr><td>Caching</td><td>{#each Object.entries(report.http?.cacheHeaders ?? {}) as [k, v]}<div class="mono small">{k}: {v}</div>{/each}</td></tr>{/if}
-              {#if report.domain}
-                <tr><td>Registrar</td><td>{report.domain.registrar ?? 'Not disclosed'}</td></tr>
-                <tr><td>Registered</td><td>{dot(fmtDate(report.domain.created), report.external.wayback ? `online since at least ${fmtDate(report.external.wayback)}` : null)}</td></tr>
-                <tr><td>Domain expires</td><td>{fmtDate(report.domain.expires)}{#if daysUntil(report.domain.expires) !== null}{@const d = daysUntil(report.domain.expires)!}&nbsp;<Badge status={d < 30 ? 'fail' : d < 90 ? 'warn' : 'pass'} label="{d} days" />{/if}</td></tr>
-                {#if report.domain.status.length}<tr><td>Domain status</td><td class="small">{report.domain.status.join(', ')}</td></tr>{/if}
-              {/if}
+              {#if report.domain?.status.length}<tr><td>Domain status</td><td class="small">{report.domain.status.join(', ')}</td></tr>{/if}
             </tbody>
           </table>
         </div>
+        {#if (report.http?.chain && report.http.chain.length > 1) || Object.keys(report.http?.cacheHeaders ?? {}).length}
+          <details class="show-all" open={printMode}>
+            <summary>Response details: redirects and caching</summary>
+            <div class="table-wrap">
+              <table class="table kv compact">
+                <tbody>
+                  {#if report.http?.chain && report.http.chain.length > 1}<tr><td>Redirects</td><td>{#each report.http.chain as hop}<div class="mono small">{hop.location ? `${hop.status} ${hop.url} → ${hop.location}` : `${hop.status} ${hop.url}`}</div>{/each}</td></tr>{/if}
+                  {#if Object.keys(report.http?.cacheHeaders ?? {}).length}<tr><td>Caching</td><td>{#each Object.entries(report.http?.cacheHeaders ?? {}) as [k, v]}<div class="mono small">{k}: {v}</div>{/each}</td></tr>{/if}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        {/if}
         {#if report.dns}
-          <div class="card-h" style="border-top: 1px solid var(--border)"><div><div class="card-title">DNS records</div></div></div>
-          <div class="table-wrap">
-            <table class="table compact">
-              <thead><tr><th style="width: 80px">Type</th><th>Value</th></tr></thead>
-              <tbody>
-                {#each report.dns.A as v}<tr><td class="code-cell">A</td><td class="mono small wrap">{v}</td></tr>{/each}
-                {#each report.dns.AAAA as v}<tr><td class="code-cell">AAAA</td><td class="mono small wrap">{v}</td></tr>{/each}
-                {#each report.dns.CNAME as v}<tr><td class="code-cell">CNAME</td><td class="mono small wrap">{v}</td></tr>{/each}
-                {#each report.dns.NS as v}<tr><td class="code-cell">NS</td><td class="mono small wrap">{v}</td></tr>{/each}
-                {#each report.dns.MX as v}<tr><td class="code-cell">MX</td><td class="mono small wrap">{v.priority} {v.exchange}</td></tr>{/each}
-                {#each report.dns.TXT as v}<tr><td class="code-cell">TXT</td><td class="mono small wrap">{v}</td></tr>{/each}
-                {#each report.dns.CAA as v}<tr><td class="code-cell">CAA</td><td class="mono small wrap">{v}</td></tr>{/each}
-              </tbody>
-            </table>
-          </div>
+          {@const dnsCount = report.dns.A.length + report.dns.AAAA.length + report.dns.CNAME.length + report.dns.NS.length + report.dns.MX.length + report.dns.TXT.length + report.dns.CAA.length}
+          <details class="show-all" open={printMode}>
+            <summary>{dnsCount} DNS records</summary>
+            <div class="table-wrap">
+              <table class="table compact">
+                <thead><tr><th style="width: 80px">Type</th><th>Value</th></tr></thead>
+                <tbody>
+                  {#each report.dns.A as v}<tr><td class="code-cell">A</td><td class="mono small wrap">{v}</td></tr>{/each}
+                  {#each report.dns.AAAA as v}<tr><td class="code-cell">AAAA</td><td class="mono small wrap">{v}</td></tr>{/each}
+                  {#each report.dns.CNAME as v}<tr><td class="code-cell">CNAME</td><td class="mono small wrap">{v}</td></tr>{/each}
+                  {#each report.dns.NS as v}<tr><td class="code-cell">NS</td><td class="mono small wrap">{v}</td></tr>{/each}
+                  {#each report.dns.MX as v}<tr><td class="code-cell">MX</td><td class="mono small wrap">{v.priority} {v.exchange}</td></tr>{/each}
+                  {#each report.dns.CAA as v}<tr><td class="code-cell">CAA</td><td class="mono small wrap">{v}</td></tr>{/each}
+                  {#each report.dns.TXT as v}<tr><td class="code-cell">TXT</td><td class="mono small wrap">{v}</td></tr>{/each}
+                </tbody>
+              </table>
+            </div>
+          </details>
         {/if}
       </div>
 
@@ -444,12 +533,14 @@
       {#if report.external.subdomains}
         {@const sd = report.external.subdomains}
         <div class="card allow-break" id="c-subdomains">
-          <div class="card-h"><div><div class="card-title">Subdomains</div><div class="card-sub">Hostnames under {report.target.registrableDomain} that have had a TLS certificate issued, from public Certificate Transparency logs.</div></div><span class="badge badge-neutral">{sd.total} found</span></div>
+          <div class="card-h"><div><div class="card-title">Subdomains</div><div class="card-sub">Hostnames under {report.target.registrableDomain} that have had a TLS certificate issued, from public Certificate Transparency logs. Nothing was probed; some may no longer exist.</div></div><span class="badge badge-neutral">{sd.total} found</span></div>
           {#if sd.names.length}
-            <div class="chips-grid">
-              {#each sd.names as n (n)}<span class="val">{n}</span>{/each}
-            </div>
-            <p class="note">Passive discovery only: nothing was probed and some names may no longer exist.{#if sd.total > sd.names.length}&nbsp;Showing the first {sd.names.length} of {sd.total}.{/if}</p>
+            <details class="show-all" open={printMode}>
+              <summary>Show {sd.names.length === sd.total ? `all ${sd.total}` : `the first ${sd.names.length} of ${sd.total}`}</summary>
+              <div class="chips-grid">
+                {#each sd.names as n (n)}<span class="val">{n}</span>{/each}
+              </div>
+            </details>
           {:else}
             <p class="note">No other hostnames appear in Certificate Transparency logs for this domain.</p>
           {/if}
@@ -459,58 +550,19 @@
       <!-- ===== Privacy ===== -->
       <div class="card allow-break" id="c-privacy">
         <div class="card-h"><div><div class="card-title">Privacy &amp; third parties</div><div class="card-sub">Trackers, ad pixels, consent and everything the page loads from other companies.{#if !running && sectionScore('privacy') === null && sectionNote('privacy')}&nbsp;{sectionNote('privacy')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('privacy') !== null}<Badge status={scoreTone(sectionScore('privacy'))} label="{sectionScore('privacy')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
-        {#if report.privacy.length}
-          <div class="findings">
-            {#each report.privacy as f (f.id)}
-              <div class="finding"><Badge status={f.status} /><div><b>{f.title}</b><p>{f.observed}</p>{#if f.detail}<p class="muted">{f.detail}</p>{/if}</div></div>
-            {/each}
-          </div>
-        {/if}
+        {#if report.privacy.length}<FindingsList findings={report.privacy} open={printMode} />{/if}
         {#if report.thirdParties.length}
-          <div class="card-h" style="border-top: 1px solid var(--border)"><div><div class="card-title">Third-party services</div></div><span class="badge badge-neutral">{report.thirdParties.length} domains</span></div>
-          <div class="table-wrap">
-            <table class="table compact" style="min-width: 520px">
-              <thead><tr><th>Service</th><th>Purpose</th><th>Domain</th><th class="num">Requests</th></tr></thead>
-              <tbody>{#each report.thirdParties as t (t.domain)}<tr><td>{t.technology ?? `Unknown (${t.domain.split('.').slice(-2).join('.')})`}</td><td class="muted">{t.category ?? '—'}</td><td class="mono small wrap">{t.domain}</td><td class="num">{t.count}</td></tr>{/each}</tbody>
-            </table>
-          </div>
-        {/if}
-      </div>
-
-      <!-- ===== CMS ===== -->
-      {#if report.cms}
-        <div class="card allow-break" id="c-cms">
-          <div class="card-h"><div><div class="card-title">{platformName}</div><div class="card-sub">{report.cms.platform === 'wordpress' ? 'Version, theme and plugins visible from the homepage.' : 'Theme and apps visible from the homepage.'}</div></div>{#if report.cms.version}<span class="tag">v{report.cms.version}</span>{/if}</div>
-          {#if report.cms.flags.length}
-            <div class="findings">
-              {#each report.cms.flags as f (f.id)}
-                <div class="finding"><Badge status={f.status} /><div><b>{f.title}</b><p>{f.observed}</p>{#if f.detail}<p class="muted">{f.detail}</p>{/if}</div></div>
-              {/each}
-            </div>
-          {/if}
-          {#if report.cms.theme || report.cms.plugins.length}
+          <details class="show-all" open={printMode}>
+            <summary>{report.thirdParties.length} third-party domain{report.thirdParties.length === 1 ? '' : 's'}</summary>
             <div class="table-wrap">
-              <table class="table compact">
-                <thead><tr><th>Component</th><th>Name</th><th>Version</th><th>Slug</th></tr></thead>
-                <tbody>
-                  {#if report.cms.theme}<tr><td class="code-cell">theme</td><td>{themeLine}</td><td class="mono small">{report.cms.theme.version ?? '—'}</td><td class="mono small">{report.cms.theme.slug}</td></tr>{/if}
-                  {#each report.cms.plugins as p (p.slug)}<tr><td class="code-cell">{report.cms.platform === 'wordpress' ? 'plugin' : 'app'}</td><td>{p.name ?? '—'}</td><td class="mono small">{p.version ?? '—'}</td><td class="mono small">{p.slug}</td></tr>{/each}
-                </tbody>
+              <table class="table compact" style="min-width: 520px">
+                <thead><tr><th>Service</th><th>Purpose</th><th>Domain</th><th class="num">Requests</th></tr></thead>
+                <tbody>{#each report.thirdParties as t (t.domain)}<tr><td>{t.technology ?? `Unknown (${t.domain.split('.').slice(-2).join('.')})`}</td><td class="muted">{t.category ?? '—'}</td><td class="mono small wrap">{t.domain}</td><td class="num">{t.count}</td></tr>{/each}</tbody>
               </table>
             </div>
-          {:else}
-            <p class="note">The site runs {platformName}, but it doesn't reveal its version, theme or {report.cms.platform === 'wordpress' ? 'plugins' : 'apps'} from the homepage. That's normal for a hardened or heavily customised setup.</p>
-          {/if}
-        </div>
-      {/if}
-
-      <!-- ===== Screenshot ===== -->
-      {#if report.screenshot}
-        <div class="card" id="c-shot">
-          <div class="card-h"><div><div class="card-title">Screenshot</div><div class="card-sub">Desktop viewport, above the fold.</div></div></div>
-          {#if 'url' in report.screenshot}<a class="shot" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} /></a>{:else}<div class="shot"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
-        </div>
-      {/if}
+          </details>
+        {/if}
+      </div>
 
       <p class="note no-print" style="border: 0; padding: 0 4px">{dot(`Scanner ${report.scan.scannerVersion}`, report.scan.fingerprintsVersion ? `fingerprints ${report.scan.fingerprintsVersion}` : null, `report v${report.reportVersion}`)}</p>
     </div>

@@ -1,4 +1,4 @@
-# Site Scanner
+# Site Scan
 
 Evidence-backed website intelligence, self-hosted. Enter any public website and get: the
 technology stack (with the header/markup/script that gave each item away and a confidence
@@ -39,7 +39,7 @@ Deployment: see [docs/DEPLOY.md](docs/DEPLOY.md).
   deployment's own IPs before a socket is opened (DNS pinned via undici's connect lookup;
   Chromium requests are route-filtered the same way).
 - No retry on 403/429/challenge; the domain gets a one-hour cool-down.
-- Honest `SiteScannerBot/1.0 (+https://<site>/bot)` user agent, public opt-out, denylist for
+- Honest `SiteScanBot/1.0 (+https://<site>/bot)` user agent, public opt-out, denylist for
   government/military/health domains.
 - Per-IP and per-domain rate limits, 15-minute cache, dedupe of in-flight scans, queue cap,
   Turnstile, admin kill switch.

@@ -149,7 +149,7 @@ export async function fetchSafeBrowsing(url: string, cfg: ExternalConfig): Promi
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        client: { clientId: 'site-scanner', clientVersion: '1.0' },
+        client: { clientId: 'site-scan', clientVersion: '1.0' },
         threatInfo: { threatTypes: ['MALWARE', 'SOCIAL_ENGINEERING', 'UNWANTED_SOFTWARE', 'POTENTIALLY_HARMFUL_APPLICATION'], platformTypes: ['ANY_PLATFORM'], threatEntryTypes: ['URL'], threatEntries: [{ url }] }
       }),
       signal: AbortSignal.timeout(8000)

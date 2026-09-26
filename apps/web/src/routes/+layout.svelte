@@ -23,7 +23,7 @@
   </ul>
   <div class="hactions">
     <ThemeToggle />
-    <a class="btn btn-primary" href={onHome ? '#url' : '/'}>+ New scan</a>
+    <a class="btn btn-primary" href={onHome ? '#url' : '/'}>{page.url.pathname.startsWith('/r/') ? 'Scan another site' : '+ New scan'}</a>
   </div>
 </header>
 <main class="main">
