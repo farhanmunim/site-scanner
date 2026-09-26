@@ -26,14 +26,14 @@ export async function renderPdf(scanId: string): Promise<string> {
   const target = join(config.pdfDir, `${scanId}.pdf`);
   const tmp = target + '.tmp';
   const b = await getBrowser();
-  const context = await b.newContext({ viewport: { width: 1100, height: 1400 }, deviceScaleFactor: 1 });
+  const context = await b.newContext({ viewport: { width: 900, height: 1200 }, deviceScaleFactor: 1 });
   try {
     const page = await context.newPage();
     const url = `${config.internalWebUrl}/r/${scanId}?print=1`;
     const res = await page.goto(url, { waitUntil: 'networkidle', timeout: 45_000 });
     if (!res || res.status() !== 200) throw new Error(`report page returned ${res?.status() ?? 'no response'}`);
     await page.emulateMedia({ media: 'print' });
-    await page.pdf({ path: tmp, format: 'A4', printBackground: true, margin: { top: '14mm', bottom: '14mm', left: '10mm', right: '10mm' }, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: `<div style="font-size:8px;color:#888;width:100%;text-align:center;font-family:sans-serif">${config.publicSiteUrl.replace(/^https?:\/\//, '')}/r/${scanId} · page <span class="pageNumber"></span> of <span class="totalPages"></span></div>` });
+    await page.pdf({ path: tmp, format: 'A4', printBackground: true, preferCSSPageSize: false, margin: { top: '12mm', bottom: '14mm', left: '12mm', right: '12mm' }, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: `<div style="font-size:8px;color:#888;width:100%;text-align:center;font-family:sans-serif">${config.publicSiteUrl.replace(/^https?:\/\//, '')}/r/${scanId} · page <span class="pageNumber"></span> of <span class="totalPages"></span></div>` });
     await rename(tmp, target);
     log.info({ scanId }, 'pdf rendered');
     return target;

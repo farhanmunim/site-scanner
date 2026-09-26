@@ -2,6 +2,8 @@
   import '../app.css';
   import { page } from '$app/state';
   let { children, data } = $props();
+  let onHome = $derived(page.url.pathname === '/');
+  const year = new Date().getFullYear();
 </script>
 
 <svelte:head>
@@ -10,11 +12,10 @@
 
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="/"><img src="/favicon.svg" alt="" width="26" height="26" /> {data.siteName}</a>
+    <a class="brand" href="/" aria-label="{data.siteName} home"><img src="/favicon.svg" alt="" width="26" height="26" /><span>{data.siteName}</span></a>
     <nav class="nav" aria-label="Main">
-      <a href="/bot">How it works</a>
-      <a href="/privacy">Privacy</a>
       {#if page.data.admin}<a href="/admin">Admin</a>{/if}
+      {#if !onHome}<a class="button secondary sm" href="/">New scan</a>{/if}
     </nav>
   </div>
 </header>
@@ -23,7 +24,8 @@
 </main>
 <footer class="site-footer">
   <div class="container">
-    {data.siteName} reads only what any visitor's browser would. Results describe what was observed and are not a security audit.
-    Site owners can <a href="/bot#opt-out">opt out</a>{#if data.abuseContact} or contact <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}.
+    <span>© {year} farhan.app</span>
+    <a href="/bot">How it works</a>
+    <a href="/privacy">Privacy</a>
   </div>
 </footer>

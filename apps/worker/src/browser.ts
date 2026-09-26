@@ -13,7 +13,7 @@ import { log } from './log.js';
  * requests, time and download size. It never interacts with the page.
  */
 
-const VIEWPORT = { width: 1366, height: 900 };
+const VIEWPORT = { width: 1280, height: 800 };
 const MAX_REQUESTS = 300;
 const MAX_HTML = 1_000_000;
 const NAV_TIMEOUT = 25_000;
@@ -171,7 +171,7 @@ export async function renderPage(data: GatheredData, opts: { blockedIps: Set<str
       try {
         await mkdir(config.screenshotDir, { recursive: true });
         const file = `${data.scan.id}.jpg`;
-        await page.screenshot({ path: join(config.screenshotDir, file), type: 'jpeg', quality: 72, fullPage: false, timeout: 10_000 });
+        await page.screenshot({ path: join(config.screenshotDir, file), type: 'jpeg', quality: 82, fullPage: false, timeout: 10_000 });
         screenshot = { path: file, width: VIEWPORT.width, height: VIEWPORT.height };
       } catch (e) {
         log.warn({ err: (e as Error).message }, 'screenshot failed');

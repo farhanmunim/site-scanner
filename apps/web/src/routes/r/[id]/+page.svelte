@@ -82,6 +82,28 @@
   let techFilter = $state('');
   let techs = $derived((report?.technologies ?? []).filter((t) => !techFilter || t.name.toLowerCase().includes(techFilter.toLowerCase()) || t.categories.some((c) => c.name.toLowerCase().includes(techFilter.toLowerCase()))));
   let hasCms = $derived(!!report?.cms);
+  let pdfState = $state<'idle' | 'preparing' | 'error'>('idle');
+  async function downloadPdf() {
+    if (pdfState === 'preparing') return;
+    pdfState = 'preparing';
+    const url = `/r/${data.scan.id}/pdf`;
+    for (let i = 0; i < 40; i++) {
+      try {
+        const r = await fetch(url, { headers: { accept: 'application/json' } });
+        const j = (await r.json()) as { status: string };
+        if (j.status === 'ready') {
+          pdfState = 'idle';
+          window.location.assign(url); // served as an attachment, so the page stays put
+          return;
+        }
+        if (j.status !== 'pending') break;
+      } catch {
+        break;
+      }
+      await new Promise((res) => setTimeout(res, 2000));
+    }
+    pdfState = 'error';
+  }
   /** Categories that are infrastructure or metadata rather than "what the site is built with". */
   const notBuiltWith = /^(Webmail|Hosting|CDN|Miscellaneous|Email|Security|PaaS|IaaS|Reverse proxies|Load balancers|SSL\/TLS certificate authorities|Domain parking|Web servers)$/;
   let builtWith = $derived((report?.technologies ?? []).filter((t) => !t.implied && t.confidence !== 'low' && !t.categories.every((c) => notBuiltWith.test(c.name))).slice(0, 14));
@@ -103,6 +125,7 @@
 
 <div class="report-head">
   <div>
+    <p class="print-only muted small" style="margin: 0 0 4px">Website report · {new Date(data.scan.createdAt).toLocaleDateString('en-GB', { dateStyle: 'long' })} · site-scan.farhan.app</p>
     <h1><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank" style="color: inherit">{data.scan.displayHost}</a></h1>
     <div class="meta">
       <span class="pill {status === 'complete' ? 'green' : status === 'failed' ? 'red' : running ? 'blue' : 'amber'}">{statusText[status] ?? status}</span>
@@ -110,9 +133,9 @@
     </div>
   </div>
   <div class="row">
-    {#if !running}<a class="button secondary" href="/r/{data.scan.id}/pdf" rel="nofollow">Download PDF</a>{/if}
+    {#if !running}<button class="secondary" type="button" onclick={downloadPdf} disabled={pdfState === 'preparing'} aria-live="polite">{pdfState === 'preparing' ? 'Preparing PDF…' : pdfState === 'error' ? 'PDF failed — retry' : 'Download PDF'}</button>{/if}
     <a class="button secondary" href="/api/scans/{data.scan.id}" rel="nofollow">JSON</a>
-    <form method="POST" action="/?/default" style="display: inline"><input type="hidden" name="url" value={data.scan.url} /><button class="secondary" type="submit" title="Runs a fresh scan if the cached result is older than 15 minutes">Scan again</button></form>
+    <a class="button secondary" href="/?url={encodeURIComponent(data.scan.url)}" title="Runs a fresh scan if the cached result is older than 15 minutes">Scan again</a>
   </div>
 </div>
 
@@ -165,7 +188,7 @@
               <tr><td>CDN / firewall</td><td>{report.infra.cdn?.name ?? 'None seen'}{#if report.infra.waf && report.infra.waf.name !== report.infra.cdn?.name} · {report.infra.waf.name.replace(/ \(.*\)$/, '')}{/if}</td></tr>
               <tr><td>DNS provider</td><td>{report.infra.dnsProvider?.name ?? '—'}</td></tr>
               <tr><td>Email provider</td><td>{report.infra.emailProvider?.name ?? 'No email set up'}</td></tr>
-              {#if report.domain?.created}<tr><td>Domain registered</td><td>{fmtDate(report.domain.created)}{#if report.domain.registrar} with {report.domain.registrar}{/if}</td></tr>{/if}
+              {#if report.domain?.created}<tr><td>Domain registered</td><td>{fmtDate(report.domain.created)}{#if report.domain.registrar}&nbsp;with {report.domain.registrar}{/if}</td></tr>{/if}
               {#if report.external.wayback}<tr><td>Online since</td><td>At least {fmtDate(report.external.wayback)}</td></tr>{/if}
               {#if report.cert?.notAfter}{@const d = daysUntil(report.cert.notAfter)}<tr><td>Certificate expires</td><td>{fmtDate(report.cert.notAfter)} <Light status={d !== null && d < 7 ? 'red' : d !== null && d < 21 ? 'amber' : 'green'} label="{d} days" /></td></tr>{/if}
             </tbody>
@@ -174,14 +197,14 @@
       </div>
       <div>
         <div class="panel" style="margin-top: 0">
-          <header><h2>Screenshot</h2></header>
+          <header><h2>Screenshot</h2><span class="hint no-print">Desktop, above the fold</span></header>
           <div class="body">
             {#if report.screenshot}
-              {#if 'url' in report.screenshot}<img class="screenshot" src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} loading="lazy" />{:else}<img class="screenshot" src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" />{/if}
+              {#if 'url' in report.screenshot}<a class="shot" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} loading="lazy" /></a>{:else}<div class="shot"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
             {:else}<p class="muted small" style="margin: 0">No screenshot{running ? ' yet' : ''}.</p>{/if}
           </div>
         </div>
-        <div class="panel">
+        <div class="panel no-print">
           <details style="margin: 0">
             <summary style="padding: 12px 18px; color: var(--text-2); font-weight: 500; font-size: 14px">Scan details</summary>
             <div class="body small" style="padding-top: 0">
@@ -209,7 +232,7 @@
                 <td class="w-label">{#if t.website}<a href={t.website} rel="noopener nofollow" target="_blank">{t.name}</a>{:else}{t.name}{/if}</td>
                 <td>{typeLabel(t)}</td>
                 <td>{t.version ?? '—'}</td>
-                <td class="wrap">{#if t.implied}<span class="muted">Implied by {t.evidence[0]?.value.replace('implied by ', '') ?? 'another technology'}</span>{:else}<details><summary>{t.evidence.length} signal{t.evidence.length === 1 ? '' : 's'}</summary><Evidence items={t.evidence} /></details>{/if}</td>
+                <td class="wrap">{#if t.implied}<span class="muted">Implied by {t.evidence[0]?.value.replace('implied by ', '') ?? 'another technology'}</span>{:else}<span class="print-only muted">{t.evidence.length} signal{t.evidence.length === 1 ? '' : 's'}</span><details class="ev"><summary>{t.evidence.length} signal{t.evidence.length === 1 ? '' : 's'}</summary><Evidence items={t.evidence} /></details>{/if}</td>
               </tr>
             {:else}
               <tr><td colspan="5" class="muted">Nothing could be identified with confidence. That doesn't mean the site uses no framework — the public response didn't give enough away.</td></tr>
@@ -391,6 +414,17 @@
         </div>
       </div>
     {/if}
+  </section>
+
+  <section class="report-section scan-another no-print" aria-label="Scan another website">
+    <div class="panel">
+      <header><h2>Scan another website</h2></header>
+      <form class="body scan-form" method="GET" action="/">
+        <label class="sr-only" for="another">Website address</label>
+        <input id="another" name="url" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="example.com" required />
+        <button class="primary" type="submit">Continue</button>
+      </form>
+    </div>
   </section>
 
   {#if report.cms}
