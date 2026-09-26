@@ -20,9 +20,15 @@ describe('profileSite', () => {
     expect(p.kind).toBe('app');
     expect(p.interactive).toBe(true);
   });
-  it('recognises a shop', () => {
+  it('recognises a shop platform', () => {
     const p = profileSite({ technologies: [tech('Shopify', 'Ecommerce')], html: html([]), cookies: [], xhrSameOrigin: 0, security: [] });
     expect(p.kind).toBe('shop');
+    expect(p.signals).toContain('runs on Shopify');
+  });
+  it('does not call a news site a shop because it embeds a merch widget', () => {
+    const p = profileSite({ technologies: [tech('Fourthwall', 'Ecommerce'), tech('Next.js', 'JavaScript frameworks')], html: html([]), cookies: [], xhrSameOrigin: 0, security: [] });
+    expect(p.kind).not.toBe('shop');
+    expect(p.signals).toContain('embeds Fourthwall');
   });
 });
 

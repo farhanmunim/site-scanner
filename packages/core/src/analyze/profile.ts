@@ -13,7 +13,13 @@ export function profileSite(input: { technologies: TechnologyDetection[]; html: 
   const passwordForm = html?.forms.some((f) => f.hasPassword) ?? false;
   const loginLink = input.security.some((f) => f.id === 'login-page');
   const firstPartyCookies = cookies.filter((c) => !c.thirdParty).length;
-  const ecommerce = cat(/^(Ecommerce|Payment processors|Shopping carts)$/);
+  // A site *is* a shop only when it runs on a commerce platform. Payment buttons and
+  // embedded merch widgets (Stripe, Fourthwall, Snipcart, Gumroad…) are a feature, not an identity.
+  const SHOP_PLATFORMS = /^(Shopify|WooCommerce|Magento|Adobe Commerce|BigCommerce|PrestaShop|Salesforce Commerce Cloud|Wix Stores|Squarespace Commerce|Shopware|OpenCart|commercetools|Saleor|Medusa|Sylius|Ecwid|Webflow Ecommerce|Squarespace|Wix eCommerce|Shoplazza|Shopline|Zen Cart|osCommerce|nopCommerce|VTEX|Salla|Zid)$/i;
+  const commerceTechs = technologies.filter((t) => !t.implied && t.confidence !== 'low' && t.categories.some((c) => /^(Ecommerce|Payment processors|Shopping carts)$/.test(c.name)));
+  const platform = commerceTechs.find((t) => SHOP_PLATFORMS.test(t.name));
+  const ecommerce = !!platform;
+  const commerceWidget = !platform && commerceTechs.length ? commerceTechs[0]!.name : null;
   const cms = cat(/^(CMS|Blogs|Wikis|LMS|Ecommerce)$/);
   const staticGen = cat(/^Static site generators$/);
   const appFramework = cat(/^(JavaScript frameworks|Web frameworks)$/);
@@ -27,7 +33,8 @@ export function profileSite(input: { technologies: TechnologyDetection[]; html: 
   if (firstPartyCookies) signals.push(`${firstPartyCookies} first-party cookie${firstPartyCookies === 1 ? '' : 's'}`);
   else if (cookies.length === 0 && html) signals.push('sets no cookies');
   if (input.xhrSameOrigin > 2) signals.push('talks to its own API');
-  if (ecommerce) signals.push('takes payments or has a cart');
+  if (platform) signals.push(`runs on ${platform.name}`);
+  else if (commerceWidget) signals.push(`embeds ${commerceWidget}`);
 
   let kind: SiteProfile['kind'];
   if (ecommerce) kind = 'shop';

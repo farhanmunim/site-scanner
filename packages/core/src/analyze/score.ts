@@ -149,7 +149,7 @@ function scorePerformance(p: PsiMetrics | null): SectionScore {
       status: v.verdict === 'poor' ? 'bad' : 'warn',
       points: v.verdict === 'poor' ? 20 : 10
     }));
-  if (lh !== null && lh < 90) penalties.push({ findingId: 'lighthouse', title: `Lighthouse performance ${lh}`, status: lh < 50 ? 'bad' : 'warn', points: Math.round((100 - lh) * 0.6) });
+  if (lh !== null && lh < 90) penalties.push({ findingId: 'lighthouse', title: `the Lighthouse performance score (${lh})`, status: lh < 50 ? 'bad' : 'warn', points: Math.round((100 - lh) * 0.6) });
   penalties.sort((a, b) => b.points - a.points);
   return { ...base, score: score === null ? null : Math.max(0, Math.min(100, score)), penalties, note: score === null ? 'Performance data not available.' : undefined };
 }
@@ -189,8 +189,10 @@ export function scoreTone(n: number | null | undefined): 'green' | 'amber' | 're
   return n >= 80 ? 'green' : n >= 50 ? 'amber' : 'red';
 }
 
+const PROPER = /^(Lighthouse|Google|Cloudflare|WordPress|Shopify|LCP|CLS|INP|TBT|TTFB|HTTPS|HSTS|CSP|SPF|DMARC|DKIM|TLS|DNSSEC|CAA)\b/;
 function lower(s: string): string {
-  return s.replace(/\.$/, '').replace(/^([A-Z])(?=[a-z])/, (m) => m.toLowerCase());
+  const t = s.replace(/\.$/, '');
+  return PROPER.test(t) ? t : t.replace(/^([A-Z])(?=[a-z])/, (m) => m.toLowerCase());
 }
 
 export function scoreReport(r: ScoreInput): Scores {
