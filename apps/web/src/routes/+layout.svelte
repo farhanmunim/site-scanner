@@ -4,7 +4,6 @@
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   let { children, data } = $props();
   let onHome = $derived(page.url.pathname === '/');
-  const year = new Date().getFullYear();
 </script>
 
 <svelte:head>
@@ -34,6 +33,6 @@
   <nav aria-label="Footer">
     <a href="/bot">How it works</a>
     <a href="/privacy">Privacy</a>
-    <span>© {year} farhan.app</span>
+    <a href="https://farhan.app/" rel="noopener">Built by Farhan</a>
   </nav>
 </footer>
