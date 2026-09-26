@@ -73,7 +73,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     technologies = detectTechnologies(input, db, categories);
   }
 
-  const infra = summariseInfra(technologies, data.ips ?? [], data.dns ?? null, http?.challenge ?? browser?.blocked ?? null);
+  const infra = summariseInfra(technologies, data.ips ?? [], data.dns ?? null, http?.challenge ?? browser?.blocked ?? null, data.target.registrableDomain);
   const robots = data.files ? analyseRobots(data.files.robots, baseUrl) : null;
   const seo = parsed && final ? analyseSeo(parsed, baseUrl, robots, data.files?.sitemap ?? null, final.headers) : null;
   const cookies = browser?.cookies ?? [];

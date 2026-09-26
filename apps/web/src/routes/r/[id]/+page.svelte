@@ -19,6 +19,7 @@
   let scanError = $state<string | null>(data.scan.error ?? null);
   let durationMs = $state<number | null>(data.scan.durationMs ?? null);
   let running = $derived(!TERMINAL.has(status));
+  let narrow = $state(false);
 
   onMount(() => {
     if (printMode) {
@@ -38,6 +39,7 @@
       }
       el.scrollIntoView({ block: 'start' });
     };
+    narrow = window.matchMedia('(max-width: 959px)').matches;
     reveal();
     window.addEventListener('hashchange', reveal);
     if (!running) return () => window.removeEventListener('hashchange', reveal);
@@ -81,6 +83,18 @@
   const notBuiltWith = /^(Webmail|Hosting|CDN|Miscellaneous|Email|Security|PaaS|IaaS|Reverse proxies|Load balancers|SSL\/TLS certificate authorities|Domain parking|Web servers)$/;
   const typeLabel = (t: TechnologyDetection) => (/ DNS$/.test(t.name) ? 'DNS provider' : t.categories.map((c) => c.name).join(', '));
   const ipLine = (ip: IpInfo) => dot(ip.ip, ip.asn ? `AS${ip.asn}${ip.asnOrg ? ` ${ip.asnOrg}` : ''}` : null, ip.country, ip.reverseDns);
+  /** Anycast sites publish many addresses on one network; show one line per network. */
+  let ipGroups = $derived.by(() => {
+    const groups = new Map<string, { label: string; ips: IpInfo[] }>();
+    for (const ip of report?.infra.ips ?? []) {
+      const key = ip.asn ? `AS${ip.asn}` : (ip.asnOrg ?? 'unknown');
+      const label = dot(ip.asn ? `AS${ip.asn}${ip.asnOrg ? ` ${ip.asnOrg}` : ''}` : (ip.asnOrg ?? 'Unknown network'), ip.country);
+      const g = groups.get(key) ?? { label, ips: [] };
+      g.ips.push(ip);
+      groups.set(key, g);
+    }
+    return [...groups.values()];
+  });
   const METRIC = { lcpMs: { n: 'LCP', t: 'Largest Contentful Paint' }, cls: { n: 'CLS', t: 'Cumulative Layout Shift' }, inpMs: { n: 'INP', t: 'Interaction to Next Paint' }, tbtMs: { n: 'TBT', t: 'Total Blocking Time (lab proxy for INP)' }, ttfbMs: { n: 'TTFB', t: 'Time to First Byte' } } as const;
   const fmtMetric = (m: keyof typeof CWV_THRESHOLDS, v: number) => (m === 'cls' ? v.toFixed(2) : v >= 1000 ? `${(v / 1000).toFixed(2)}s` : `${Math.round(v)}ms`);
   const fmtTarget = (m: keyof typeof CWV_THRESHOLDS) => (m === 'cls' ? CWV_THRESHOLDS[m][0].toFixed(2) : CWV_THRESHOLDS[m][0] >= 1000 ? `${(CWV_THRESHOLDS[m][0] / 1000).toFixed(2)}s` : `${CWV_THRESHOLDS[m][0]}ms`);
@@ -153,7 +167,7 @@
     { href: '#c-overview', label: 'Overview', value: report?.profile ? PROFILE_LABELS[report.profile.kind] : '', tone: 'grey' as const, title: undefined },
     { href: '#c-stack', label: 'Technology', value: `${report?.technologies.length ?? 0} found`, tone: 'grey' as const, title: undefined },
     ...(report?.cms ? [{ href: '#c-cms', label: platformName, value: report.cms.plugins.length ? `${report.cms.plugins.length} plugins` : '', tone: 'grey' as const, title: undefined }] : []),
-    ...(report?.screenshot ? [{ href: '#c-shot', label: 'Screenshot', value: '', tone: 'grey' as const, title: undefined }] : []),
+    ...(report?.screenshot && !narrow ? [{ href: '#c-shot', label: 'Screenshot', value: '', tone: 'grey' as const, title: undefined }] : []),
     ...scoredNav('performance'),
     ...scoredNav('headers'),
     ...scoredNav('tls'),
@@ -210,6 +224,10 @@
 {/if}
 {#if report && (report.http?.challenge || report.scan.quality === 'restricted')}
   <p class="alert alert-warn">This website blocks automated visitors{report.http?.challenge ? ` (${report.http.challenge.vendor})` : ''}, so page-based checks are limited. Domain, DNS and certificate information was still collected.</p>
+{/if}
+
+{#if report?.screenshot}
+  {#if 'url' in report.screenshot}<a class="shot shot-hero no-print" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} /></a>{:else}<div class="shot shot-hero no-print"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
 {/if}
 
 <div class="card topbar">
@@ -357,7 +375,7 @@
 
       <!-- ===== Screenshot ===== -->
       {#if report.screenshot}
-        <div class="card" id="c-shot">
+        <div class="card desktop-only" id="c-shot">
           <div class="card-h"><div><div class="card-title">Screenshot</div><div class="card-sub">Desktop viewport, above the fold.</div></div></div>
           {#if 'url' in report.screenshot}<a class="shot" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} /></a>{:else}<div class="shot"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
         </div>
@@ -487,13 +505,26 @@
               <tr><td>Firewall / bot protection</td><td>{#if report.infra.waf}{report.infra.waf.name}{#if report.infra.waf.evidence.length === 1 && report.infra.waf.evidence[0]?.source === 'implied'}<div class="insight">{report.infra.waf.evidence[0].value}</div>{/if}{:else}None seen{/if}</td></tr>
               <tr><td>Hosting provider</td><td>{#if report.infra.hosting}{report.infra.hosting.name}&nbsp;<Badge status={confBadge[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} />{:else if report.infra.cdn}<strong>Not publicly visible.</strong> The site is served through {report.infra.cdn.name}, which hides the real server.{:else}Unknown{/if}</td></tr>
               <tr><td>Web server software</td><td>{serverLine}</td></tr>
-              {#each report.infra.ips as ip (ip.ip)}<tr><td>IP address</td><td class="mono small">{ipLine(ip)}</td></tr>{/each}
+              {#if report.infra.ips.length}
+                <tr><td>IP addresses</td><td>
+                  {#each ipGroups as g (g.label)}
+                    <div>{g.ips.length} address{g.ips.length === 1 ? '' : 'es'} · {g.label}</div>
+                    <div class="mono small muted">{dot(g.ips.find((i) => i.version === 4)?.ip, g.ips.find((i) => i.version === 6)?.ip, g.ips.length > 2 ? `+${g.ips.length - 2} more` : null)}</div>
+                  {/each}
+                </td></tr>
+              {/if}
               <tr><td>DNS provider</td><td>{report.infra.dnsProvider?.name ?? '—'}</td></tr>
               {#if report.external.greenHosting}<tr><td>Green hosting</td><td>{report.external.greenHosting.green ? `Yes: ${report.external.greenHosting.hostedBy ?? 'listed by the Green Web Foundation'}` : 'Not listed by the Green Web Foundation'}</td></tr>{/if}
               {#if report.domain?.status.length}<tr><td>Domain status</td><td class="small">{report.domain.status.join(', ')}</td></tr>{/if}
             </tbody>
           </table>
         </div>
+        {#if report.infra.ips.length > 2}
+          <details class="show-all" open={printMode}>
+            <summary>All {report.infra.ips.length} IP addresses</summary>
+            <div class="table-wrap"><table class="table compact"><tbody>{#each report.infra.ips as ip (ip.ip)}<tr><td class="mono small wrap">{ipLine(ip)}</td></tr>{/each}</tbody></table></div>
+          </details>
+        {/if}
         {#if (report.http?.chain && report.http.chain.length > 1) || Object.keys(report.http?.cacheHeaders ?? {}).length}
           <details class="show-all" open={printMode}>
             <summary>Response details: redirects and caching</summary>

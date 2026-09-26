@@ -1,3 +1,4 @@
+import { parse as parseDomain } from 'tldts';
 import type { Confidence, DnsRecords, Evidence, InfraSummary, IpInfo, TechnologyDetection } from '../types.js';
 
 /**
@@ -77,7 +78,7 @@ const EDGE_PLATFORMS = /^(Vercel|Netlify|Cloudflare Pages|Cloudflare Workers|Ren
 const CDN_EVIDENCE_KEYS = /^(server|via|x-cache|x-served-by|cf-ray|cf-cache-status|x-amz-cf-id|x-amz-cf-pop|x-vercel-id|x-vercel-cache|x-nf-request-id|x-akamai-transformed|x-iinfo|x-cdn|x-sucuri-id|x-fastly-request-id|fastly-debug-digest|x-edgeconnect-midmile-rtt|x-github-request-id|x-azure-ref|x-ec-debug|x-bunny-cache|x-kinsta-cache|CNAME|NS)$/i;
 const WAF_NAMES = /Cloudflare|Akamai|Imperva|Incapsula|Sucuri|DataDome|Wordfence|Fastly|AWS WAF|Cloudfront|Barracuda|F5|Fortinet|Kona|Reblaze|PerimeterX|HUMAN|Shield/i;
 
-export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns: DnsRecords | null, challenge: { vendor: string; evidence: string } | null): InfraSummary {
+export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns: DnsRecords | null, challenge: { vendor: string; evidence: string } | null, ownDomain?: string): InfraSummary {
   const ev = (t: TechnologyDetection): Evidence[] => t.evidence.slice(0, 4);
 
   // CDN: technology in CDN category with real (non-implied) evidence, or ASN of the IPs.
@@ -135,7 +136,11 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   nsMatch(/name\.com$|name-services/i, 'Name.com DNS');
   nsMatch(/porkbun/i, 'Porkbun DNS');
   nsMatch(/netlify/i, 'Netlify DNS');
-  if (!dnsProvider && ns.length) dnsProvider = { name: ns[0]!.split('.').slice(-2).join('.'), evidence: [{ source: 'dns', key: 'NS', value: ns.join(', ') }] };
+  if (!dnsProvider && ns.length) {
+    const nsDomain = parseDomain(ns[0]!).domain ?? ns[0]!;
+    const name = ownDomain && nsDomain.toLowerCase() === ownDomain.toLowerCase() ? `Self-hosted (${nsDomain})` : `${nsDomain} nameservers`;
+    dnsProvider = { name, evidence: [{ source: 'dns', key: 'NS', value: ns.join(', ') }] };
+  }
 
   // Email provider from MX.
   let emailProvider: InfraSummary['emailProvider'] = null;

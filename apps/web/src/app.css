@@ -1879,6 +1879,19 @@ td.actions form {
     width: 180px;
   }
 }
+/* Phone: the screenshot leads the report; the stream card is for wide screens. */
+.shot-hero {
+  display: none;
+  margin: 0 0 12px;
+}
+@media (max-width: 959px) {
+  .shot-hero {
+    display: block;
+  }
+  .desktop-only {
+    display: none !important;
+  }
+}
 @media (min-width: 960px) {
   .hdr {
     padding: 0 24px;
@@ -1971,6 +1984,7 @@ td.actions form {
   .filter,
   .shield,
   .no-print,
+  .shot-hero,
   .ibtn,
   details.show-all > summary {
     display: none !important;
