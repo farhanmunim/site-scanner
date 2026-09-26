@@ -1,5 +1,5 @@
 import tls from 'node:tls';
-import type { CertInfo } from '../../types.js';
+import type { CertChainEntry, CertInfo } from '../../types.js';
 import { checkIp } from '../ip.js';
 import { resolveAddresses } from '../doh.js';
 import { gatherCert } from './cert.js';
@@ -12,8 +12,41 @@ export interface TlsInfo extends CertInfo {
   alpn: string | null; // h2 / http/1.1
   authorized: boolean;
   authorizationError: string | null;
-  chain: { subject: string | null; issuer: string | null }[];
+  chain: CertChainEntry[];
   source: 'ct-log' | 'handshake';
+}
+
+/** Subset of node's DetailedPeerCertificate we read; kept as a plain shape so it is testable. */
+export interface CertLike {
+  subject?: { CN?: string | string[] };
+  issuer?: { O?: string | string[]; CN?: string | string[] };
+  valid_from?: string;
+  valid_to?: string;
+  bits?: number;
+  asn1Curve?: string;
+  nistCurve?: string;
+  fingerprint256?: string;
+  issuerCertificate?: CertLike;
+}
+
+const iso = (d: string | undefined): string | null => {
+  if (!d) return null;
+  const t = new Date(d);
+  return Number.isNaN(t.getTime()) ? null : t.toISOString();
+};
+
+export function describeCert(c: CertLike): CertChainEntry {
+  const curve = c.nistCurve ?? c.asn1Curve ?? null;
+  return {
+    subject: str(c.subject?.CN),
+    issuer: str(c.issuer?.O) ?? str(c.issuer?.CN),
+    notBefore: iso(c.valid_from),
+    notAfter: iso(c.valid_to),
+    keyType: c.asn1Curve ? 'EC' : c.bits ? 'RSA' : null,
+    keyBits: c.bits ?? null,
+    curve,
+    selfSigned: !!c.fingerprint256 && c.issuerCertificate?.fingerprint256 === c.fingerprint256
+  };
 }
 
 /**
@@ -52,7 +85,7 @@ export async function gatherTls(host: string, port = 443, blockedIps?: ReadonlyS
       const seen = new Set<string>();
       while (cur && cur.fingerprint256 && !seen.has(cur.fingerprint256) && chain.length < 6) {
         seen.add(cur.fingerprint256);
-        chain.push({ subject: str(cur.subject?.CN), issuer: str(cur.issuer?.O) ?? str(cur.issuer?.CN) });
+        chain.push(describeCert(cur as CertLike));
         cur = cur.issuerCertificate;
       }
       const sans = (cert.subjectaltname ?? '')

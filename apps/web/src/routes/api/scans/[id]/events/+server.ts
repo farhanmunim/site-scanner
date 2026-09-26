@@ -1,13 +1,15 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { eq, scans } from '@site-scanner/db';
 import { getDb } from '$lib/server/db.js';
+import { withScores } from '$lib/server/report-compat.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Server-sent events: pushes {status, stages, report} whenever they change, until the scan finishes. */
-export const GET: RequestHandler = async ({ params }) => {
+/** Server-sent events: pushes {status, stages, report} whenever they change, until the scan finishes. ?lite=1 omits the report. */
+export const GET: RequestHandler = async ({ params, url }) => {
   if (!UUID.test(params.id!)) return new Response('not found', { status: 404 });
   const id = params.id!;
+  const lite = url.searchParams.get('lite') === '1';
   const db = getDb();
   const encoder = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
@@ -22,7 +24,7 @@ export const GET: RequestHandler = async ({ params }) => {
             controller.enqueue(encoder.encode('event: gone\ndata: {}\n\n'));
             return close();
           }
-          const payload = JSON.stringify(row);
+          const payload = JSON.stringify(lite ? { status: row.status, stages: row.stages, error: row.error } : withScores(row));
           if (payload !== last) {
             last = payload;
             controller.enqueue(encoder.encode(`data: ${payload}\n\n`));

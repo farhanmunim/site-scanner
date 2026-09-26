@@ -2,7 +2,7 @@
 // and the browser (analyze side) can import them.
 
 export const SCANNER_VERSION = '0.1.0';
-export const REPORT_VERSION = 1;
+export const REPORT_VERSION = 2;
 
 export type Confidence = 'high' | 'medium' | 'low';
 
@@ -127,6 +127,45 @@ export interface CertInfo {
   notAfter: string | null;
   sans: string[];
   source: 'ct-log' | 'handshake';
+}
+
+/** One certificate in the chain presented during the handshake (leaf first). */
+export interface CertChainEntry {
+  subject: string | null;
+  issuer: string | null;
+  notBefore: string | null;
+  notAfter: string | null;
+  keyType: 'RSA' | 'EC' | null;
+  keyBits: number | null;
+  curve: string | null;
+  selfSigned: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Scores: transparent points-based, see analyze/score.ts.
+
+export type ScoreSectionId = 'headers' | 'tls' | 'performance' | 'seo' | 'email' | 'privacy';
+export interface ScorePenalty {
+  findingId: string;
+  title: string;
+  status: FindingStatus;
+  points: number;
+}
+export interface SectionScore {
+  id: ScoreSectionId;
+  label: string;
+  /** 0–100, or null when the section was not assessed (excluded from the overall). */
+  score: number | null;
+  weight: number;
+  penalties: ScorePenalty[];
+  note?: string;
+}
+export interface Scores {
+  version: 1;
+  overall: number | null;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F' | null;
+  summary: string;
+  sections: SectionScore[];
 }
 
 export interface GatheredData {
@@ -302,8 +341,10 @@ export interface Report {
   performance: PsiMetrics | null;
   screenshot: { url: string; width: number; height: number } | { dataUrl: string } | null;
   safeBrowsing: SafeBrowsingData | null;
-  tls: { protocol: string | null; alpn: string | null; authorized: boolean; authorizationError: string | null; source: string } | null;
+  tls: { protocol: string | null; alpn: string | null; authorized: boolean; authorizationError: string | null; source: string; cipher?: string | null; chain?: CertChainEntry[] } | null;
   external: { wayback: string | null; greenHosting: ExternalData['greenHosting'] };
+  /** Added in reportVersion 2; older stored reports get it computed at read time. */
+  scores?: Scores;
 }
 
 // ---------------------------------------------------------------------------
@@ -354,13 +395,15 @@ export interface PsiMetrics {
   fetchedAt: string;
   lighthouseVersion: string | null;
   scores: { performance: number | null; accessibility: number | null; bestPractices: number | null; seo: number | null };
-  lab: { lcpMs: number | null; cls: number | null; tbtMs: number | null; fcpMs: number | null; speedIndexMs: number | null; ttiMs: number | null };
+  lab: { lcpMs: number | null; cls: number | null; tbtMs: number | null; fcpMs: number | null; speedIndexMs: number | null; ttiMs: number | null; ttfbMs?: number | null };
   field: { lcpMs: number | null; cls: number | null; inpMs: number | null; ttfbMs: number | null; overall: string | null } | null;
   /** base64 JPEG/WebP data URL of the final screenshot from Lighthouse. */
   screenshotDataUrl: string | null;
   accessibilityIssues: { id: string; title: string; count: number }[];
   totalBytes: number | null;
   requestCount: number | null;
+  /** Transfer size by resource type (bytes). Null when Lighthouse did not report it. */
+  breakdown?: { scriptBytes: number | null; imageBytes: number | null; fontBytes: number | null; stylesheetBytes: number | null; documentBytes: number | null; thirdPartyBytes: number | null; otherBytes: number | null } | null;
 }
 
 export interface SafeBrowsingData {

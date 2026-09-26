@@ -1,3 +1,4 @@
+import { parse as parseDomain } from 'tldts';
 import type { ExternalData, PsiMetrics, SafeBrowsingData } from '../types.js';
 
 /**
@@ -34,7 +35,7 @@ function num(v: unknown): number | null {
 
 export async function fetchPsi(url: string, strategy: 'mobile' | 'desktop', cfg: ExternalConfig): Promise<PsiMetrics | null> {
   if (!cfg.googleApiKey || cfg.psi === false) return null;
-  return cached(cfg, `psi:${strategy}:${url}`, 6 * 3600, async () => {
+  return cached(cfg, `psi2:${strategy}:${url}`, 6 * 3600, async () => {
     const f = cfg.fetchImpl ?? fetch;
     const u = new URL('https://www.googleapis.com/pagespeedonline/v5/runPagespeed');
     u.searchParams.set('url', url);
@@ -69,19 +70,70 @@ export async function fetchPsi(url: string, strategy: 'mobile' | 'desktop', cfg:
       fetchedAt: new Date().toISOString(),
       lighthouseVersion: lh.lighthouseVersion ?? null,
       scores: { performance: score('performance'), accessibility: score('accessibility'), bestPractices: score('best-practices'), seo: score('seo') },
-      lab: { lcpMs: ms('largest-contentful-paint'), cls: ms('cumulative-layout-shift'), tbtMs: ms('total-blocking-time'), fcpMs: ms('first-contentful-paint'), speedIndexMs: ms('speed-index'), ttiMs: ms('interactive') },
+      lab: { lcpMs: ms('largest-contentful-paint'), cls: ms('cumulative-layout-shift'), tbtMs: ms('total-blocking-time'), fcpMs: ms('first-contentful-paint'), speedIndexMs: ms('speed-index'), ttiMs: ms('interactive'), ttfbMs: ms('server-response-time') },
       field,
       screenshotDataUrl: a['final-screenshot']?.details?.data ?? null,
       accessibilityIssues: a11y,
       totalBytes: num(a['total-byte-weight']?.numericValue),
-      requestCount: a['network-requests']?.details?.items?.length ?? null
+      requestCount: a['network-requests']?.details?.items?.length ?? null,
+      breakdown: resourceBreakdown(a, lh.finalDisplayedUrl ?? lh.finalUrl ?? url)
     };
   });
 }
 
-interface PsiResponse {
+type ResItem = { resourceType?: string; transferSize?: number; url?: string };
+
+/** Bytes by resource type from Lighthouse's resource-summary, else derived from network-requests. */
+export function resourceBreakdown(a: NonNullable<NonNullable<PsiResponse['lighthouseResult']>['audits']>, finalUrl: string): PsiMetrics['breakdown'] {
+  const out = { scriptBytes: null, imageBytes: null, fontBytes: null, stylesheetBytes: null, documentBytes: null, thirdPartyBytes: null, otherBytes: null } as NonNullable<PsiMetrics['breakdown']>;
+  const key = (t: string | undefined): keyof typeof out | null => {
+    switch ((t ?? '').toLowerCase()) {
+      case 'script':
+        return 'scriptBytes';
+      case 'image':
+        return 'imageBytes';
+      case 'font':
+        return 'fontBytes';
+      case 'stylesheet':
+        return 'stylesheetBytes';
+      case 'document':
+        return 'documentBytes';
+      case 'third-party':
+        return 'thirdPartyBytes';
+      case 'total':
+        return null;
+      default:
+        return 'otherBytes';
+    }
+  };
+  const summary = a['resource-summary']?.details?.items as ResItem[] | undefined;
+  if (summary?.length) {
+    for (const it of summary) {
+      const k = key(it.resourceType);
+      if (!k || typeof it.transferSize !== 'number') continue;
+      out[k] = (out[k] ?? 0) + it.transferSize;
+    }
+    return out;
+  }
+  const reqs = a['network-requests']?.details?.items as ResItem[] | undefined;
+  if (!reqs?.length) return null;
+  const own = parseDomain(finalUrl).domain;
+  let third = 0;
+  for (const it of reqs) {
+    if (typeof it.transferSize !== 'number') continue;
+    const k = key(it.resourceType) ?? 'otherBytes';
+    if (k !== 'thirdPartyBytes') out[k] = (out[k] ?? 0) + it.transferSize;
+    if (it.url && own && parseDomain(it.url).domain !== own) third += it.transferSize;
+  }
+  out.thirdPartyBytes = third;
+  return out;
+}
+
+export interface PsiResponse {
   lighthouseResult?: {
     lighthouseVersion?: string;
+    finalDisplayedUrl?: string;
+    finalUrl?: string;
     categories?: Record<string, { score?: number | null; auditRefs?: { id: string }[] }>;
     audits?: Record<string, { id?: string; title?: string; score?: number | null; numericValue?: number; details?: { data?: string; items?: unknown[] } }>;
   };

@@ -20,6 +20,8 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
+export { scoreReport, scoreTone, gradeFor, cwvVerdict, vitals, CWV_THRESHOLDS, PENALTY_OVERRIDES, SECTION_LABELS, SECTION_WEIGHTS } from './score.js';
+import { scoreReport } from './score.js';
 
 /**
  * Turn gathered data into the canonical Report. Pure and deterministic given the input
@@ -104,7 +106,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     dns: data.dns ?? null,
     domain: data.rdap ?? null,
     cert: tls ? { issuer: tls.issuer, subject: tls.subject, notBefore: tls.notBefore, notAfter: tls.notAfter, sans: tls.sans, source: tls.source } : null,
-    tls: tls ? { protocol: tls.protocol, alpn: tls.alpn, authorized: tls.authorized, authorizationError: tls.authorizationError, source: tls.source } : null,
+    tls: tls ? { protocol: tls.protocol, alpn: tls.alpn, authorized: tls.authorized, authorizationError: tls.authorizationError, source: tls.source, cipher: tls.cipher ?? null, chain: tls.chain ?? [] } : null,
     http: http
       ? {
           finalUrl: final?.url ?? null,
@@ -131,7 +133,8 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     performance: psi,
     screenshot,
     safeBrowsing: data.external?.safeBrowsing ?? null,
-    external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null }
+    external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null },
+    scores: scoreReport({ security, email, privacy, seo, performance: psi })
   };
 }
 
