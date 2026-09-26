@@ -240,7 +240,7 @@
   <div class="tmain">
     <div class="glyph" aria-hidden="true">{data.scan.displayHost[0]}</div>
     <div style="min-width: 0">
-      <p class="print-only small muted" style="margin-bottom: 4px">Website report · {fmtDate(data.scan.createdAt)} · site-scan.farhan.app</p>
+      <p class="print-only small muted" style="margin-bottom: 4px">Website report · {fmtDate(data.scan.createdAt)} · {data.siteHost}</p>
       <div class="ttitle">
         <h1 class="turl"><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank">{data.scan.displayHost}</a></h1>
         {#if report}<Badge status={httpBadge.c} label={httpBadge.t} />{/if}

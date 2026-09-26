@@ -49,6 +49,19 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 4. Deploy. The worker applies database migrations on start.
 5. Open `/health` (expects `{"status":"ok"}`) and `/admin/health` (worker heartbeat present).
 
+### Changing the domain
+
+Everything host-specific is derived at runtime from `PUBLIC_SITE_URL` (defaults to Coolify's
+`SERVICE_URL_WEB`), so a rename needs no code change. Checklist:
+
+1. Point the new name at Coolify in Cloudflare (proxied) and set it as the `web` service domain.
+   If you set `PUBLIC_SITE_URL` explicitly, update it too, then redeploy.
+2. Cloudflare → Turnstile: add the new hostname to the widget's domains, or the scan form will
+   fail verification.
+3. Add a Cloudflare redirect rule from the old host to the new one (same path) so shared report
+   links keep working.
+4. Previously generated PDFs keep the old address in their footer until re-rendered.
+
 ### Resources
 
 Defaults in `docker-compose.yaml`: web 512 MB, worker 2 GB (Chromium), Postgres 512 MB, Redis 160 MB. A 4 GB VPS runs it comfortably with `SCAN_CONCURRENCY=2`. If memory is tight, set `BROWSER_ENABLED=false` (screenshots then come from PageSpeed Insights instead) and the worker needs ~300 MB.
