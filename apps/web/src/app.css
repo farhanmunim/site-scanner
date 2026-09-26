@@ -1033,6 +1033,77 @@ a.tag:hover {
     opacity: 0;
   }
 }
+/* Waiting state must visibly keep moving: pulsing dot, typing dots, sweeping bar, spinner. */
+.log .cur .d {
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    transform: translateY(-1px) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-1px) scale(1.5);
+    opacity: 0.45;
+  }
+}
+.log .dots::after {
+  content: '';
+  display: inline-block;
+  width: 3ch;
+  text-align: left;
+  animation: dots 1.2s steps(4, end) infinite;
+}
+@keyframes dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+.log .spin {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border: 1.5px solid var(--border-strong);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: -1px;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.meter.live i {
+  position: relative;
+  overflow: hidden;
+}
+.meter.live i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
+  animation: sweep 1.6s ease-in-out infinite;
+}
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
 .meter {
   margin-top: 16px;
   height: 6px;
@@ -1057,8 +1128,14 @@ a.tag:hover {
   flex-wrap: wrap;
 }
 @media (prefers-reduced-motion: reduce) {
-  .cursor {
+  .cursor,
+  .log .cur .d,
+  .meter.live i::after {
     animation: none;
+  }
+  .log .dots::after {
+    animation: none;
+    content: '...';
   }
   .meter i {
     transition: none;

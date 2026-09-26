@@ -32,10 +32,10 @@
 </script>
 
 <div class="log" aria-live="polite">
-  <span class="pct">{#if elapsed > 0 && !terminal}{clock(elapsed)} · {/if}{pct}%</span>
+  <span class="pct">{#if !terminal}<span class="spin" aria-hidden="true"></span>{/if}{#if elapsed > 0 && !terminal}{clock(elapsed)} · {/if}{pct}%</span>
   <div class="cmd"><span class="d"></span><span class="t">$ site-scan run {host}</span></div>
   {#each rows as r (r.s)}
-    <div class={r.cls} title={r.note ?? undefined}><span class="d"></span><span class="t">&gt; {r.text}...</span>{#if r.ok}<span class="ok {r.ok.c}">{r.ok.t}</span>{/if}</div>
+    <div class={r.cls} title={r.note ?? undefined}><span class="d"></span><span class="t">&gt; {r.text}{#if r.cls === 'cur'}<span class="dots" aria-hidden="true"></span>{:else}...{/if}</span>{#if r.ok}<span class="ok {r.ok.c}">{r.ok.t}</span>{/if}</div>
   {/each}
   {#if onlyExternalLeft && elapsed > 12}
     <div class="hint"><span class="d"></span><span class="t">google pagespeed can take up to a minute; everything else is ready</span></div>
@@ -44,4 +44,4 @@
     <div class="cmd"><span class="d"></span><span class="t">&gt; {status === 'failed' ? 'scan failed. opening report_' : 'done. opening report_'}<span class="cursor"></span></span></div>
   {/if}
 </div>
-<div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct}><i style="width: {pct}%"></i></div>
+<div class="meter" class:live={!terminal} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct}><i style="width: {pct}%"></i></div>
