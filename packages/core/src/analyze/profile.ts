@@ -20,7 +20,7 @@ export function profileSite(input: { technologies: TechnologyDetection[]; html: 
   const platform = commerceTechs.find((t) => SHOP_PLATFORMS.test(t.name));
   const ecommerce = !!platform;
   const commerceWidget = !platform && commerceTechs.length ? commerceTechs[0]!.name : null;
-  const cms = cat(/^(CMS|Blogs|Wikis|LMS|Ecommerce)$/);
+  const cms = cat(/^(CMS|Blogs|Wikis|LMS)$/) || ecommerce;
   const staticGen = cat(/^Static site generators$/);
   const appFramework = cat(/^(JavaScript frameworks|Web frameworks)$/);
   const interactive = passwordForm || loginLink || input.xhrSameOrigin > 2 || firstPartyCookies > 0 || forms > 1;
