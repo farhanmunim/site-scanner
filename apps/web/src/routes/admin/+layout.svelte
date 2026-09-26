@@ -16,9 +16,9 @@
 <svelte:head><meta name="robots" content="noindex" /></svelte:head>
 
 {#if data.admin}
-  <nav class="report-nav admin-nav" aria-label="Admin">
+  <nav class="subnav" aria-label="Admin">
     {#each links as [href, label]}<a {href} class:active={page.url.pathname === href} aria-current={page.url.pathname === href ? 'page' : undefined}>{label}</a>{/each}
-    <form method="POST" action="/admin/logout" class="logout"><button class="secondary sm" type="submit">Log out</button></form>
+    <form method="POST" action="/admin/logout" class="logout"><button class="btn btn-outline btn-sm" type="submit">Log out</button></form>
   </nav>
 {/if}
 <div class="admin">

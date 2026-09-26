@@ -11,20 +11,20 @@
 </div>
 
 <form class="toolbar" role="search">
-  <input type="search" name="q" placeholder="Search input, host, IP or hash" value={data.q} aria-label="Search lookups" />
-  <button class="secondary" type="submit">Search</button>
+  <input type="search" name="q" class="input" placeholder="Search input, host, IP or hash" value={data.q} aria-label="Search lookups" />
+  <button class="btn btn-outline" type="submit">Search</button>
 </form>
 
-<div class="panel">
+<div class="card">
   <div class="table-wrap">
-    <table class="wide-table">
+    <table class="table wide-table">
       <thead><tr><th>When</th><th>Input</th><th>Result</th><th>Requester</th><th>Browser / referrer</th></tr></thead>
       <tbody>
         {#each data.rows as l}
           <tr>
             <td class="muted nowrap">{fmtDate(l.createdAt, true)}</td>
             <td class="mono small">{l.input}</td>
-            <td>{#if l.refusedReason}<span class="pill red">refused</span> <span class="small muted">{l.refusedReason}</span>{:else if l.scanId}<a href="/r/{l.scanId}">{l.cacheHit ? 'cached' : 'scan'}</a>{:else}—{/if}</td>
+            <td>{#if l.refusedReason}<span class="badge badge-fail">refused</span> <span class="small muted">{l.refusedReason}</span>{:else if l.scanId}<a href="/r/{l.scanId}">{l.cacheHit ? 'cached' : 'scan'}</a>{:else}—{/if}</td>
             <td class="mono small nowrap">{[l.ip ?? l.ipHash?.slice(0, 12), l.country, l.source].filter(Boolean).join(' · ')}</td>
             <td class="small muted ua">{l.userAgent?.slice(0, 90) ?? ''}{#if l.referrer}<br />{l.referrer.slice(0, 90)}{/if}</td>
           </tr>
@@ -35,8 +35,8 @@
 </div>
 {#if data.page > 1 || data.more}
   <div class="pager">
-    {#if data.page > 1}<a class="button secondary sm" href="?q={encodeURIComponent(data.q)}&page={data.page - 1}">Newer</a>{/if}
+    {#if data.page > 1}<a class="btn btn-outline btn-sm" href="?q={encodeURIComponent(data.q)}&page={data.page - 1}">Newer</a>{/if}
     <span class="muted small">Page {data.page}</span>
-    {#if data.more}<a class="button secondary sm" href="?q={encodeURIComponent(data.q)}&page={data.page + 1}">Older</a>{/if}
+    {#if data.more}<a class="btn btn-outline btn-sm" href="?q={encodeURIComponent(data.q)}&page={data.page + 1}">Older</a>{/if}
   </div>
 {/if}
