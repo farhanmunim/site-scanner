@@ -22,6 +22,8 @@ export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
 export { scoreReport, scoreTone, gradeFor, cwvVerdict, vitals, CWV_THRESHOLDS, PENALTY_OVERRIDES, SECTION_LABELS, SECTION_WEIGHTS } from './score.js';
 import { scoreReport } from './score.js';
+import { explainFailure } from './reasons.js';
+export { explainFailure } from './reasons.js';
 import { applyProfile, profileSite } from './profile.js';
 export { profileSite, applyProfile, PROFILE_LABELS } from './profile.js';
 
@@ -86,7 +88,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
   const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain) : [];
   const thirdParties = summariseThirdParties(parsed, browser?.requests ?? null, new URL(baseUrl).hostname, technologies);
   const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}) ?? analyseShopify(rawHtml || renderedHtml, technologies);
-  const privacy = auditPrivacy(technologies, thirdParties, cookies, robots);
+  const privacy = final || browser ? auditPrivacy(technologies, thirdParties, cookies, robots) : [];
 
   if (data.external?.safeBrowsing?.threats.length) {
     security.unshift({ id: 'safe-browsing', title: 'Google Safe Browsing', status: 'bad', observed: `Flagged: ${data.external.safeBrowsing.threats.join(', ')}.`, detail: 'Google currently lists this URL as unsafe. Browsers may show a warning page.' });
@@ -141,7 +143,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     screenshot,
     safeBrowsing: data.external?.safeBrowsing ?? null,
     external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null, subdomains: data.external?.subdomains ?? null },
-    scores: scoreReport({ security, email, privacy, seo, performance: psi }),
+    scores: scoreReport({ security, email, privacy, seo, performance: psi, quality, failureReason: quality === 'failed' ? explainFailure(data.stages.http?.note) : null }),
     profile
   };
 }

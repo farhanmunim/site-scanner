@@ -11,6 +11,9 @@ export function createSafeDispatcher(opts: { blockedIps?: ReadonlySet<string>; t
   return new Agent({
     connect: {
       timeout: opts.timeoutMs ?? 10_000,
+      // Certificate validity is assessed by the TLS stage and reported as a finding. The
+      // page fetch must still work behind an incomplete chain or an expired certificate.
+      rejectUnauthorized: false,
       lookup(hostname, options, callback) {
         dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
           if (err) return callback(err, [] as never, undefined as never);

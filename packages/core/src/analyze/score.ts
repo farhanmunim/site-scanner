@@ -8,7 +8,7 @@ import type { Finding, FindingStatus, PsiMetrics, Report, ScoreSectionId, Scores
  */
 
 const HEADER_IDS = new Set(['csp', 'xcto', 'framing', 'referrer', 'permissions', 'coop', 'cookies', 'sri', 'version-disclosure', 'login-page', 'password-form-http', 'safe-browsing', 'mixed-content']);
-const TLS_IDS = new Set(['https', 'https-redirect', 'tls-cert', 'tls-expiry', 'tls-version', 'hsts']);
+const TLS_IDS = new Set(['https', 'https-redirect', 'tls-cert', 'tls-chain', 'tls-expiry', 'tls-version', 'hsts']);
 
 const DEFAULT_PENALTY: Partial<Record<FindingStatus, number>> = { bad: 25, warn: 10 };
 
@@ -18,6 +18,7 @@ export const PENALTY_OVERRIDES: Record<string, Partial<Record<FindingStatus, num
   https: { bad: 60 },
   'tls-cert': { bad: 50 },
   'tls-expiry': { bad: 40, warn: 15 },
+  'tls-chain': { warn: 15 },
   'password-form-http': { bad: 40 },
   'mixed-content': { warn: 15 },
   csp: { warn: 12, info: 4 },
@@ -154,7 +155,7 @@ function scorePerformance(p: PsiMetrics | null): SectionScore {
   return { ...base, score: score === null ? null : Math.max(0, Math.min(100, score)), penalties, note: score === null ? 'Performance data not available.' : undefined };
 }
 
-export type ScoreInput = Pick<Report, 'security' | 'email' | 'privacy'> & { seo: { findings: Finding[] } | null; performance: PsiMetrics | null };
+export type ScoreInput = Pick<Report, 'security' | 'email' | 'privacy'> & { seo: { findings: Finding[] } | null; performance: PsiMetrics | null; quality?: Report['scan']['quality']; failureReason?: string | null };
 
 function sections(r: ScoreInput, exclude: ReadonlySet<string>): SectionScore[] {
   const sec = r.security ?? [];
@@ -196,6 +197,11 @@ function lower(s: string): string {
 }
 
 export function scoreReport(r: ScoreInput): Scores {
+  if (r.quality === 'failed') {
+    // No page was loaded: only DNS-based email checks are meaningful. Never grade the site.
+    const ss = sections(r, new Set()).map((s) => (s.id === 'email' ? s : { ...s, score: null, penalties: [], note: 'The page could not be loaded.' }));
+    return { version: 1, overall: null, grade: null, summary: `The page could not be loaded, so the site was not scored${r.failureReason ? `: ${r.failureReason}` : ''}. DNS, registration, certificate and email checks still ran.`, sections: ss };
+  }
   const ss = sections(r, new Set());
   const overall = overallOf(ss);
   const all = ss.flatMap((s) => s.penalties.filter((p) => p.status === 'bad' || p.status === 'warn').map((p) => ({ ...p, section: s.id })));
@@ -219,7 +225,7 @@ export function scoreReport(r: ScoreInput): Scores {
   if (notMeasured.length === 1) {
     const n = notMeasured[0]!;
     summary += n.id === 'performance' ? ' Performance was not measured.' : ` ${n.label} was not scored: ${(n.note ?? 'nothing to verify').replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase())}.`;
-  } else if (notMeasured.length > 1) summary += ` ${notMeasured.map((n) => n.label.toLowerCase()).join(', ').replace(/^./, (c) => c.toUpperCase())} were not scored.`;
+  } else if (notMeasured.length > 1) summary += ` Not scored: ${notMeasured.map((n) => n.label).join(', ')}.`;
 
   return { version: 1, overall, grade: gradeFor(overall), summary, sections: ss };
 }

@@ -136,6 +136,9 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   nsMatch(/name\.com$|name-services/i, 'Name.com DNS');
   nsMatch(/porkbun/i, 'Porkbun DNS');
   nsMatch(/netlify/i, 'Netlify DNS');
+  nsMatch(/livedns\.co\.uk$/i, 'Fasthosts DNS');
+  nsMatch(/ui-dns\.(com|de|org|biz)$|1and1|ionos|hosteurope/i, 'IONOS DNS');
+  nsMatch(/123-reg\.co\.uk$/i, '123 Reg DNS');
   if (!dnsProvider && ns.length) {
     const nsDomain = parseDomain(ns[0]!).domain ?? ns[0]!;
     const name = ownDomain && nsDomain.toLowerCase() === ownDomain.toLowerCase() ? `Self-hosted (${nsDomain})` : `${nsDomain} nameservers`;
@@ -166,7 +169,12 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   mxMatch(/hostinger/i, 'Hostinger Email');
   mxMatch(/improvmx/i, 'ImprovMX');
   mxMatch(/forwardemail/i, 'Forward Email');
-  if (!emailProvider && mx.length) emailProvider = { name: mx[0]!.exchange.split('.').slice(-2).join('.'), evidence: [{ source: 'dns', key: 'MX', value: mx.map((m) => m.exchange).join(', ') }] };
+  mxMatch(/livemail\.co\.uk$/i, 'Fasthosts Email');
+  if (!emailProvider && mx.length) {
+    const mxDomain = parseDomain(mx[0]!.exchange).domain ?? mx[0]!.exchange;
+    const name = ownDomain && mxDomain.toLowerCase() === ownDomain.toLowerCase() ? `Self-hosted (${mxDomain})` : `${mxDomain} mail servers`;
+    emailProvider = { name, evidence: [{ source: 'dns', key: 'MX', value: mx.map((m) => m.exchange).join(', ') }] };
+  }
 
   // Hosting. Managed-host headers beat ASN; ASN is meaningless behind a CDN.
   let hosting: InfraSummary['hosting'] = null;

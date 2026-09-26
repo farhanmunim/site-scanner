@@ -10,6 +10,7 @@
     "./analyze": "./src/analyze/index.ts",
     "./analyze/score": "./src/analyze/score.ts",
     "./analyze/profile": "./src/analyze/profile.ts",
+    "./analyze/reasons": "./src/analyze/reasons.ts",
     "./types": "./src/types.ts"
   },
   "scripts": {

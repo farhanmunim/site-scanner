@@ -48,7 +48,7 @@ describe('scoreReport', () => {
     expect(s.sections.find((x) => x.id === 'performance')!.score).toBeNull();
     expect(s.sections.find((x) => x.id === 'email')!.score).toBeNull();
     expect(s.overall).toBe(100);
-    expect(s.summary).toMatch(/were not scored/);
+    expect(s.summary).toMatch(/Not scored: Performance, SEO & meta, Email protection/);
   });
 
   it('does not score a section where nothing could be verified', () => {
@@ -100,5 +100,16 @@ describe('grades and tones', () => {
     expect(cwvVerdict('lcpMs', 2501)).toBe('needs-work');
     expect(cwvVerdict('lcpMs', 4001)).toBe('poor');
     expect(cwvVerdict('cls', 0.3)).toBe('poor');
+  });
+});
+
+describe('failed scans and failure reasons', () => {
+  it('never grades a site whose page could not be loaded, but keeps DNS-based email', () => {
+    const s = scoreReport({ security: [], email: goodEmail, seo: null, privacy: [], performance: null, quality: 'failed', failureReason: "the server's certificate chain is incomplete" });
+    expect(s.overall).toBeNull();
+    expect(s.grade).toBeNull();
+    expect(s.sections.find((x) => x.id === 'email')!.score).toBe(100);
+    expect(s.sections.find((x) => x.id === 'privacy')!.score).toBeNull();
+    expect(s.summary).toMatch(/could not be loaded, so the site was not scored: the server's certificate chain is incomplete/);
   });
 });

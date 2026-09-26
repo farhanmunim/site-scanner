@@ -56,11 +56,12 @@ export function auditSecurityHeaders(http: HttpStageData, tls: TlsInfo | null, h
   }
   if (tls) {
     if (tls.source === 'handshake') {
-      out.push(
-        tls.authorized
-          ? { id: 'tls-cert', title: 'Certificate valid', status: 'good', observed: `Valid certificate from ${tls.issuer ?? 'unknown issuer'}, expires ${tls.notAfter?.slice(0, 10) ?? '?'}.`, owasp: 'A02' }
-          : { id: 'tls-cert', title: 'Certificate valid', status: 'bad', observed: `Certificate did not validate: ${tls.authorizationError}.`, owasp: 'A02' }
-      );
+      const incompleteChain = !tls.authorized && /UNABLE_TO_VERIFY_LEAF_SIGNATURE|UNABLE_TO_GET_ISSUER_CERT/.test(tls.authorizationError ?? '') && (tls.chain?.length ?? 0) < 2;
+      if (tls.authorized) out.push({ id: 'tls-cert', title: 'Certificate valid', status: 'good', observed: `Valid certificate from ${tls.issuer ?? 'unknown issuer'}, expires ${tls.notAfter?.slice(0, 10) ?? '?'}.`, owasp: 'A02' });
+      else if (incompleteChain) {
+        out.push({ id: 'tls-cert', title: 'Certificate valid', status: 'warn', observed: `Certificate from ${tls.issuer ?? 'unknown issuer'}, expires ${tls.notAfter?.slice(0, 10) ?? '?'}, but the server does not send the full chain (see below).`, owasp: 'A02' });
+        out.push({ id: 'tls-chain', title: 'Incomplete certificate chain', status: 'warn', observed: `The server sends only its own certificate, not the intermediate that links it to ${tls.issuer ?? 'the issuing authority'}.`, detail: 'Browsers usually fetch the missing link themselves, so visitors rarely notice, but curl, older Android, some email clients and API integrations refuse the connection. Fix: install the full chain (site certificate plus intermediate) on the server.', owasp: 'A02' });
+      } else out.push({ id: 'tls-cert', title: 'Certificate valid', status: 'bad', observed: `Certificate did not validate: ${tls.authorizationError}.`, owasp: 'A02' });
       const days = tls.notAfter ? Math.round((Date.parse(tls.notAfter) - Date.now()) / 86_400_000) : null;
       if (days !== null && days < 14) out.push({ id: 'tls-expiry', title: 'Certificate expiry', status: days < 0 ? 'bad' : 'warn', observed: days < 0 ? 'The certificate has expired.' : `The certificate expires in ${days} day(s).` });
       if (tls.protocol && /TLSv1(\.0|\.1)?$/.test(tls.protocol)) out.push({ id: 'tls-version', title: 'Encryption version', status: 'warn', observed: `Negotiated ${tls.protocol}.`, detail: 'TLS 1.0/1.1 are deprecated; modern clients negotiate 1.2 or 1.3.' });

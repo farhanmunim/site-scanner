@@ -4,6 +4,7 @@
   import type { Finding, IpInfo, Report, StageMeta, StageName, TechnologyDetection, CertChainEntry } from '@site-scanner/core/types';
   import { CWV_THRESHOLDS, cwvVerdict, scoreTone, vitals } from '@site-scanner/core/analyze/score';
   import { PROFILE_LABELS } from '@site-scanner/core/analyze/profile';
+  import { explainFailure } from '@site-scanner/core/analyze/reasons';
   import Badge from '$lib/components/Badge.svelte';
   import FindingsTable from '$lib/components/FindingsTable.svelte';
   import FindingsList from '$lib/components/FindingsList.svelte';
@@ -79,7 +80,7 @@
     'password-form-http': 'Password form',
     'safe-browsing': 'Safe Browsing'
   };
-  const TLS_IDS = new Set(['https', 'https-redirect', 'tls-cert', 'tls-expiry', 'tls-version', 'hsts']);
+  const TLS_IDS = new Set(['https', 'https-redirect', 'tls-cert', 'tls-chain', 'tls-expiry', 'tls-version', 'hsts']);
   const notBuiltWith = /^(Webmail|Hosting|CDN|Miscellaneous|Email|Security|PaaS|IaaS|Reverse proxies|Load balancers|SSL\/TLS certificate authorities|Domain parking|Web servers)$/;
   const typeLabel = (t: TechnologyDetection) => (/ DNS$/.test(t.name) ? 'DNS provider' : t.categories.map((c) => c.name).join(', '));
   const ipLine = (ip: IpInfo) => dot(ip.ip, ip.asn ? `AS${ip.asn}${ip.asnOrg ? ` ${ip.asnOrg}` : ''}` : null, ip.country, ip.reverseDns);
@@ -103,6 +104,8 @@
 
   // ---------- derived ----------
   let scores = $derived(report?.scores ?? null);
+  let failed = $derived(!running && report?.scan.quality === 'failed');
+  let failureReason = $derived(failed ? explainFailure(report?.stages?.http?.note ?? scanError) : null);
   let overall = $derived(!running && scores?.overall != null ? scores.overall : null);
   let ringOffset = $derived(overall === null ? 377 : Math.round(377 * (1 - overall / 100)));
   let tone = $derived(scoreTone(overall));
@@ -222,6 +225,9 @@
 {#if report?.safeBrowsing?.threats.length}
   <p class="alert alert-fail" role="alert"><strong>Google Safe Browsing flags this site</strong> ({report.safeBrowsing.threats.join(', ').toLowerCase()}). Visit with care.</p>
 {/if}
+{#if failed}
+  <p class="alert alert-fail" role="alert"><strong>We couldn't load this page:</strong> {failureReason}. DNS, registration, certificate and email checks still ran; nothing that needs the page could be assessed, so the site is not scored.</p>
+{/if}
 {#if report && (report.http?.challenge || report.scan.quality === 'restricted')}
   <p class="alert alert-warn">This website blocks automated visitors{report.http?.challenge ? ` (${report.http.challenge.vendor})` : ''}, so page-based checks are limited. Domain, DNS and certificate information was still collected.</p>
 {/if}
@@ -259,11 +265,11 @@
   </div>
 </div>
 
-{#if running || !report}
+{#if running || !report || failed}
   <div class="card" style="margin-bottom: 16px">
-    <div class="card-h"><div><div class="card-title">{running ? 'Running scan' : 'No results'}</div><div class="card-sub">{running ? 'Usually 10–40 seconds. Results fill in below as each step finishes.' : scanError ?? 'The scan produced no data.'}</div></div></div>
+    <div class="card-h"><div><div class="card-title">{running ? 'Running scan' : 'Scan log'}</div><div class="card-sub">{running ? 'Usually 10–40 seconds. Results fill in below as each step finishes.' : failed ? 'Which steps ran and where the page fetch stopped.' : scanError ?? 'The scan produced no data.'}</div></div></div>
     <div class="card-body"><ScanLog host={data.scan.displayHost} {stages} {status} /></div>
-    {#if scanError && !running}<p class="note fail">{scanError}</p>{/if}
+    {#if scanError && !running && !failed}<p class="note fail">{scanError}</p>{/if}
   </div>
 {/if}
 
@@ -279,8 +285,8 @@
           <div class="rank {tone}">Grade {scores.grade} Health Index</div>
           <div class="ranksub">{scores.summary}</div>
         {:else}
-          <div class="rank grey">Score pending</div>
-          <div class="ranksub">{running ? 'The Health Index is calculated once every step has finished.' : 'Not enough data was collected to score this site.'}</div>
+          <div class="rank grey">{running ? 'Score pending' : 'Not scored'}</div>
+          <div class="ranksub">{running ? 'The Health Index is calculated once every step has finished.' : (scores?.summary ?? 'Not enough data was collected to score this site.')}</div>
         {/if}
       </div>
       <div class="card checklist">
@@ -298,7 +304,7 @@
         <div class="table-wrap">
           <table class="table kv compact">
             <tbody>
-              <tr><td>Built with</td><td>{#if tiles.length}<span class="tags">{#each tiles.slice(0, 6) as t (t.slug)}<a class="tag" href="#c-stack">{t.name}{t.version ? ` ${t.version}` : ''}</a>{/each}{#if report.technologies.length > 6}<a class="tag" href="#c-stack">+{report.technologies.length - 6} more</a>{/if}</span>{:else}<span class="muted">Nothing identified with confidence</span>{/if}</td></tr>
+              <tr><td>Built with</td><td>{#if tiles.length}<span class="tags">{#each tiles.slice(0, 6) as t (t.slug)}<a class="tag" href="#c-stack">{t.name}{t.version ? ` ${t.version}` : ''}</a>{/each}{#if report.technologies.length > 6}<a class="tag" href="#c-stack">+{report.technologies.length - 6} more</a>{/if}</span>{:else}<span class="muted">{failed ? 'Page could not be loaded' : 'Nothing identified with confidence'}</span>{/if}</td></tr>
               {#if report.cms}<tr><td>Platform</td><td><a class="link" href="#c-cms">{platformName}{report.cms.version ? ` ${report.cms.version}` : ''}</a>{#if themeLine}<span class="muted">&nbsp;· theme {themeLine}</span>{/if}</td></tr>{/if}
               <tr><td>Hosting</td><td>{#if report.infra.hosting}{report.infra.hosting.name}&nbsp;<Badge status={confBadge[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} />{:else if report.infra.cdn}Hidden behind {report.infra.cdn.name}{:else}Unknown{/if}</td></tr>
               <tr><td>CDN / firewall</td><td>{dot(report.infra.cdn?.name ?? 'None seen', report.infra.waf && report.infra.waf.name !== report.infra.cdn?.name ? report.infra.waf.name : null)}</td></tr>
@@ -327,7 +333,7 @@
             {/each}
           </div>
         {:else if !report.technologies.length}
-          <p class="note">Nothing could be identified with confidence. That doesn't mean the site uses no framework; the public response didn't give enough away.</p>
+          <p class="note">{failed ? 'The page could not be loaded, so nothing could be identified.' : "Nothing could be identified with confidence. That doesn't mean the site uses no framework; the public response didn't give enough away."}</p>
         {/if}
         {#if report.technologies.length}
           <details class="show-all" open={printMode}>
@@ -463,6 +469,7 @@
             {/each}
           </div>
         {/if}
+        {#if chain.length === 1 && report.tls?.source === 'handshake' && !certOk}<p class="note">Only the site certificate was sent; the intermediate that links it to {report.cert?.issuer ?? 'the issuer'} is missing from the server's configuration.</p>{/if}
         {#if tlsFindings.length}<FindingsList findings={tlsFindings} open={printMode} />{/if}
       </div>
 
@@ -581,7 +588,7 @@
       <!-- ===== Privacy ===== -->
       <div class="card allow-break" id="c-privacy">
         <div class="card-h"><div><div class="card-title">Privacy &amp; third parties</div><div class="card-sub">Trackers, ad pixels, consent and everything the page loads from other companies.{#if !running && sectionScore('privacy') === null && sectionNote('privacy')}&nbsp;{sectionNote('privacy')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('privacy') !== null}<Badge status={scoreTone(sectionScore('privacy'))} label="{sectionScore('privacy')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
-        {#if report.privacy.length}<FindingsList findings={report.privacy} open={printMode} />{/if}
+        {#if failed}<p class="note">No page was loaded, so trackers and third-party requests could not be assessed.</p>{:else if report.privacy.length}<FindingsList findings={report.privacy} open={printMode} />{/if}
         {#if report.thirdParties.length}
           <details class="show-all" open={printMode}>
             <summary>{report.thirdParties.length} third-party domain{report.thirdParties.length === 1 ? '' : 's'}</summary>
