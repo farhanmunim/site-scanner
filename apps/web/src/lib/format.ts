@@ -32,4 +32,4 @@ export function daysUntil(iso: string | null | undefined): number | null {
   return Math.round((Date.parse(iso) - Date.now()) / 86_400_000);
 }
 
-export const statusLabel: Record<string, string> = { good: 'Good', warn: 'Review', bad: 'Issue', info: 'Info', unknown: 'Unknown', na: 'N/A' };
+export const statusLabel: Record<string, string> = { good: 'Pass', warn: 'Warn', bad: 'Fail', info: 'Info', unknown: 'Unknown', na: 'N/A' };

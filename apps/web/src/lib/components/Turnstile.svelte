@@ -8,7 +8,7 @@
   let el: HTMLDivElement;
   let widgetId: string | undefined;
 
-  type TurnstileApi = { render: (el: HTMLElement, opts: Record<string, unknown>) => string; reset: (id?: string) => void; remove: (id: string) => void };
+  type TurnstileApi = { render: (el: HTMLElement, opts: Record<string, unknown>) => string; reset: (id?: string) => void; remove: (id: string) => void; getResponse: (id?: string) => string | undefined };
   const api = () => (window as unknown as { turnstile?: TurnstileApi }).turnstile;
 
   export function reset() {
@@ -19,11 +19,22 @@
     }
   }
 
+  /** Current response token, if the challenge has been passed. */
+  export function token(): string | null {
+    try {
+      if (widgetId) return api()?.getResponse(widgetId) || null;
+    } catch {
+      /* ignore */
+    }
+    return el?.querySelector<HTMLInputElement>('input[name="cf-turnstile-response"]')?.value || null;
+  }
+
   onMount(() => {
     const render = () => {
       const t = api();
       if (!t || widgetId) return;
-      widgetId = t.render(el, { sitekey: siteKey, size: 'flexible', theme: 'light', appearance: 'interaction-only' });
+      const theme = document.documentElement.getAttribute('data-theme') ?? 'auto';
+      widgetId = t.render(el, { sitekey: siteKey, size: 'flexible', theme, appearance: 'interaction-only' });
     };
     if (api()) render();
     else {
