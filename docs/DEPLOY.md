@@ -36,7 +36,8 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 
    | Variable | Value |
    |---|---|
-   | `ADMIN_EMAIL` | your email (shown as the contact on `/bot` and `/privacy`) |
+   | `ADMIN_EMAIL` | your email (private; never shown on the site) |
+   | `ABUSE_CONTACT` | optional public contact for `/bot` and `/privacy`; leave unset to show none |
    | `ADMIN_USERNAME` | e.g. `admin` |
    | `ADMIN_PASSWORD` | a long password (8+ chars, 16+ recommended) |
 

@@ -1,10 +1,13 @@
 import { fail } from '@sveltejs/kit';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 import { blocklist } from '@site-scanner/db';
 import { normaliseTarget, TargetError } from '@site-scanner/core';
 import { getDb } from '$lib/server/db.js';
 import { rateLimitHit } from '$lib/server/redis.js';
 import { hashIp } from '$lib/server/scan-service.js';
+import { config } from '$lib/server/config.js';
+
+export const load: PageServerLoad = () => ({ abuseContact: config.abuseContact || null });
 
 export const actions: Actions = {
   default: async ({ request, locals }) => {

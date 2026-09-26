@@ -48,7 +48,8 @@ export const config = {
   /** Trust Cloudflare's CF-Connecting-IP header (safe when the site is proxied through Cloudflare). */
   behindCloudflare: env.BEHIND_CLOUDFLARE !== 'false',
   maxQueueDepth: Number(env.MAX_QUEUE_DEPTH ?? 20),
-  abuseContact: env.ABUSE_CONTACT || (env.ADMIN_EMAIL ?? '').trim(),
+  /** Public contact shown on /bot and /privacy. Only ever ABUSE_CONTACT; the admin email is never published. */
+  abuseContact: (env.ABUSE_CONTACT ?? '').trim(),
   siteName: env.SITE_NAME ?? 'Site Scanner',
   /** Optional self-hosted Umami analytics for the scanner's own pages. */
   umamiScriptUrl: env.UMAMI_SCRIPT_URL ?? '',
