@@ -342,7 +342,7 @@ export interface Report {
   screenshot: { url: string; width: number; height: number } | { dataUrl: string } | null;
   safeBrowsing: SafeBrowsingData | null;
   tls: { protocol: string | null; alpn: string | null; authorized: boolean; authorizationError: string | null; source: string; cipher?: string | null; chain?: CertChainEntry[] } | null;
-  external: { wayback: string | null; greenHosting: ExternalData['greenHosting'] };
+  external: { wayback: string | null; greenHosting: ExternalData['greenHosting']; subdomains?: SubdomainData | null };
   /** Added in reportVersion 2; older stored reports get it computed at read time. */
   scores?: Scores;
 }
@@ -406,6 +406,15 @@ export interface PsiMetrics {
   breakdown?: { scriptBytes: number | null; imageBytes: number | null; fontBytes: number | null; stylesheetBytes: number | null; documentBytes: number | null; thirdPartyBytes: number | null; otherBytes: number | null } | null;
 }
 
+export interface SubdomainData {
+  checkedAt: string;
+  source: 'ct-log';
+  /** Distinct hostnames, wildcard entries stripped of the leading "*.", sorted. */
+  names: string[];
+  /** Total distinct names before the cap. */
+  total: number;
+}
+
 export interface SafeBrowsingData {
   checkedAt: string;
   threats: string[]; // e.g. MALWARE, SOCIAL_ENGINEERING
@@ -416,6 +425,8 @@ export interface ExternalData {
   safeBrowsing?: SafeBrowsingData | null;
   wayback?: { firstSeen: string | null } | null;
   greenHosting?: { green: boolean; hostedBy: string | null } | null;
+  /** Hostnames seen in Certificate Transparency logs for the registrable domain (passive). */
+  subdomains?: SubdomainData | null;
   wordpressOrg?: Record<string, { name: string; version: string | null; lastUpdated: string | null; activeInstalls: number | null; tested: string | null }>;
   wordfence?: Record<string, { count: number; latestTitle: string | null; affectedBelow: string | null }>;
 }

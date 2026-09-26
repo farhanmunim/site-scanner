@@ -1,5 +1,5 @@
 import { parse as parseDomain } from 'tldts';
-import type { ExternalData, PsiMetrics, SafeBrowsingData } from '../types.js';
+import type { ExternalData, PsiMetrics, SafeBrowsingData, SubdomainData } from '../types.js';
 
 /**
  * Optional free enrichment APIs. Every function returns null (never throws) when the key
@@ -14,6 +14,7 @@ export interface ExternalConfig {
   wordpress?: boolean;
   wayback?: boolean;
   greenWeb?: boolean;
+  subdomains?: boolean;
   fetchImpl?: typeof fetch;
   /** Cache: get/set JSON by key with TTL seconds. */
   cache?: { get<T>(key: string): Promise<T | null | undefined>; set(key: string, value: unknown, ttlSec: number): Promise<void> };
@@ -231,5 +232,41 @@ export async function fetchGreenWeb(host: string, cfg: ExternalConfig): Promise<
     if (!res.ok) return null;
     const j = (await res.json()) as { green?: boolean; hosted_by?: string };
     return { green: !!j.green, hostedBy: j.hosted_by ?? null };
+  });
+}
+
+export const SUBDOMAIN_CAP = 200;
+
+/** Reduce raw CT-log name values to distinct hostnames under the registrable domain. */
+export function collectSubdomains(nameValues: string[], registrableDomain: string): { names: string[]; total: number } {
+  const d = registrableDomain.toLowerCase();
+  const set = new Set<string>();
+  for (const v of nameValues) {
+    for (const raw of v.split(/\s+/)) {
+      let n = raw.trim().toLowerCase().replace(/^\*\./, '');
+      if (!n || n === d || !n.endsWith('.' + d)) continue;
+      if (!/^[a-z0-9.-]+$/.test(n) || n.includes('..')) continue;
+      set.add(n);
+    }
+  }
+  const names = [...set].sort((a, b) => a.split('.').length - b.split('.').length || a.localeCompare(b));
+  return { names: names.slice(0, SUBDOMAIN_CAP), total: names.length };
+}
+
+/**
+ * Passive subdomain discovery from Certificate Transparency logs (crt.sh). Lists names
+ * that have had a certificate issued; it never contacts the target and cannot prove a
+ * name still resolves.
+ */
+export async function fetchSubdomains(registrableDomain: string, cfg: ExternalConfig): Promise<SubdomainData | null> {
+  if (cfg.subdomains === false) return null;
+  return cached(cfg, `subdomains:${registrableDomain}`, 24 * 3600, async () => {
+    const f = cfg.fetchImpl ?? fetch;
+    const res = await f(`https://crt.sh/?q=${encodeURIComponent('%.' + registrableDomain)}&output=json`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return null;
+    const rows = (await res.json()) as { name_value?: string }[];
+    if (!Array.isArray(rows)) return null;
+    const { names, total } = collectSubdomains(rows.map((r) => r.name_value ?? ''), registrableDomain);
+    return { checkedAt: new Date().toISOString(), source: 'ct-log', names, total };
   });
 }

@@ -99,7 +99,7 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
         denySuffixes: config.denySuffixes,
         blockedDomains: blocked,
         fingerprintsVersion,
-        external: externalEnabled ? { googleApiKey: config.googleApiKey, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false },
+        external: externalEnabled ? { googleApiKey: config.googleApiKey, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false },
         onStage: (stage, d) => persist(stage, d),
         browser: browserEnabled ? renderPage : undefined
       }),

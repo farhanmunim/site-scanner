@@ -7,7 +7,7 @@ import { gatherHttp } from './stages/http.js';
 import { gatherFiles, extractWordPressRefs } from './stages/files.js';
 import { gatherRdap } from './stages/rdap.js';
 import { gatherTls } from './stages/tls.js';
-import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchWayback, fetchWordPressOrg, fetchWordfence, type ExternalConfig } from '../external/index.js';
+import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchSubdomains, fetchWayback, fetchWordPressOrg, fetchWordfence, type ExternalConfig } from '../external/index.js';
 import { SCANNER_VERSION, type BrowserData, type GatheredData, type StageMeta, type StageName } from '../types.js';
 
 export * from './url.js';
@@ -169,15 +169,16 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   try {
     const finalUrl = data.http?.final?.url ?? target.url;
     const wp = data.http?.final ? extractWordPressRefs(data.http.final.body) : { detected: false, pluginSlugs: [] as string[], themeSlugs: [] as string[] };
-    const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence] = await Promise.all([
+    const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, subdomains] = await Promise.all([
       data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null,
       fetchSafeBrowsing(finalUrl, ext),
       fetchWayback(target.registrableDomain, ext),
       fetchGreenWeb(target.host, ext),
       wp.detected ? fetchWordPressOrg(wp.pluginSlugs, ext) : {},
-      wp.detected ? fetchWordfence(wp.pluginSlugs, ext) : {}
+      wp.detected ? fetchWordfence(wp.pluginSlugs, ext) : {},
+      fetchSubdomains(target.registrableDomain, ext)
     ]);
-    data.external = { psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence };
+    data.external = { psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, subdomains };
     await done('external', stageMeta('complete', t4));
   } catch (e) {
     await done('external', stageMeta('failed', t4, String((e as Error)?.message ?? e)));

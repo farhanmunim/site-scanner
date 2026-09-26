@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fetchPsi, resourceBreakdown } from '../src/external/index.js';
+import { collectSubdomains, fetchPsi, resourceBreakdown } from '../src/external/index.js';
 
 const audits = {
   'largest-contentful-paint': { numericValue: 2800 },
@@ -62,5 +62,13 @@ describe('fetchPsi', () => {
 
   it('returns null without an API key', async () => {
     expect(await fetchPsi('https://example.com/', 'mobile', {})).toBeNull();
+  });
+});
+
+describe('collectSubdomains', () => {
+  it('dedupes, strips wildcards and keeps only names under the domain', () => {
+    const r = collectSubdomains(['www.example.com\nexample.com', '*.example.com', 'api.example.com\nAPI.example.com', 'example.com.evil.net', 'shop.example.com', 'deep.api.example.com'], 'example.com');
+    expect(r.names).toEqual(['api.example.com', 'shop.example.com', 'www.example.com', 'deep.api.example.com']);
+    expect(r.total).toBe(4);
   });
 });

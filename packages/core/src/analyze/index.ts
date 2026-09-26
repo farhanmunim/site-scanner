@@ -133,7 +133,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     performance: psi,
     screenshot,
     safeBrowsing: data.external?.safeBrowsing ?? null,
-    external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null },
+    external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null, subdomains: data.external?.subdomains ?? null },
     scores: scoreReport({ security, email, privacy, seo, performance: psi })
   };
 }

@@ -126,6 +126,7 @@
     ...(scores?.sections ?? []).filter((s) => s.score !== null).map((s) => ({ href: `#c-${s.id === 'headers' ? 'headers' : s.id === 'tls' ? 'tls' : s.id === 'performance' ? 'vitals' : s.id}`, label: s.label, value: running ? null : `${s.score} / 100`, tone: running ? 'grey' : scoreTone(s.score) })),
     { href: '#c-stack', label: 'Technology', value: `${report?.technologies.length ?? 0} found`, tone: 'grey' as const },
     { href: '#c-hosting', label: 'Hosting & DNS', value: report?.infra.cdn?.name ?? report?.infra.hosting?.name ?? '', tone: 'grey' as const },
+    ...(report?.external.subdomains ? [{ href: '#c-subdomains', label: 'Subdomains', value: `${report.external.subdomains.total} found`, tone: 'grey' as const }] : []),
     ...(report?.cms ? [{ href: '#c-cms', label: platformName, value: `${report.cms.plugins.length} plugins`, tone: 'grey' as const }] : []),
     ...(report?.screenshot ? [{ href: '#c-shot', label: 'Screenshot', value: '', tone: 'grey' as const }] : [])
   ]);
@@ -434,6 +435,22 @@
           </div>
         {/if}
       </div>
+
+      <!-- ===== Subdomains ===== -->
+      {#if report.external.subdomains}
+        {@const sd = report.external.subdomains}
+        <div class="card allow-break" id="c-subdomains">
+          <div class="card-h"><div><div class="card-title">Subdomains</div><div class="card-sub">Hostnames under {report.target.registrableDomain} that have had a TLS certificate issued, from public Certificate Transparency logs.</div></div><span class="badge badge-neutral">{sd.total} found</span></div>
+          {#if sd.names.length}
+            <div class="chips-grid">
+              {#each sd.names as n (n)}<span class="val">{n}</span>{/each}
+            </div>
+            <p class="note">Passive discovery only: nothing was probed and some names may no longer exist.{#if sd.total > sd.names.length}&nbsp;Showing the first {sd.names.length} of {sd.total}.{/if}</p>
+          {:else}
+            <p class="note">No other hostnames appear in Certificate Transparency logs for this domain.</p>
+          {/if}
+        </div>
+      {/if}
 
       <!-- ===== Privacy ===== -->
       <div class="card allow-break" id="c-privacy">
