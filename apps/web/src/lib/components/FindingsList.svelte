@@ -4,7 +4,7 @@
   /**
    * Findings as a vertical list. Rows needing attention (fail/warn) are always visible;
    * passed and informational rows fold into a "N checks passed" dropdown so a clean
-   * section is two lines tall. Print mode opens every <details> on the page.
+   * section is two lines tall. "Why it matters" sits behind a per-row disclosure.
    */
   let { findings, open = false, empty = 'Nothing to show.' }: { findings: Finding[]; open?: boolean; empty?: string } = $props();
   const order: Record<string, number> = { bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 };
@@ -16,24 +16,27 @@
   let summary = $derived(passed && passed === rest.length ? `${passed} check${passed === 1 ? '' : 's'} passed` : passed ? `${passed} passed, ${rest.length - passed} for information` : `${rest.length} for information`);
 </script>
 
+{#snippet row(f: Finding)}
+  <div class="finding" id={f.id}>
+    <Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} />
+    <div>
+      <h3>{f.title}</h3>
+      <p>{f.observed}</p>
+      {#if f.detail}<details class="why" {open}><summary>Why it matters</summary><p>{f.detail}</p></details>{/if}
+    </div>
+  </div>
+{/snippet}
+
 {#if !findings.length}
   <p class="note">{empty}</p>
 {:else}
   {#if attention.length}
-    <div class="findings">
-      {#each attention as f (f.id)}
-        <div class="finding" id={f.id}><Badge status={f.status} /><div><b>{f.title}</b><p>{f.observed}</p>{#if f.detail}<p class="muted">{f.detail}</p>{/if}</div></div>
-      {/each}
-    </div>
+    <div class="findings">{#each attention as f (f.id)}{@render row(f)}{/each}</div>
   {/if}
   {#if rest.length}
     <details class="show-all" {open}>
       <summary>{attention.length ? summary : `All clear: ${summary}`}</summary>
-      <div class="findings">
-        {#each rest as f (f.id)}
-          <div class="finding" id={f.id}><Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} /><div><b>{f.title}</b><p>{f.observed}</p>{#if f.detail}<p class="muted">{f.detail}</p>{/if}</div></div>
-        {/each}
-      </div>
+      <div class="findings">{#each rest as f (f.id)}{@render row(f)}{/each}</div>
     </details>
   {/if}
 {/if}

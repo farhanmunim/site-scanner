@@ -15,7 +15,7 @@ services:
       - REDIS_URL=redis://redis:6379
       - PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-${SERVICE_URL_WEB}}
       - ORIGIN=${PUBLIC_SITE_URL:-${SERVICE_URL_WEB}}
-      - SITE_NAME=${SITE_NAME:-Site Scan}
+      - SITE_NAME=${SITE_NAME:-Site Scanner}
       - ADMIN_EMAIL=${ADMIN_EMAIL}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
