@@ -25,6 +25,7 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
       const head = css.body.slice(0, 4000);
       theme.name = /^\s*\*?\s*Theme Name:\s*(.+)$/im.exec(head)?.[1]?.trim() ?? null;
       theme.version = /^\s*\*?\s*Version:\s*([\w.\-]+)/im.exec(head)?.[1] ?? null;
+      if (theme.version && !looksLikeVersion(theme.version)) theme.version = null;
       theme.author = /^\s*\*?\s*Author:\s*(.+)$/im.exec(head)?.[1]?.trim().replace(/<[^>]+>/g, '') ?? null;
       const template = /^\s*\*?\s*Template:\s*(\S+)/im.exec(head)?.[1];
       if (template) theme.name = `${theme.name ?? themeSlug} (child of ${template})`;
@@ -36,11 +37,11 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
   for (const slug of refs.pluginSlugs) {
     const re = new RegExp(`/wp-content/plugins/${slug.replace(/[-]/g, '\\-')}/[^"'\\s?]+\\?ver=([\\w.\\-]+)`, 'i');
     const m = re.exec(html);
-    let ver: string | null = m && /^\d/.test(m[1]!) && m[1] !== version ? m[1]! : null;
+    let ver: string | null = m && looksLikeVersion(m[1]!) && m[1] !== version ? m[1]! : null;
     const readme = files?.cms.find((f) => f.path.endsWith(`/plugins/${slug}/readme.txt`) && f.status === 200 && f.body);
     if (readme?.body) {
       const stable = /^\s*Stable tag:\s*([\w.\-]+)/im.exec(readme.body)?.[1];
-      if (stable && stable.toLowerCase() !== 'trunk' && !ver) ver = stable;
+      if (stable && looksLikeVersion(stable) && !ver) ver = stable;
     }
     let name: string | null = external?.wordpressOrg?.[slug]?.name ?? null;
     if (!name && readme?.body) name = /^===\s*(.+?)\s*===/m.exec(readme.body)?.[1] ?? null;
@@ -70,6 +71,11 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
   }
 
   return { platform: 'wordpress', version, theme, plugins, flags };
+}
+
+/** "2.6.7" yes; "1773435315" (a cache-busting timestamp) or "a1b2c3" no. */
+export function looksLikeVersion(v: string): boolean {
+  return /^\d{1,4}(\.\d{1,6}){1,3}[a-z0-9.-]{0,12}$/i.test(v);
 }
 
 export function cmpVer(a: string, b: string): number {

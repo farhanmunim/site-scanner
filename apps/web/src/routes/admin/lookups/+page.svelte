@@ -16,7 +16,7 @@
           <td class="small">{fmtDate(l.createdAt, true)}</td>
           <td class="mono small">{l.input}</td>
           <td class="small">{#if l.refusedReason}<span class="pill red">refused</span> {l.refusedReason}{:else if l.scanId}<a href="/r/{l.scanId}">{l.cacheHit ? 'cached' : 'scan'}</a>{:else}—{/if}</td>
-          <td class="small mono">{l.ip ?? l.ipHash?.slice(0, 12)}{#if l.country} · {l.country}{/if} · {l.source}</td>
+          <td class="small mono">{[l.ip ?? l.ipHash?.slice(0, 12), l.country, l.source].filter(Boolean).join(' · ')}</td>
           <td class="small muted" style="max-width: 320px; overflow-wrap: anywhere">{l.userAgent?.slice(0, 90) ?? ''}{#if l.referrer}<br />{l.referrer.slice(0, 90)}{/if}</td>
         </tr>
       {:else}<tr><td colspan="5" class="muted">No lookups yet.</td></tr>{/each}

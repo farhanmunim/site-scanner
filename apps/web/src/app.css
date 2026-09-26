@@ -175,8 +175,9 @@ p {
 .site-footer a {
   color: var(--text-3);
 }
-main {
-  padding: var(--s-5) 0 var(--s-4);
+main.container {
+  padding-top: var(--s-5);
+  padding-bottom: var(--s-6);
   min-height: 60vh;
 }
 /* Panels: a titled, framed table. */
@@ -768,8 +769,8 @@ dl.kv dd {
     padding-left: 12px;
     padding-right: 12px;
   }
-  main {
-    padding-top: 24px;
+  main.container {
+    padding-top: 20px;
   }
 }
 .print-only {
@@ -816,11 +817,13 @@ dl.kv dd {
   }
   .report-head .row {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
   .report-head .row > * {
-    width: 100%;
+    flex: 1 1 auto;
+    white-space: nowrap;
   }
   .scan-form button {
     width: 100%;
@@ -855,7 +858,7 @@ dl.kv dd {
     font-size: 10.5px;
     line-height: 1.45;
   }
-  main {
+  main.container {
     padding: 0;
   }
   .container {
@@ -896,11 +899,11 @@ dl.kv dd {
     font-size: 9px;
   }
   .overview {
-    grid-template-columns: 1fr 200px;
+    grid-template-columns: 1fr;
     gap: 10px;
   }
   .shot {
-    max-height: 130px;
+    max-height: 200px;
   }
   .light {
     font-size: 10px;
@@ -935,4 +938,157 @@ body.print-mode details.ev {
 }
 body.print-mode .print-only {
   display: block;
+}
+/* ---- polish pass ---- */
+a.plain {
+  color: inherit;
+}
+.eyebrow {
+  margin: 0 0 4px;
+}
+.stack > * + * {
+  margin-top: 16px;
+}
+.stack > .panel {
+  margin-top: 0;
+}
+.stack > .panel + .panel,
+.stack > .panel + details.panel {
+  margin-top: 16px;
+}
+.row-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+td.row-inline {
+  display: table-cell;
+}
+td.row-inline > * {
+  vertical-align: middle;
+}
+details.panel.disclosure {
+  margin-top: 16px;
+}
+details.panel.disclosure > summary {
+  list-style: none;
+  padding: 12px var(--pad-x);
+  color: var(--text-2);
+  font-weight: 500;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+details.panel.disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+details.panel.disclosure > summary::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--text-3);
+  border-bottom: 1.5px solid var(--text-3);
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+}
+details.panel.disclosure[open] > summary::before {
+  transform: rotate(45deg);
+}
+details.panel.disclosure[open] > summary {
+  border-bottom: 1px solid var(--border);
+}
+details.panel.disclosure > .body {
+  padding-top: 12px;
+}
+summary:focus:not(:focus-visible) {
+  outline: none;
+}
+.stage-list .name {
+  color: var(--text);
+}
+input.filter {
+  height: 32px;
+  max-width: 180px;
+  font-size: 13px;
+}
+table.tech td.type {
+  color: var(--text-2);
+}
+table.dns th.w-type {
+  width: 80px;
+}
+.report-head .actions {
+  gap: 8px;
+}
+.scan-another {
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--border);
+}
+.scan-another h2 {
+  margin-bottom: 12px;
+}
+.prose {
+  max-width: 760px;
+}
+.prose > h1 {
+  margin-bottom: 6px;
+}
+.prose > p.lead {
+  color: var(--text-2);
+  font-size: 15.5px;
+  margin: 0 0 var(--s-4);
+}
+.prose .panel {
+  margin-top: 20px;
+}
+.prose .panel table.kv td:first-child {
+  width: 150px;
+  font-weight: 500;
+  color: var(--text);
+}
+.login {
+  max-width: 380px;
+  margin: 24px auto;
+}
+.login h1 {
+  margin-bottom: 16px;
+}
+.stack-form {
+  display: grid;
+  gap: 12px;
+}
+.stack-form label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-2);
+  margin-bottom: 4px;
+}
+.stack-form button {
+  margin-top: 4px;
+}
+@media (max-width: 640px) {
+  table.tech th.w-label,
+  table.tech td.w-label {
+    width: auto;
+  }
+  table.tech td.type,
+  table.tech th:nth-child(3) {
+    display: none;
+  }
+  .prose .panel table.kv td:first-child {
+    width: 34%;
+  }
+}
+
+.report-head {
+  margin-top: 2px;
+}
+.report-head h1 {
+  font-size: clamp(22px, 4vw, 28px);
+  letter-spacing: -0.01em;
+}
+table.tp {
+  min-width: 560px;
 }

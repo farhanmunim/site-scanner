@@ -23,7 +23,7 @@
     const render = () => {
       const t = api();
       if (!t || widgetId) return;
-      widgetId = t.render(el, { sitekey: siteKey, size: 'flexible', theme: 'light', appearance: 'always' });
+      widgetId = t.render(el, { sitekey: siteKey, size: 'flexible', theme: 'light', appearance: 'interaction-only' });
     };
     if (api()) render();
     else {

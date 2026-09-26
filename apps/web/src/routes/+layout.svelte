@@ -12,7 +12,7 @@
 
 <header class="site-header">
   <div class="container">
-    <a class="brand" href="/" aria-label="{data.siteName} home"><img src="/favicon.svg" alt="" width="26" height="26" /><span>{data.siteName}</span></a>
+    <a class="brand" href="/" aria-label="{data.siteName} home"><img src="/favicon.svg?v=3" alt="" width="26" height="26" /><span>{data.siteName}</span></a>
     <nav class="nav" aria-label="Main">
       {#if page.data.admin}<a href="/admin">Admin</a>{/if}
       {#if !onHome}<a class="button secondary sm" href="/">New scan</a>{/if}

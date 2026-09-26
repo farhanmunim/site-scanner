@@ -10,7 +10,7 @@
     <h2>Workers</h2>
     {#each data.workers as w}
       <dl class="kv">
-        <dt>{w.id}</dt><dd>{w.role}{w.browser ? ' + browser' : ''} · v{w.version} · {w.memoryMb} MB · {w.scansDone} scans · seen {ago(w.lastSeenAt)}{#if w.currentScanId} · <a href="/r/{w.currentScanId}">busy</a>{/if}</dd>
+        <dt>{w.id}</dt><dd>{w.role}{w.browser ? ' + browser' : ''} · v{w.version} · {w.memoryMb} MB · {w.scansDone} scans · seen {ago(w.lastSeenAt)}{#if w.currentScanId}&nbsp;· <a href="/r/{w.currentScanId}">busy</a>{/if}</dd>
       </dl>
     {:else}<p class="alert red">No worker heartbeat. Scans will queue but never run.</p>{/each}
   </div>
