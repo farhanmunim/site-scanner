@@ -30,6 +30,7 @@ export function subscribeScan(id: string, onUpdate: (u: ScanUpdate) => void, opt
     onUpdate(u);
     if (TERMINAL.has(u.status)) stop();
   };
+  // The server ends the stream itself once the status is terminal; `stop` handles that.
   const startPoll = () => {
     if (poll || stopped) return;
     const tick = async () => {
@@ -43,9 +44,22 @@ export function subscribeScan(id: string, onUpdate: (u: ScanUpdate) => void, opt
     void tick();
     poll = setInterval(tick, 2000);
   };
+  // Belt and braces: if the event stream goes quiet (a proxy buffering it, a dropped
+  // connection that never errors), fall back to polling as well.
+  let lastMessage = Date.now();
+  const watchdog = setInterval(() => {
+    if (!stopped && Date.now() - lastMessage > 12_000) startPoll();
+  }, 4000);
+  const stopAll = () => {
+    clearInterval(watchdog);
+    stop();
+  };
   try {
     es = new EventSource(`/api/scans/${id}/events${q}`);
-    es.onmessage = (e) => apply(JSON.parse(e.data) as ScanUpdate);
+    es.onmessage = (e) => {
+      lastMessage = Date.now();
+      apply(JSON.parse(e.data) as ScanUpdate);
+    };
     es.onerror = () => {
       es?.close();
       es = null;
@@ -54,5 +68,5 @@ export function subscribeScan(id: string, onUpdate: (u: ScanUpdate) => void, opt
   } catch {
     startPoll();
   }
-  return stop;
+  return stopAll;
 }

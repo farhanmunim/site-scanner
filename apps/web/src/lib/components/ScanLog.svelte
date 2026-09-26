@@ -2,7 +2,7 @@
   import { STAGE_ORDER, type StageMeta, type StageName } from '@site-scanner/core/types';
   import { TERMINAL } from '$lib/scan-events';
   /** Terminal-style progress log driven by real stage statuses. */
-  let { host, stages, status }: { host: string; stages: Partial<Record<StageName, StageMeta>>; status: string } = $props();
+  let { host, stages, status, elapsed = 0 }: { host: string; stages: Partial<Record<StageName, StageMeta>>; status: string; elapsed?: number } = $props();
   const label: Record<StageName, string> = {
     dns: 'resolving host',
     http: 'fetching page',
@@ -23,19 +23,25 @@
     })
   );
   let pct = $derived(terminal ? 100 : Math.round((rows.filter((r) => r.ok).length / STAGE_ORDER.length) * 100));
+  /** Everything except the slow external APIs is done. */
+  let onlyExternalLeft = $derived(!terminal && rows.every((r) => r.ok || r.s === 'external'));
+  const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   export function progress() {
     return pct;
   }
 </script>
 
 <div class="log" aria-live="polite">
-  <span class="pct">{pct}%</span>
-  <div class="cmd"><span class="d"></span>$ site-scan run {host}</div>
+  <span class="pct">{#if elapsed > 0 && !terminal}{clock(elapsed)} · {/if}{pct}%</span>
+  <div class="cmd"><span class="d"></span><span class="t">$ site-scan run {host}</span></div>
   {#each rows as r (r.s)}
-    <div class={r.cls} title={r.note ?? undefined}><span class="d"></span>&gt; {r.text}...{#if r.ok}<span class="ok {r.ok.c}">{r.ok.t}</span>{/if}</div>
+    <div class={r.cls} title={r.note ?? undefined}><span class="d"></span><span class="t">&gt; {r.text}...</span>{#if r.ok}<span class="ok {r.ok.c}">{r.ok.t}</span>{/if}</div>
   {/each}
+  {#if onlyExternalLeft && elapsed > 12}
+    <div class="hint"><span class="d"></span><span class="t">google pagespeed can take up to a minute; everything else is ready</span></div>
+  {/if}
   {#if terminal}
-    <div class="cmd"><span class="d"></span>&gt; {status === 'failed' ? 'scan failed. opening report_' : 'done. opening report_'}<span class="cursor"></span></div>
+    <div class="cmd"><span class="d"></span><span class="t">&gt; {status === 'failed' ? 'scan failed. opening report_' : 'done. opening report_'}<span class="cursor"></span></span></div>
   {/if}
 </div>
 <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct}><i style="width: {pct}%"></i></div>

@@ -8,11 +8,13 @@
   let { scanId, host }: { scanId: string; host: string } = $props();
   let status = $state('queued');
   let stages = $state<Partial<Record<StageName, StageMeta>>>({});
-  let slow = $state(false);
+  let elapsed = $state(0);
+  let showOpen = $derived(elapsed >= 15);
 
   onMount(() => {
     document.body.classList.add('modal-open');
-    const slowTimer = setTimeout(() => (slow = true), 90_000);
+    const started = Date.now();
+    const ticker = setInterval(() => (elapsed = Math.round((Date.now() - started) / 1000)), 1000);
     let redirect: ReturnType<typeof setTimeout> | null = null;
     const stop = subscribeScan(
       scanId,
@@ -25,7 +27,7 @@
     );
     return () => {
       document.body.classList.remove('modal-open');
-      clearTimeout(slowTimer);
+      clearInterval(ticker);
       if (redirect) clearTimeout(redirect);
       stop();
     };
@@ -36,7 +38,12 @@
   <div class="win" role="dialog" aria-modal="true" aria-labelledby="scan-title">
     <h2 id="scan-title">Running scan</h2>
     <div class="target">{host}</div>
-    <ScanLog {host} {stages} {status} />
-    {#if slow}<p class="escape">Taking longer than usual. <a class="link" href="/r/{scanId}">Open the live report</a> — it fills in as each step finishes.</p>{/if}
+    <ScanLog {host} {stages} {status} {elapsed} />
+    {#if showOpen}
+      <div class="escape">
+        <a class="btn btn-outline" href="/r/{scanId}">Open the report now</a>
+        <span>It keeps filling in as the last checks finish.</span>
+      </div>
+    {/if}
   </div>
 </div>

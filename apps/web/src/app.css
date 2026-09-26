@@ -952,11 +952,24 @@ a.tag:hover {
   font-size: 11px;
 }
 .log > div {
-  white-space: pre-wrap;
-  word-break: break-all;
   display: flex;
   align-items: baseline;
   gap: 8px;
+}
+.log .t {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.log > div:first-of-type {
+  padding-right: 90px;
+}
+.log .hint {
+  color: var(--text-3);
+  font-style: italic;
+}
+.log .hint .d {
+  visibility: hidden;
 }
 .log .d {
   width: 7px;
@@ -1038,6 +1051,10 @@ a.tag:hover {
   margin-top: 14px;
   font-size: 12px;
   color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 @media (prefers-reduced-motion: reduce) {
   .cursor {
