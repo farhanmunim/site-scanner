@@ -2,11 +2,10 @@
   import type { Finding } from '@site-scanner/core/types';
   import Badge from './Badge.svelte';
   /**
-   * Findings as rows: status · name · observed value. "Why it matters" is a per-row
-   * disclosure. `codes` maps a finding id to a literal label (a header name) shown in mono;
-   * `values` supplies a mono value chip per id. Rows needing attention stay visible; passed
-   * and informational rows fold into a dropdown unless `collapsePassed` is false or a filter
-   * is active. Under 640px the table stacks (see .hdrs in app.css).
+   * Findings as a "defence matrix": badge · name · observed value + insight.
+   * `codes` maps a finding id to a mono label (e.g. a header name); `values` supplies a
+   * mono value chip per id. Rows needing attention stay visible; passed and informational
+   * rows fold into a dropdown unless `collapsePassed` is false or a filter is active.
    */
   let { findings, codes = {}, values = {}, empty = 'Nothing to show.', filter = '', collapsePassed = true, open = false }: { findings: Finding[]; codes?: Record<string, string>; values?: Record<string, string | null | undefined>; empty?: string; filter?: string; collapsePassed?: boolean; open?: boolean } = $props();
   const order: Record<string, number> = { bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 };
@@ -35,19 +34,19 @@
 {#snippet rows(list: Finding[])}
   <div class="table-wrap">
     <table class="table hdrs">
-      <thead><tr><th>Status</th><th>Check</th><th>Observed value</th></tr></thead>
+      <thead><tr><th>Status</th><th>Check</th><th>Observed value &amp; insight</th></tr></thead>
       <tbody>
         {#each list as f (f.id)}
           {@const v = value(f)}
           <tr id={f.id}>
             <td><Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} /></td>
-            <td class="code-cell"><span class="m-badge"><Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} /></span><h3>{codes[f.id] ?? f.title}</h3>{#if codes[f.id]}<span class="sub">{f.title}</span>{/if}</td>
+            <td class="code-cell"><span class="m-badge"><Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} /></span>{codes[f.id] ?? f.title}{#if codes[f.id]}<span class="sub">{f.title}</span>{/if}</td>
             <td>
               {#if v.chip !== null}<span class="val" class:miss={v.miss}>{v.chip}</span>{/if}
               {#if v.text}<div class:insight={v.chip !== null}>{v.text}</div>{/if}
               {#if v.chip !== null && !v.text && f.observed && f.observed !== v.chip && !v.miss}<div class="insight">{f.observed}</div>{/if}
               {#if v.miss && f.observed}<div class="insight">{f.observed}</div>{/if}
-              {#if f.detail}<details class="why" {open}><summary>Why it matters</summary><p>{f.detail}</p></details>{/if}
+              {#if f.detail}<div class="insight">{f.detail}</div>{/if}
             </td>
           </tr>
         {/each}

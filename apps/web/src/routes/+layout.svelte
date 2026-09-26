@@ -4,6 +4,7 @@
   import ThemeToggle from '$lib/components/ThemeToggle.svelte';
   let { children, data } = $props();
   let onHome = $derived(page.url.pathname === '/');
+  const year = new Date().getFullYear();
 </script>
 
 <svelte:head>
@@ -16,13 +17,13 @@
     <span class="brand-title">{data.siteName}</span>
   </a>
   <ul class="navi">
-    {#if !onHome}<li><a href="/">Scanner</a></li>{/if}
+    <li><a href="/" class:active={onHome}>Scanner</a></li>
     <li><a href="/bot" class:active={page.url.pathname === '/bot'}>How it works</a></li>
     {#if page.data.admin}<li><a href="/admin" class:active={page.url.pathname.startsWith('/admin')}>Admin</a></li>{/if}
   </ul>
   <div class="hactions">
     <ThemeToggle />
-    {#if !onHome}<a class="btn btn-primary" href="/">{page.url.pathname.startsWith('/r/') ? 'Scan another site' : 'New scan'}</a>{/if}
+    <a class="btn btn-primary" href={onHome ? '#url' : '/'}>{page.url.pathname.startsWith('/r/') ? 'Scan another site' : '+ New scan'}</a>
   </div>
 </header>
 <main class="main">
@@ -33,6 +34,6 @@
   <nav aria-label="Footer">
     <a href="/bot">How it works</a>
     <a href="/privacy">Privacy</a>
-    <a href="https://farhan.app/" rel="noopener">Built by Farhan</a>
+    <span>© {year} farhan.app</span>
   </nav>
 </footer>

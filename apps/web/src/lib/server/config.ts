@@ -50,7 +50,7 @@ export const config = {
   maxQueueDepth: Number(env.MAX_QUEUE_DEPTH ?? 20),
   /** Public contact shown on /bot and /privacy. Only ever ABUSE_CONTACT; the admin email is never published. */
   abuseContact: (env.ABUSE_CONTACT ?? '').trim(),
-  siteName: env.SITE_NAME ?? 'Site Scanner',
+  siteName: env.SITE_NAME ?? 'Site Scan',
   /** Optional self-hosted Umami analytics for the scanner's own pages. */
   umamiScriptUrl: env.UMAMI_SCRIPT_URL ?? '',
   umamiWebsiteId: env.UMAMI_WEBSITE_ID ?? ''
