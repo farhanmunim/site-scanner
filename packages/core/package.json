@@ -9,6 +9,7 @@
     "./gather": "./src/gather/index.ts",
     "./analyze": "./src/analyze/index.ts",
     "./analyze/score": "./src/analyze/score.ts",
+    "./analyze/profile": "./src/analyze/profile.ts",
     "./types": "./src/types.ts"
   },
   "scripts": {

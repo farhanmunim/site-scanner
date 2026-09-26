@@ -8,8 +8,9 @@
    */
   let { findings, codes = {}, values = {}, empty = 'Nothing to show.', filter = '' }: { findings: Finding[]; codes?: Record<string, string>; values?: Record<string, string | null | undefined>; empty?: string; filter?: string } = $props();
   const order: Record<string, number> = { bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 };
+  const rank = (x: Finding) => (x.relevance === 'low' ? 6 : (order[x.status] ?? 9));
   const MISSING = /\b(not observed|not set|not found|not present|no [a-z-]+ record|none seen|missing)\b/i;
-  let sorted = $derived([...findings].sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9)));
+  let sorted = $derived([...findings].sort((a, b) => rank(a) - rank(b)));
   let shown = $derived(filter ? sorted.filter((f) => `${f.id} ${f.title} ${codes[f.id] ?? ''} ${f.observed} ${f.detail ?? ''}`.toLowerCase().includes(filter.toLowerCase())) : sorted);
   const headerEvidence = (f: Finding) => f.evidence?.find((e) => e.source === 'header' && e.value)?.value ?? null;
   function value(f: Finding): { chip: string | null; miss: boolean; text: string | null } {
@@ -31,8 +32,8 @@
       {#each shown as f (f.id)}
         {@const v = value(f)}
         <tr id={f.id}>
-          <td><Badge status={f.status} /></td>
-          <td class="code-cell"><span class="m-badge"><Badge status={f.status} /></span>{codes[f.id] ?? f.title}{#if codes[f.id]}<span class="sub">{f.title}</span>{/if}</td>
+          <td><Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} /></td>
+          <td class="code-cell"><span class="m-badge"><Badge status={f.status} label={f.relevance === 'low' ? 'Low impact' : undefined} /></span>{codes[f.id] ?? f.title}{#if codes[f.id]}<span class="sub">{f.title}</span>{/if}</td>
           <td>
             {#if v.chip !== null}<span class="val" class:miss={v.miss}>{v.chip}</span>{/if}
             {#if v.text}<div class:insight={v.chip !== null}>{v.text}</div>{/if}

@@ -254,6 +254,17 @@ export interface Finding {
   /** OWASP Top 10 (2021) tag e.g. "A05" */
   owasp?: string;
   evidence?: Evidence[];
+  /** "low" = kept for information only; not scored (e.g. clickjacking on a static site). */
+  relevance?: 'low';
+}
+
+/** What kind of site this is; decides which checks are relevant. */
+export interface SiteProfile {
+  kind: 'static' | 'site' | 'cms' | 'app' | 'shop';
+  /** Has logins, forms, sessions or its own API: security headers matter fully. */
+  interactive: boolean;
+  /** Plain-language reasons, e.g. "no forms on the homepage". */
+  signals: string[];
 }
 
 export interface InfraSummary {
@@ -345,6 +356,7 @@ export interface Report {
   external: { wayback: string | null; greenHosting: ExternalData['greenHosting']; subdomains?: SubdomainData | null };
   /** Added in reportVersion 2; older stored reports get it computed at read time. */
   scores?: Scores;
+  profile?: SiteProfile;
 }
 
 // ---------------------------------------------------------------------------

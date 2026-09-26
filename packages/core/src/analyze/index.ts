@@ -22,6 +22,8 @@ export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
 export { scoreReport, scoreTone, gradeFor, cwvVerdict, vitals, CWV_THRESHOLDS, PENALTY_OVERRIDES, SECTION_LABELS, SECTION_WEIGHTS } from './score.js';
 import { scoreReport } from './score.js';
+import { applyProfile, profileSite } from './profile.js';
+export { profileSite, applyProfile, PROFILE_LABELS } from './profile.js';
 
 /**
  * Turn gathered data into the canonical Report. Pure and deterministic given the input
@@ -75,7 +77,12 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
   const robots = data.files ? analyseRobots(data.files.robots, baseUrl) : null;
   const seo = parsed && final ? analyseSeo(parsed, baseUrl, robots, data.files?.sitemap ?? null, final.headers) : null;
   const cookies = browser?.cookies ?? [];
-  const security = http ? auditSecurityHeaders(http, tls, parsed, browser ? cookies : null, technologies) : [];
+  const rawSecurity = http ? auditSecurityHeaders(http, tls, parsed, browser ? cookies : null, technologies) : [];
+  const xhrSameOrigin = browser ? browser.requests.filter((r) => (r.type === 'xhr' || r.type === 'fetch') && r.host === new URL(baseUrl).hostname).length : 0;
+  // A bot-challenge page tells us nothing about the real site, so don't profile it.
+  const blocked = !!(http?.challenge || browser?.blocked);
+  const profile = parsed && !blocked ? profileSite({ technologies, html: parsed, cookies, xhrSameOrigin, security: rawSecurity }) : undefined;
+  const security = profile ? applyProfile(rawSecurity, profile) : rawSecurity;
   const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain) : [];
   const thirdParties = summariseThirdParties(parsed, browser?.requests ?? null, new URL(baseUrl).hostname, technologies);
   const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}) ?? analyseShopify(rawHtml || renderedHtml, technologies);
@@ -134,7 +141,8 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     screenshot,
     safeBrowsing: data.external?.safeBrowsing ?? null,
     external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null, subdomains: data.external?.subdomains ?? null },
-    scores: scoreReport({ security, email, privacy, seo, performance: psi })
+    scores: scoreReport({ security, email, privacy, seo, performance: psi }),
+    profile
   };
 }
 

@@ -71,7 +71,8 @@ export function cwvVerdict(metric: keyof typeof CWV_THRESHOLDS, value: number): 
   return value <= g ? 'good' : value <= n ? 'needs-work' : 'poor';
 }
 
-export function penaltyFor(f: Pick<Finding, 'id' | 'status'>): number {
+export function penaltyFor(f: Pick<Finding, 'id' | 'status' | 'relevance'>): number {
+  if (f.relevance === 'low') return 0;
   const o = PENALTY_OVERRIDES[f.id]?.[f.status];
   if (o !== undefined) return o;
   return DEFAULT_PENALTY[f.status] ?? 0;

@@ -1212,6 +1212,11 @@ a.tag:hover {
 .tmeta .mono {
   font-size: 11px;
 }
+.tmeta.profile-line {
+  display: block;
+  color: var(--text-2);
+  max-width: 70ch;
+}
 .tactions {
   display: flex;
   gap: 8px;

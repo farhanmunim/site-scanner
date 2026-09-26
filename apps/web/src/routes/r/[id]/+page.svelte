@@ -3,6 +3,7 @@
   import { page } from '$app/state';
   import type { Finding, IpInfo, Report, StageMeta, StageName, TechnologyDetection, CertChainEntry } from '@site-scanner/core/types';
   import { CWV_THRESHOLDS, cwvVerdict, scoreTone, vitals } from '@site-scanner/core/analyze/score';
+  import { PROFILE_LABELS } from '@site-scanner/core/analyze/profile';
   import Badge from '$lib/components/Badge.svelte';
   import FindingsTable from '$lib/components/FindingsTable.svelte';
   import ScanLog from '$lib/components/ScanLog.svelte';
@@ -188,6 +189,7 @@
         <h1 class="turl"><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank">{data.scan.displayHost}</a></h1>
         {#if report}<Badge status={httpBadge.c} label={httpBadge.t} />{/if}
         {#if status !== 'complete'}<Badge status={status === 'failed' ? 'fail' : running ? 'info' : 'warn'} label={statusText[status] ?? status} />{/if}
+        {#if report?.profile}<span class="badge badge-info" title={report.profile.signals.join(' · ')}>{PROFILE_LABELS[report.profile.kind]}</span>{/if}
       </div>
       <div class="tmeta">
         <span>{durationMs ? `${fmtMs(durationMs)} scan` : running ? 'In progress' : 'Scan'}</span><span aria-hidden="true">·</span>
@@ -196,6 +198,7 @@
         <span aria-hidden="true">·</span><span class="mono" title={data.scan.id}>ID: {data.scan.id.slice(0, 8)}…</span>
         <span aria-hidden="true" class="no-print">·</span><a class="link no-print" href="/api/scans/{data.scan.id}" rel="nofollow">JSON</a>
       </div>
+      {#if report?.profile}<div class="tmeta profile-line">{PROFILE_LABELS[report.profile.kind]}: {report.profile.signals.join(', ')}.{#if !report.profile.interactive}&nbsp;Checks that only matter for logins, forms and sessions are shown for information and not scored.{/if}</div>{/if}
     </div>
   </div>
   <div class="tactions no-print">
@@ -273,7 +276,7 @@
 
       <!-- ===== Security headers ===== -->
       <div class="card allow-break" id="c-headers">
-        <div class="card-h"><div><div class="card-title">HTTP response defence matrix</div><div class="card-sub">Security directives on the homepage response. "Warn" items are hardening opportunities, not proof of a vulnerability.</div></div>{#if headerFindings.length}<input class="filter no-print" placeholder="Filter directives…" aria-label="Filter directives" bind:value={headerFilter} />{/if}</div>
+        <div class="card-h"><div><div class="card-title">HTTP response defence matrix</div><div class="card-sub">{#if report.profile && !report.profile.interactive}Security directives on the homepage response. Browser-isolation headers (CSP, clickjacking, COOP) protect logins and sessions; this site has none, so they are listed as low impact and not scored.{:else}Security directives on the homepage response. "Warn" items are hardening opportunities, not proof of a vulnerability.{/if}</div></div>{#if headerFindings.length}<input class="filter no-print" placeholder="Filter directives…" aria-label="Filter directives" bind:value={headerFilter} />{/if}</div>
         <FindingsTable findings={headerFindings} codes={HEADER_CODES} filter={headerFilter} empty="No page response to assess." />
         {#if report.cookies.length}
           <div class="card-h" style="border-top: 1px solid var(--border)"><div><div class="card-title">Cookies set on arrival</div><div class="card-sub">{report.cookies.length} cookie(s) before any interaction.</div></div></div>
