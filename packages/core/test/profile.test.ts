@@ -34,7 +34,8 @@ describe('applyProfile', () => {
     expect(out.find((x) => x.id === 'hsts')?.status).toBe('warn');
     expect(out.find((x) => x.id === 'https')?.status).toBe('bad');
     const s = scoreReport({ security: out, email: [], privacy: [], seo: null, performance: null });
-    expect(s.sections.find((x) => x.id === 'headers')?.score).toBe(100);
+    // Only low-impact rows remain, so the headers section is not scored at all.
+    expect(s.sections.find((x) => x.id === 'headers')?.score).toBeNull();
     expect(s.sections.find((x) => x.id === 'tls')?.score).toBe(32);
   });
   it('leaves an interactive site untouched', () => {

@@ -48,7 +48,24 @@ describe('scoreReport', () => {
     expect(s.sections.find((x) => x.id === 'performance')!.score).toBeNull();
     expect(s.sections.find((x) => x.id === 'email')!.score).toBeNull();
     expect(s.overall).toBe(100);
-    expect(s.summary).toMatch(/not measured/);
+    expect(s.summary).toMatch(/were not scored/);
+  });
+
+  it('does not score a section where nothing could be verified', () => {
+    const email = [{ id: 'mx', title: 'Receives email', status: 'info', observed: 'No MX records. The domain does not appear to receive email.' } as Finding, f('spf', 'info'), f('dmarc', 'info'), f('dkim', 'unknown')];
+    const s = scoreReport({ security: goodSecurity, email, seo: goodSeo, privacy: goodPrivacy, performance: psi() });
+    const e = s.sections.find((x) => x.id === 'email')!;
+    expect(e.score).toBeNull();
+    expect(e.note).toMatch(/does not receive email/);
+    expect(s.overall).toBe(100);
+    expect(s.summary).toMatch(/Email protection was not scored: this domain does not receive email/);
+  });
+
+  it('does not score security headers when every check is low impact', () => {
+    const security = [{ ...f('csp', 'info'), relevance: 'low' as const }, { ...f('framing', 'info'), relevance: 'low' as const }, f('permissions', 'info')];
+    const s = scoreReport({ security, email: goodEmail, seo: goodSeo, privacy: goodPrivacy, performance: psi() });
+    expect(s.sections.find((x) => x.id === 'headers')!.score).toBeNull();
+    expect(s.sections.find((x) => x.id === 'headers')!.note).toMatch(/No security-header checks apply/);
   });
 
   it('blends Lighthouse with Core Web Vitals, preferring field data', () => {

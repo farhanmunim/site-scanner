@@ -14,7 +14,7 @@ export function auditEmail(dns: DnsRecords, registrable: string): Finding[] {
     const status: Finding['status'] = all === '-' || all === '~' ? 'good' : all === '?' ? 'warn' : 'warn';
     out.push({ id: 'spf', title: 'Approved senders (SPF)', status, observed: `${rec}`, detail: all === '+' || all === '' ? 'The record ends without ~all/-all, so it does not tell receivers to reject unknown senders.' : lookups > 10 ? `Around ${lookups} DNS-lookup mechanisms; SPF permits 10, beyond which receivers treat the record as an error.` : 'SPF lists the servers allowed to send mail for this domain.', evidence: [{ source: 'dns', key: 'TXT', value: rec }] });
   } else if (spf.length > 1) out.push({ id: 'spf', title: 'Approved senders (SPF)', status: 'bad', observed: `${spf.length} SPF records found; receivers treat multiple records as a permanent error.` });
-  else out.push({ id: 'spf', title: 'Approved senders (SPF)', status: hasMx ? 'warn' : 'info', observed: 'No SPF record observed.', detail: hasMx ? 'Without SPF, anyone can send mail claiming to be from this domain and receivers cannot tell.' : 'A domain that sends no mail can publish "v=spf1 -all" to say so.' });
+  else out.push({ id: 'spf', title: 'Approved senders (SPF)', status: hasMx ? 'warn' : 'info', observed: 'No SPF record observed.', detail: hasMx ? 'Without SPF, anyone can send mail claiming to be from this domain and receivers cannot tell.' : 'A domain that sends no mail can still be spoofed. Publishing "v=spf1 -all" and a DMARC record with p=reject tells receivers to drop any mail claiming to come from it.' });
 
   const dmarc = dns.dmarc.find((t) => /^v=DMARC1\b/i.test(t));
   if (dmarc) {

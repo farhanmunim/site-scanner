@@ -78,9 +78,21 @@ export function penaltyFor(f: Pick<Finding, 'id' | 'status' | 'relevance'>): num
   return DEFAULT_PENALTY[f.status] ?? 0;
 }
 
+/** Why a finding-based section could not be scored, in plain language. */
+function unscoredNote(id: ScoreSectionId, findings: Finding[]): string {
+  if (!findings.length) return 'Not assessed in this scan.';
+  if (id === 'email' && findings.some((f) => f.id === 'mx' && /no mx/i.test(f.observed))) return 'This domain does not receive email, so there is nothing to verify.';
+  if (id === 'headers' && findings.every((f) => f.relevance === 'low' || f.status === 'info')) return 'No security-header checks apply to this site.';
+  if (id === 'privacy') return 'No trackers or cookies to assess.';
+  return 'Nothing here could be verified.';
+}
+
 function scoreFindings(id: ScoreSectionId, findings: Finding[], exclude: ReadonlySet<string>): SectionScore {
   const base = { id, label: SECTION_LABELS[id], weight: SECTION_WEIGHTS[id] };
-  if (!findings.length) return { ...base, score: null, penalties: [], note: 'Not assessed in this scan.' };
+  // Score only what was actually verified: at least one check that passed or failed and
+  // still counts. A section made entirely of "info" rows has earned nothing.
+  const assessed = findings.filter((f) => !exclude.has(f.id) && f.relevance !== 'low' && (f.status === 'good' || f.status === 'warn' || f.status === 'bad'));
+  if (!assessed.length) return { ...base, score: null, penalties: [], note: unscoredNote(id, findings) };
   const penalties: ScorePenalty[] = [];
   let score = 100;
   for (const f of findings) {
@@ -188,7 +200,7 @@ export function scoreReport(r: ScoreInput): Scores {
   all.sort((a, b) => b.points - a.points);
   const bad = all.filter((p) => p.status === 'bad').length;
   const top = all.slice(0, 2);
-  const notMeasured = ss.filter((s) => s.score === null).map((s) => s.label.toLowerCase());
+  const notMeasured = ss.filter((s) => s.score === null);
 
   let summary: string;
   if (!top.length) summary = 'No findings to fix. Keep the certificate, platform and dependencies current.';
@@ -202,7 +214,10 @@ export function scoreReport(r: ScoreInput): Scores {
     const lift = lifted !== null && overall !== null && lifted > overall ? ` would lift this to an estimated ${lifted}.` : ' is the biggest opportunity.';
     summary = `${lead} Fixing ${list}${lift}`;
   }
-  if (notMeasured.length) summary += ` ${notMeasured.length === 1 ? notMeasured[0]!.replace(/^./, (c) => c.toUpperCase()) + ' was' : 'Some sections were'} not measured.`;
+  if (notMeasured.length === 1) {
+    const n = notMeasured[0]!;
+    summary += n.id === 'performance' ? ' Performance was not measured.' : ` ${n.label} was not scored: ${(n.note ?? 'nothing to verify').replace(/\.$/, '').replace(/^./, (c) => c.toLowerCase())}.`;
+  } else if (notMeasured.length > 1) summary += ` ${notMeasured.map((n) => n.label.toLowerCase()).join(', ').replace(/^./, (c) => c.toUpperCase())} were not scored.`;
 
   return { version: 1, overall, grade: gradeFor(overall), summary, sections: ss };
 }

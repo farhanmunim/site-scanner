@@ -74,6 +74,7 @@
   let ringOffset = $derived(overall === null ? 377 : Math.round(377 * (1 - overall / 100)));
   let tone = $derived(scoreTone(overall));
   let sectionScore = (id: string) => scores?.sections.find((s) => s.id === id)?.score ?? null;
+  let sectionNote = (id: string) => scores?.sections.find((s) => s.id === id)?.note ?? null;
   let headerFindings = $derived((report?.security ?? []).filter((f) => !TLS_IDS.has(f.id)));
   let tlsFindings = $derived((report?.security ?? []).filter((f) => TLS_IDS.has(f.id)));
   let techFilter = $state('');
@@ -124,7 +125,7 @@
     return { c: st < 400 ? 'pass' : 'fail', t: `HTTP ${st}` } as const;
   });
   let nav = $derived([
-    ...(scores?.sections ?? []).filter((s) => s.score !== null).map((s) => ({ href: `#c-${s.id === 'headers' ? 'headers' : s.id === 'tls' ? 'tls' : s.id === 'performance' ? 'vitals' : s.id}`, label: s.label, value: running ? null : `${s.score} / 100`, tone: running ? 'grey' : scoreTone(s.score) })),
+    ...(scores?.sections ?? []).map((s) => ({ href: `#c-${s.id === 'headers' ? 'headers' : s.id === 'tls' ? 'tls' : s.id === 'performance' ? 'vitals' : s.id}`, label: s.label, value: running ? null : s.score === null ? (s.id === 'performance' ? 'Not measured' : 'Not scored') : `${s.score} / 100`, tone: running || s.score === null ? 'grey' : scoreTone(s.score), title: s.note ?? undefined })),
     { href: '#c-stack', label: 'Technology', value: `${report?.technologies.length ?? 0} found`, tone: 'grey' as const },
     { href: '#c-hosting', label: 'Hosting & DNS', value: report?.infra.cdn?.name ?? report?.infra.hosting?.name ?? '', tone: 'grey' as const },
     ...(report?.external.subdomains ? [{ href: '#c-subdomains', label: 'Subdomains', value: `${report.external.subdomains.total} found`, tone: 'grey' as const }] : []),
@@ -236,7 +237,7 @@
       <div class="card checklist">
         <div class="lab">Report sections</div>
         {#each nav as n (n.href)}
-          <a class="chk" href={n.href}><b>{n.label}</b>{#if n.value}<span class={toneClass[n.tone]}>{n.value}</span>{/if}</a>
+          <a class="chk" href={n.href} title={'title' in n ? n.title : undefined}><b>{n.label}</b>{#if n.value}<span class={toneClass[n.tone]}>{n.value}</span>{/if}</a>
         {/each}
       </div>
     </aside>
@@ -276,7 +277,7 @@
 
       <!-- ===== Security headers ===== -->
       <div class="card allow-break" id="c-headers">
-        <div class="card-h"><div><div class="card-title">HTTP response defence matrix</div><div class="card-sub">{#if report.profile && !report.profile.interactive}Security directives on the homepage response. Browser-isolation headers (CSP, clickjacking, COOP) protect logins and sessions; this site has none, so they are listed as low impact and not scored.{:else}Security directives on the homepage response. "Warn" items are hardening opportunities, not proof of a vulnerability.{/if}</div></div>{#if headerFindings.length}<input class="filter no-print" placeholder="Filter directives…" aria-label="Filter directives" bind:value={headerFilter} />{/if}</div>
+        <div class="card-h"><div><div class="card-title">HTTP response defence matrix</div><div class="card-sub">{#if report.profile && !report.profile.interactive}Security directives on the homepage response. Browser-isolation headers (CSP, clickjacking, COOP) protect logins and sessions; this site has none, so they are listed as low impact and not scored.{:else}Security directives on the homepage response. "Warn" items are hardening opportunities, not proof of a vulnerability.{/if}</div></div><span class="row-inline" style="display: inline-flex; gap: 8px; align-items: center">{#if !running}{#if sectionScore('headers') !== null}<Badge status={scoreTone(sectionScore('headers'))} label="{sectionScore('headers')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}{#if headerFindings.length}<input class="filter no-print" placeholder="Filter directives…" aria-label="Filter directives" bind:value={headerFilter} />{/if}</span></div>
         <FindingsTable findings={headerFindings} codes={HEADER_CODES} filter={headerFilter} empty="No page response to assess." />
         {#if report.cookies.length}
           <div class="card-h" style="border-top: 1px solid var(--border)"><div><div class="card-title">Cookies set on arrival</div><div class="card-sub">{report.cookies.length} cookie(s) before any interaction.</div></div></div>
@@ -364,7 +365,7 @@
 
       <!-- ===== SEO ===== -->
       <div class="card allow-break" id="c-seo">
-        <div class="card-h"><div><div class="card-title">SEO &amp; meta tags</div><div class="card-sub">Homepage metadata and crawl configuration.</div></div>{#if sectionScore('seo') !== null && !running}<Badge status={scoreTone(sectionScore('seo'))} label="{sectionScore('seo')} / 100" />{/if}</div>
+        <div class="card-h"><div><div class="card-title">SEO &amp; meta tags</div><div class="card-sub">Homepage metadata and crawl configuration.{#if !running && sectionScore('seo') === null && sectionNote('seo')}&nbsp;{sectionNote('seo')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('seo') !== null}<Badge status={scoreTone(sectionScore('seo'))} label="{sectionScore('seo')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
         {#if report.seo}
           <FindingsTable findings={report.seo.findings} codes={SEO_CODES} values={seoValues} />
           <div class="table-wrap">
@@ -384,7 +385,7 @@
 
       <!-- ===== Email ===== -->
       <div class="card allow-break" id="c-email">
-        <div class="card-h"><div><div class="card-title">Email protection</div><div class="card-sub">Whether others can send email pretending to be this domain.</div></div>{#if sectionScore('email') !== null && !running}<Badge status={scoreTone(sectionScore('email'))} label="{sectionScore('email')} / 100" />{/if}</div>
+        <div class="card-h"><div><div class="card-title">Email protection</div><div class="card-sub">Whether others can send email pretending to be this domain.{#if !running && sectionScore('email') === null && sectionNote('email')}&nbsp;{sectionNote('email')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('email') !== null}<Badge status={scoreTone(sectionScore('email'))} label="{sectionScore('email')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
         {#if report.email.length}
           <div class="findings">
             {#each [...report.email].sort((a, b) => ({ bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 }[a.status] ?? 9) - ({ bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 }[b.status] ?? 9)) as f (f.id)}
@@ -457,7 +458,7 @@
 
       <!-- ===== Privacy ===== -->
       <div class="card allow-break" id="c-privacy">
-        <div class="card-h"><div><div class="card-title">Privacy &amp; third parties</div><div class="card-sub">Trackers, ad pixels, consent and everything the page loads from other companies.</div></div>{#if sectionScore('privacy') !== null && !running}<Badge status={scoreTone(sectionScore('privacy'))} label="{sectionScore('privacy')} / 100" />{/if}</div>
+        <div class="card-h"><div><div class="card-title">Privacy &amp; third parties</div><div class="card-sub">Trackers, ad pixels, consent and everything the page loads from other companies.{#if !running && sectionScore('privacy') === null && sectionNote('privacy')}&nbsp;{sectionNote('privacy')} Not scored.{/if}</div></div>{#if !running}{#if sectionScore('privacy') !== null}<Badge status={scoreTone(sectionScore('privacy'))} label="{sectionScore('privacy')} / 100" />{:else}<span class="badge badge-neutral">Not scored</span>{/if}{/if}</div>
         {#if report.privacy.length}
           <div class="findings">
             {#each report.privacy as f (f.id)}
