@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { Finding } from '@site-scanner/core/types';
   import Light from './Light.svelte';
-  import Evidence from './Evidence.svelte';
   let { findings, empty = 'Nothing to show.' }: { findings: Finding[]; empty?: string } = $props();
   // Worst first: fix → check → good → info.
   const order: Record<string, number> = { bad: 0, warn: 1, good: 2, info: 3, unknown: 4, na: 5 };
@@ -18,7 +17,7 @@
         <td class="wrap">
           {f.observed}
           {#if f.detail}<div class="muted small detail">{f.detail}</div>{/if}
-          {#if f.evidence?.length}<details class="ev"><summary>Show evidence</summary><Evidence items={f.evidence} /></details>{/if}
+          
         </td>
       </tr>
     {:else}

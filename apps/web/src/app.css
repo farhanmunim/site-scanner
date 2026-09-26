@@ -1092,3 +1092,123 @@ table.dns th.w-type {
 table.tp {
   min-width: 560px;
 }
+/* ---- scan-in-progress loader ---- */
+.ellipsis::after {
+  content: '';
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: ellipsis 1.5s steps(4, end) infinite;
+}
+@keyframes ellipsis {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+.progress {
+  position: relative;
+  height: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.progress::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 35%;
+  background: var(--accent);
+  animation: slide 1.4s ease-in-out infinite;
+}
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ellipsis::after {
+    content: '…';
+    animation: none;
+  }
+  .progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.4;
+  }
+}
+/* ---- print: headings stay with their tables, long panels may split, screenshot beside key facts ---- */
+@media print {
+  .panel {
+    break-inside: auto;
+  }
+  .panel.glance,
+  .panel.facts,
+  .panel.shot-panel,
+  .grid > .panel {
+    break-inside: avoid;
+  }
+  .panel > header,
+  thead,
+  tr {
+    break-inside: avoid;
+  }
+  .panel > header {
+    break-after: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+  section.report-section > h2,
+  section.report-section > p.lead {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+  section.report-section > h2 {
+    margin-top: 6px;
+  }
+  table.findings tr {
+    display: table-row;
+  }
+  .overview {
+    grid-template-columns: minmax(0, 1fr) 236px;
+    gap: 10px;
+    align-items: start;
+  }
+  .overview > .stack {
+    display: contents;
+  }
+  .panel.glance {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .panel.facts {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 0;
+  }
+  .panel.shot-panel {
+    grid-column: 2;
+    grid-row: 2;
+    margin-top: 0;
+  }
+  .panel.shot-panel > header .hint {
+    display: none;
+  }
+  .shot {
+    max-height: none;
+  }
+  .report-section + .report-section {
+    margin-top: 18px;
+  }
+}

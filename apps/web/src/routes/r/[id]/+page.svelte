@@ -5,7 +5,6 @@
   import Stages from '$lib/components/Stages.svelte';
   import Light from '$lib/components/Light.svelte';
   import FindingsTable from '$lib/components/FindingsTable.svelte';
-  import Evidence from '$lib/components/Evidence.svelte';
   import { ago, daysUntil, fmtBytes, fmtDate, fmtMs } from '$lib/format';
 
   let { data } = $props();
@@ -76,6 +75,7 @@
 
   let techFilter = $state('');
   let techs = $derived((report?.technologies ?? []).filter((t) => !techFilter || t.name.toLowerCase().includes(techFilter.toLowerCase()) || t.categories.some((c) => c.name.toLowerCase().includes(techFilter.toLowerCase()))));
+  let anyVersion = $derived((report?.technologies ?? []).some((t) => t.version));
   let builtWith = $derived((report?.technologies ?? []).filter((t) => !t.implied && t.confidence !== 'low' && !t.categories.every((c) => notBuiltWith.test(c.name))).slice(0, 14));
   let platformName = $derived(report?.cms ? (report.cms.platform === 'wordpress' ? 'WordPress' : 'Shopify') : '');
   let platformLine = $derived(report?.cms ? dot(`${platformName}${report.cms.version ? ` ${report.cms.version}` : ''}`, report.cms.theme ? `theme: ${report.cms.theme.name ?? report.cms.theme.slug}` : null) : '');
@@ -151,7 +151,8 @@
 
 {#if running || !report}
   <div class="panel">
-    <header><h2>{running ? 'Scanning…' : 'No results'}</h2>{#if running}<span class="hint">Results appear as each step finishes</span>{/if}</header>
+    <header><h2>{#if running}<span class="ellipsis">Scanning</span>{:else}No results{/if}</h2>{#if running}<span class="hint">Usually 10–40 seconds</span>{/if}</header>
+    {#if running}<div class="progress" role="progressbar" aria-label="Scan in progress"></div>{/if}
     <div class="body">
       <Stages {stages} {running} />
       {#if scanError}<p class="alert red" style="margin: 12px 0 0">{scanError}</p>{/if}
@@ -175,7 +176,7 @@
   <section class="report-section" id="overview">
     <div class="overview">
       <div class="stack">
-        <div class="panel">
+        <div class="panel glance">
           <header><h2>At a glance</h2></header>
           <table>
             <tbody>
@@ -189,7 +190,7 @@
             </tbody>
           </table>
         </div>
-        <div class="panel">
+        <div class="panel facts">
           <header><h2>Key facts</h2></header>
           <table class="kv">
             <tbody>
@@ -207,7 +208,7 @@
         </div>
       </div>
       <div class="stack">
-        <div class="panel">
+        <div class="panel shot-panel">
           <header><h2>Screenshot</h2><span class="hint no-print">Desktop, above the fold</span></header>
           <div class="body">
             {#if report.screenshot}
@@ -229,23 +230,22 @@
   <!-- ============ Technology ============ -->
   <section class="report-section" id="technology">
     <h2>Technology</h2>
-    <p class="lead">Everything we could identify, and why. "Certain" means several independent signals; "Possible" means one weak signal.</p>
+    <p class="lead">Everything we could identify. "Certain" means several independent signals agree; "Possible" means a single weak one.</p>
     <div class="panel">
       <header><h2>{report.technologies.length} technologies</h2><input type="search" class="filter" placeholder="Filter…" bind:value={techFilter} aria-label="Filter technologies" /></header>
       <div class="table-wrap">
         <table class="tech">
-          <thead><tr><th class="w-status">Confidence</th><th class="w-label">Name</th><th>Type</th><th>Version</th><th>Evidence</th></tr></thead>
+          <thead><tr><th class="w-status">Confidence</th><th class="w-label">Name</th><th>Type</th>{#if anyVersion}<th>Version</th>{/if}</tr></thead>
           <tbody>
             {#each techs as t (t.slug)}
               <tr id="tech-{t.slug}">
                 <td class="w-status"><Light status={confLight[t.confidence]} label={confWord[t.confidence]} /></td>
                 <td class="w-label">{#if t.website}<a href={t.website} rel="noopener nofollow" target="_blank">{t.name}</a>{:else}{t.name}{/if}</td>
                 <td class="type">{typeLabel(t)}</td>
-                <td class="version">{t.version ?? '—'}</td>
-                <td class="wrap">{#if t.implied}<span class="muted">Implied by {t.evidence[0]?.value.replace('implied by ', '') ?? 'another technology'}</span>{:else}<span class="print-only muted">{t.evidence.length} signal{t.evidence.length === 1 ? '' : 's'}</span><details class="ev"><summary>{t.evidence.length} signal{t.evidence.length === 1 ? '' : 's'}</summary><Evidence items={t.evidence} /></details>{/if}</td>
+                {#if anyVersion}<td class="version">{t.version ?? '—'}</td>{/if}
               </tr>
             {:else}
-              <tr><td colspan="5" class="muted">Nothing could be identified with confidence. That doesn't mean the site uses no framework — the public response didn't give enough away.</td></tr>
+              <tr><td colspan="4" class="muted">Nothing could be identified with confidence. That doesn't mean the site uses no framework — the public response didn't give enough away.</td></tr>
             {/each}
           </tbody>
         </table>
@@ -260,9 +260,9 @@
     <div class="panel">
       <table class="kv">
         <tbody>
-          <tr><td>CDN / reverse proxy</td><td>{#if report.infra.cdn}{report.infra.cdn.name}<details class="ev"><summary>Evidence</summary><Evidence items={report.infra.cdn.evidence} /></details>{:else}None seen{/if}</td></tr>
-          <tr><td>Firewall / bot protection</td><td>{#if report.infra.waf}{report.infra.waf.name}{#if report.infra.waf.evidence.length === 1 && report.infra.waf.evidence[0]?.source === 'implied'}<div class="muted small">{report.infra.waf.evidence[0].value}</div>{:else if report.infra.waf.evidence.length}<details class="ev"><summary>Evidence</summary><Evidence items={report.infra.waf.evidence} /></details>{/if}{:else}None seen{/if}</td></tr>
-          <tr><td>Hosting provider</td><td>{#if report.infra.hosting}<span class="row-inline">{report.infra.hosting.name} <Light status={confLight[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} /></span><details class="ev"><summary>Evidence</summary><Evidence items={report.infra.hosting.evidence} /></details>{:else if report.infra.cdn}<strong>Not publicly visible.</strong> The site is served through {report.infra.cdn.name}, which hides the real server.{:else}Unknown{/if}</td></tr>
+          <tr><td>CDN / reverse proxy</td><td>{report.infra.cdn?.name ?? 'None seen'}</td></tr>
+          <tr><td>Firewall / bot protection</td><td>{#if report.infra.waf}{report.infra.waf.name}{#if report.infra.waf.evidence.length === 1 && report.infra.waf.evidence[0]?.source === 'implied'}<div class="muted small">{report.infra.waf.evidence[0].value}</div>{/if}{:else}None seen{/if}</td></tr>
+          <tr><td>Hosting provider</td><td>{#if report.infra.hosting}<span class="row-inline">{report.infra.hosting.name} <Light status={confLight[report.infra.hosting.confidence]} label={confWord[report.infra.hosting.confidence]} /></span>{:else if report.infra.cdn}<strong>Not publicly visible.</strong> The site is served through {report.infra.cdn.name}, which hides the real server.{:else}Unknown{/if}</td></tr>
           <tr><td>Web server software</td><td>{serverLine}</td></tr>
           <tr><td>Connection</td><td>{connectionLine}</td></tr>
           {#each report.infra.ips as ip}<tr><td>IP address</td><td class="mono small">{ipLine(ip)}</td></tr>{/each}
@@ -284,7 +284,7 @@
           <table class="kv"><tbody>
             <tr><td>Registrar</td><td>{report.domain.registrar ?? 'Not disclosed'}</td></tr>
             <tr><td>Registered</td><td>{fmtDate(report.domain.created)}</td></tr>
-            <tr><td>Expires</td><td class="row-inline">{fmtDate(report.domain.expires)}{#if daysUntil(report.domain.expires) !== null}{@const d = daysUntil(report.domain.expires)} <Light status={d! < 30 ? 'red' : d! < 90 ? 'amber' : 'green'} label="{d} days" />{/if}</td></tr>
+            <tr><td>Expires</td><td class="row-inline">{fmtDate(report.domain.expires)}{#if daysUntil(report.domain.expires) !== null}{@const d = daysUntil(report.domain.expires)}&nbsp;<Light status={d! < 30 ? 'red' : d! < 90 ? 'amber' : 'green'} label="{d} days" />{/if}</td></tr>
             <tr><td>Status</td><td class="small">{report.domain.status.join(', ') || '—'}</td></tr>
           </tbody></table>
         {:else}<p class="note">Registration data isn't available for this domain.</p>{/if}
