@@ -5,6 +5,7 @@
   let { form, data } = $props();
   let value = $state('');
   let busy = $state(false);
+  let checking = $state(false);
   let error = $state<string | null>(null);
   let scan = $state<{ id: string; host: string } | null>(null);
   let turnstile: Turnstile | undefined = $state();
@@ -26,7 +27,18 @@
     busy = true;
     error = null;
     try {
-      const r = await fetch('/api/scans', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'x-scan-source': 'web' }, body: JSON.stringify({ url, turnstileToken: turnstile?.token() ?? undefined }) });
+      let token: string | undefined;
+      if (turnstile) {
+        checking = true;
+        token = (await turnstile.waitForToken()) ?? undefined;
+        checking = false;
+        if (!token) {
+          error = 'The human check did not complete. Please wait a moment and try again.';
+          turnstile.reset();
+          return;
+        }
+      }
+      const r = await fetch('/api/scans', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'x-scan-source': 'web' }, body: JSON.stringify({ url, turnstileToken: token }) });
       const j = (await r.json()) as { scanId?: string; cached?: boolean; notice?: string | null; error?: string };
       if (!r.ok || !j.scanId) {
         error = j.error ?? 'Something went wrong. Please try again.';
@@ -42,6 +54,7 @@
       error = 'Could not reach the scanner. Check your connection and try again.';
     } finally {
       busy = false;
+      checking = false;
     }
   }
 </script>
@@ -63,7 +76,7 @@
         <input id="url" name="url" class="urlfield" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Enter any domain…" bind:value bind:this={input} required autofocus />
         <span class="kbd" aria-hidden="true">↵ Enter</span>
       </div>
-      <button type="submit" class="btn btn-primary btn-scan" disabled={busy}>{busy ? 'Starting…' : 'Start scan'}{#if !busy}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>{/if}</button>
+      <button type="submit" class="btn btn-primary btn-scan" disabled={busy}>{checking ? 'Checking…' : busy ? 'Starting…' : 'Start scan'}{#if !busy}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>{/if}</button>
     </div>
     {#if data.turnstileSiteKey}<div class="turnstile-slot"><Turnstile bind:this={turnstile} siteKey={data.turnstileSiteKey} /></div>{/if}
   </form>
