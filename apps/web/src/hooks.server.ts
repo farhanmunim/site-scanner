@@ -1,4 +1,4 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { hasValidSession } from '$lib/server/auth.js';
 import { clientIp } from '$lib/server/scan-service.js';
 
@@ -24,4 +24,11 @@ export const handle: Handle = async ({ event, resolve }) => {
   if (event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https') response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
   if (event.url.pathname.startsWith('/r/') || event.url.pathname.startsWith('/admin')) response.headers.set('x-robots-tag', 'noindex, nofollow');
   return response;
+};
+
+/** Log every unexpected error with its route so Coolify's log shows what broke, and show a plain message. */
+export const handleError: HandleServerError = ({ error, event, status, message }) => {
+  const detail = error instanceof Error ? `${error.name}: ${error.message}\n${error.stack ?? ''}` : String(error);
+  console.error(`[web] ${status} ${event.request.method} ${event.url.pathname}: ${detail}`);
+  return { message: status === 404 ? 'Not found' : `Something went wrong on our side (${message}). It has been logged; please try again in a moment.` };
 };

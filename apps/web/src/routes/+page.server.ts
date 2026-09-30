@@ -10,15 +10,21 @@ export const actions: Actions = {
     const form = await request.formData();
     const input = String(form.get('url') ?? '').trim();
     if (!input) return fail(400, { error: 'Enter a website address.', input });
-    const result = await requestScan({
-      input,
-      ip: locals.clientIp,
-      country: locals.country,
-      userAgent: request.headers.get('user-agent'),
-      referrer: request.headers.get('referer'),
-      turnstileToken: String(form.get('cf-turnstile-response') ?? '') || null,
-      source: 'web'
-    });
+    let result: Awaited<ReturnType<typeof requestScan>>;
+    try {
+      result = await requestScan({
+        input,
+        ip: locals.clientIp,
+        country: locals.country,
+        userAgent: request.headers.get('user-agent'),
+        referrer: request.headers.get('referer'),
+        turnstileToken: String(form.get('cf-turnstile-response') ?? '') || null,
+        source: 'web'
+      });
+    } catch (e) {
+      console.error('[web] scan request failed:', e);
+      return fail(500, { error: 'The scanner hit a problem starting this scan. It has been logged; please try again in a moment.', input });
+    }
     if (!result.ok) return fail(result.status, { error: result.error, input });
     redirect(303, `/r/${result.scanId}${result.notice ? `?notice=${encodeURIComponent(result.notice)}` : ''}`);
   }

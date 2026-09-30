@@ -10,7 +10,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   } catch {
     return json({ error: 'Send JSON: {"url": "example.com"}' }, { status: 400 });
   }
-  const result = await requestScan({ input: String(body.url ?? ''), ip: locals.clientIp, country: locals.country, userAgent: request.headers.get('user-agent'), referrer: request.headers.get('referer'), turnstileToken: body.turnstileToken ?? null, source: locals.admin ? 'admin' : request.headers.get('x-scan-source') === 'web' ? 'web' : 'api' });
+  let result: Awaited<ReturnType<typeof requestScan>>;
+  try {
+    result = await requestScan({ input: String(body.url ?? ''), ip: locals.clientIp, country: locals.country, userAgent: request.headers.get('user-agent'), referrer: request.headers.get('referer'), turnstileToken: body.turnstileToken ?? null, source: locals.admin ? 'admin' : request.headers.get('x-scan-source') === 'web' ? 'web' : 'api' });
+  } catch (e) {
+    console.error('[web] scan request failed:', e);
+    return json({ error: 'The scanner hit a problem starting this scan. It has been logged; please try again in a moment.' }, { status: 500 });
+  }
   if (!result.ok) return json({ error: result.error }, { status: result.status });
   return json({ scanId: result.scanId, cached: result.cached, notice: result.notice, url: `${config.publicSiteUrl}/r/${result.scanId}`, api: `${config.publicSiteUrl}/api/scans/${result.scanId}` }, { status: result.cached ? 200 : 202 });
 };
