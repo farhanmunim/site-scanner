@@ -41,14 +41,14 @@
 
 <div class="card danger-zone">
   <div class="card-h"><div><div class="card-title">Delete data</div><div class="card-sub">Cannot be undone</div></div></div>
-  {#if form?.purged}<p class="alert alert-pass in-card-alert" role="status" style="margin-top: 16px">Deleted {form.purged.removed.toLocaleString()} {form.purged.what === 'everything' ? 'records' : form.purged.what === 'cache' ? 'cached API responses' : form.purged.what}{form.purged.olderThan !== 'all' ? ` older than ${form.purged.olderThan} days` : ''}.</p>{/if}
+  {#if form?.purged}<p class="alert alert-pass in-card-alert" role="status" style="margin-top: 16px">Deleted {form.purged.removed.toLocaleString()} {form.purged.what === 'everything' ? 'records' : form.purged.what === 'cache' ? 'cached API responses' : form.purged.what}{form.purged.olderThan !== 'all' ? ` older than ${form.purged.olderThan} days` : ''}.{#if form.purged.filesFailed}&nbsp;{form.purged.filesFailed} screenshot or PDF file{form.purged.filesFailed === 1 ? '' : 's'} could not be removed from disk (see the web service log); the worker's retention sweep will clear {form.purged.filesFailed === 1 ? 'it' : 'them'} later.{/if}</p>{/if}
   {#if form?.purgeError}<p class="alert alert-fail in-card-alert" role="alert" style="margin-top: 16px">{form.purgeError}</p>{/if}
   <form method="POST" action="?/purge" onsubmit={(e) => { if (!confirm('Delete this data permanently?')) e.preventDefault(); }}>
     <table class="table kv form-rows"><tbody>
       <tr><td>What to delete</td><td>
         <div class="choices">
           <label class="check"><input type="radio" name="what" value="lookups" required /> <span><strong>Lookups</strong> <span class="muted">({data.counts.lookups.toLocaleString()})</span> — who searched for what, with IP hashes and browser details. Reports are kept.</span></label>
-          <label class="check"><input type="radio" name="what" value="scans" /> <span><strong>Scans and reports</strong> <span class="muted">({data.counts.scans.toLocaleString()})</span> — stored results, screenshots and PDFs. Report links stop working. Lookup rows are kept but lose their link.</span></label>
+          <label class="check"><input type="radio" name="what" value="scans" /> <span><strong>Scans and reports</strong> <span class="muted">({data.counts.scans.toLocaleString()})</span> — stored results, screenshots, PDFs and the domains list. Report links stop working. Lookup rows are kept but lose their link.</span></label>
           <label class="check"><input type="radio" name="what" value="cache" /> <span><strong>API cache</strong> <span class="muted">({data.counts.cache.toLocaleString()})</span> — saved PageSpeed, Safe Browsing and WordPress.org responses. Harmless; they are fetched again when needed.</span></label>
           <label class="check"><input type="radio" name="what" value="everything" /> <span><strong>Everything above</strong> — a clean slate. Settings and the blocklist are kept.</span></label>
         </div>

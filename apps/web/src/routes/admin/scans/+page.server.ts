@@ -2,6 +2,9 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { and, desc, eq, ilike, scans, sql } from '@site-scanner/db';
 import { getDb } from '$lib/server/db.js';
+import { config } from '$lib/server/config.js';
+import { rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import { requestScan } from '$lib/server/scan-service.js';
 
 const PAGE = 50;
@@ -25,15 +28,23 @@ export const actions: Actions = {
   rescan: async ({ request, locals }) => {
     const form = await request.formData();
     const url = String(form.get('url') ?? '');
-    const r = await requestScan({ input: url, ip: locals.clientIp, country: locals.country, userAgent: 'admin', referrer: null, source: 'admin', force: true });
-    if (!r.ok) return fail(r.status, { error: r.error });
-    return { scanId: r.scanId };
+    try {
+      const r = await requestScan({ input: url, ip: locals.clientIp, country: locals.country, userAgent: 'admin', referrer: null, source: 'admin', force: true });
+      if (!r.ok) return fail(r.status, { error: r.error });
+      return { scanId: r.scanId };
+    } catch (e) {
+      console.error('[admin] rescan failed:', e);
+      return fail(500, { error: `Could not start the scan: ${e instanceof Error ? e.message : String(e)}` });
+    }
   },
   delete: async ({ request }) => {
     const form = await request.formData();
     const id = String(form.get('id') ?? '');
     if (!/^[0-9a-f-]{36}$/.test(id)) return fail(400, { error: 'bad id' });
-    await getDb().delete(scans).where(eq(scans.id, id));
+    const db = getDb();
+    await db.delete(scans).where(eq(scans.id, id));
+    await db.execute(sql`update domains set latest_scan_id = null where latest_scan_id = ${id}`);
+    for (const f of [join(config.screenshotDir, `${id}.jpg`), join(config.pdfDir, `${id}.pdf`)]) await rm(f, { force: true }).catch(() => {});
     return { deleted: id };
   }
 };
