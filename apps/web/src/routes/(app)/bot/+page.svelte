@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { data, form } = $props();
+  let { data } = $props();
 </script>
 
 <svelte:head><title>How it works — {data.siteName}</title></svelte:head>
@@ -52,21 +52,11 @@
   <div class="frame sec compact">
     <div class="sec-head">
       <div><div class="sec-num">03</div><h2 class="sec-title">Opt out</h2></div>
-      <p class="sec-desc">Site owners can exclude a domain at any time.</p>
+      <p class="sec-desc">Site owners can exclude a domain at any time, by email.</p>
     </div>
-      <div>
-    {#if form?.done}
-      <div class="alert ok" role="status"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="m5.5 8.2 1.8 1.8 3.2-3.8" /></svg><div>Thanks — <b>{form.domain}</b> will no longer be scanned.</div></div>
-    {:else}
-      <p class="sec-desc" style="max-width: 52ch">Site owners can exclude a domain. Opt-outs take effect immediately and cover all subdomains.</p>
-      <form method="POST" class="optout" style="margin-top: 20px">
-        <div><label class="lbl" for="domain">Domain</label><input id="domain" name="domain" type="text" class="input" placeholder="example.com" required value={form?.domain ?? ''} /></div>
-        <div><label class="lbl" for="contact">Contact email <span class="subtle">(optional)</span></label><input id="contact" name="contact" type="text" class="input" placeholder="you@example.com" /></div>
-        <div><button class="btn primary" type="submit">Opt out</button></div>
-      </form>
-      {#if form?.error}<div class="alert err alertbar" role="alert"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6" /><path d="M8 5v3.5M8 10.8v.1" /></svg><div>{form.error}</div></div>{/if}
-    {/if}
-    {#if data.abuseContact}<p class="note-s">Questions or abuse reports: <a class="a" href="mailto:{data.abuseContact}">{data.abuseContact}</a></p>{/if}
-      </div>
+    <p class="sec-desc" style="max-width: 56ch">
+      {#if data.abuseContact}Email <a class="a" href="mailto:{data.abuseContact}?subject=Opt%20out%20of%20scanning">{data.abuseContact}</a> with the domain you want excluded.{:else}Email the operator (contact details at <a class="a" href="https://farhan.app/" rel="noopener">farhan.app</a>) with the domain you want excluded.{/if}
+      An opt-out covers the domain and all of its subdomains, and no further scans of it are accepted once it is processed.
+    </p>
   </div>
 </section>

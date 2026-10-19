@@ -46,6 +46,6 @@
       <div><div class="sec-num">03</div><h2 class="sec-title">Your rights</h2></div>
       <p class="sec-desc">Ask for your data to be deleted, or opt a domain out.</p>
     </div>
-      <p class="sec-desc" style="max-width: 56ch">You can ask for lookup records associated with your IP, or a report, to be deleted{#if data.abuseContact}&nbsp;by emailing <a class="a" href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. Website owners can opt their domain out on the <a class="a" href="/bot#opt-out">how it works page</a>.</p>
+      <p class="sec-desc" style="max-width: 56ch">You can ask for lookup records associated with your IP, or a report, to be deleted{#if data.abuseContact}&nbsp;by emailing <a class="a" href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. Website owners can opt their domain out by email; see <a class="a" href="/bot#opt-out">how it works</a>.</p>
   </div>
 </section>

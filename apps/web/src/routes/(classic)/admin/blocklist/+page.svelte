@@ -8,7 +8,7 @@
 
 <div class="page-head">
   <h1>Blocklist</h1>
-  <p class="lead">Domains listed here, and their subdomains, are refused. Opt-outs from the public bot page land here too.</p>
+  <p class="lead">Domains listed here, and their subdomains, are refused. Add emailed opt-outs here.</p>
 </div>
 
 <div class="card">

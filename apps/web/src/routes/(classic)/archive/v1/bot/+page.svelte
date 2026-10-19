@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { data, form } = $props();
+  let { data } = $props();
 </script>
 
 <svelte:head><title>How it works — {data.siteName}</title></svelte:head>
@@ -34,20 +34,7 @@
   <div class="card" id="opt-out">
     <div class="card-h"><div class="card-title">Opt out</div></div>
     <div class="card-body">
-      {#if form?.done}
-        <p class="alert" role="status" style="margin: 0">Thanks — <strong>{form.domain}</strong> will no longer be scanned.</p>
-      {:else}
-        <p class="text-2" style="margin-bottom: 12px">Site owners can exclude a domain. Opt-outs take effect immediately and cover all subdomains.</p>
-        <form method="POST" class="form-row">
-          <label class="sr-only" for="domain">Domain</label>
-          <input id="domain" name="domain" type="text" class="input" placeholder="example.com" required value={form?.domain ?? ''} />
-          <label class="sr-only" for="contact">Contact email (optional)</label>
-          <input id="contact" name="contact" type="text" class="input" placeholder="you@example.com (optional)" />
-          <button class="btn btn-primary" type="submit">Opt out</button>
-        </form>
-        {#if form?.error}<p class="alert alert-fail" role="alert">{form.error}</p>{/if}
-      {/if}
-      {#if data.abuseContact}<p class="muted small" style="margin: 12px 0 0">Questions or abuse reports: <a href="mailto:{data.abuseContact}">{data.abuseContact}</a></p>{/if}
+      <p class="text-2">Site owners can exclude a domain by email{#if data.abuseContact}: <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. The opt-out covers all subdomains.</p>
     </div>
   </div>
 </div>

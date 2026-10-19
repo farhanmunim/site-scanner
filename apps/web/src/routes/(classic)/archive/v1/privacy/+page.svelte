@@ -29,6 +29,6 @@
 
   <div class="card">
     <div class="card-h"><div class="card-title">Your rights</div></div>
-    <p class="note" style="border-top: 0">You can ask for lookup records associated with your IP, or a report, to be deleted{#if data.abuseContact}&nbsp;by emailing <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. Website owners can opt their domain out on the <a href="/archive/v1/bot#opt-out">how it works</a> page.</p>
+    <p class="note" style="border-top: 0">You can ask for lookup records associated with your IP, or a report, to be deleted{#if data.abuseContact}&nbsp;by emailing <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. Website owners can opt their domain out by email; see <a href="/archive/v1/bot#opt-out">how it works</a>.</p>
   </div>
 </div>
