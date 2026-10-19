@@ -420,7 +420,8 @@ export interface PsiMetrics {
 
 export interface SubdomainData {
   checkedAt: string;
-  source: 'ct-log';
+  /** Which public source answered: crt.sh and Certspotter read Certificate Transparency logs; HackerTarget is a passive DNS database. */
+  source: 'ct-log' | 'certspotter' | 'hackertarget';
   /** Distinct hostnames, wildcard entries stripped of the leading "*.", sorted. */
   names: string[];
   /** Total distinct names before the cap. */

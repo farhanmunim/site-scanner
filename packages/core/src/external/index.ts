@@ -216,8 +216,9 @@ export async function fetchWayback(host: string, cfg: ExternalConfig): Promise<{
   if (cfg.wayback === false) return null;
   return cached(cfg, `wayback:${host}`, 7 * 24 * 3600, async () => {
     const f = cfg.fetchImpl ?? fetch;
-    const res = await f(`https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(host)}&limit=1&fl=timestamp&filter=statuscode:200`, { signal: AbortSignal.timeout(10_000) });
-    if (!res.ok) return null;
+    // The CDX index is slow and occasionally resets connections: allow longer and retry once.
+    const res = await getWithRetry(f, `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(host)}&limit=1&fl=timestamp&filter=statuscode:200`, 20_000, 2);
+    if (!res) return null;
     const t = (await res.text()).trim().split('\n')[0];
     if (!t || !/^\d{8}/.test(t)) return { firstSeen: null };
     return { firstSeen: `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}` };
@@ -253,20 +254,71 @@ export function collectSubdomains(nameValues: string[], registrableDomain: strin
   return { names: names.slice(0, SUBDOMAIN_CAP), total: names.length };
 }
 
+type SubdomainSource = NonNullable<SubdomainData['source']>;
+
+async function getWithRetry(f: typeof fetch, url: string, timeoutMs: number, tries: number): Promise<Response | null> {
+  for (let i = 0; i < tries; i++) {
+    try {
+      const res = await f(url, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs) });
+      if (res.ok) return res;
+      // Rate limited or overloaded: another attempt rarely helps for 4xx, often does for 5xx.
+      if (res.status < 500) return null;
+    } catch {
+      /* timeout or network error: retry */
+    }
+    if (i < tries - 1) await new Promise((r) => setTimeout(r, 1500));
+  }
+  return null;
+}
+
+/** Each source returns raw hostnames (possibly several per entry) or null when it could not answer. */
+const SUBDOMAIN_SOURCES: { id: SubdomainSource; fetch: (d: string, f: typeof fetch) => Promise<string[] | null> }[] = [
+  {
+    id: 'ct-log',
+    async fetch(d, f) {
+      const res = await getWithRetry(f, `https://crt.sh/?q=${encodeURIComponent('%.' + d)}&output=json`, 25_000, 2);
+      if (!res) return null;
+      const rows = (await res.json().catch(() => null)) as { name_value?: string }[] | null;
+      return Array.isArray(rows) ? rows.map((r) => r.name_value ?? '') : null;
+    }
+  },
+  {
+    id: 'certspotter',
+    async fetch(d, f) {
+      const res = await getWithRetry(f, `https://api.certspotter.com/v1/issuances?domain=${encodeURIComponent(d)}&include_subdomains=true&expand=dns_names`, 20_000, 1);
+      if (!res) return null;
+      const rows = (await res.json().catch(() => null)) as { dns_names?: string[] }[] | null;
+      return Array.isArray(rows) ? rows.map((r) => (r.dns_names ?? []).join('\n')) : null;
+    }
+  },
+  {
+    id: 'hackertarget',
+    async fetch(d, f) {
+      const res = await getWithRetry(f, `https://api.hackertarget.com/hostsearch/?q=${encodeURIComponent(d)}`, 15_000, 1);
+      if (!res) return null;
+      const text = await res.text();
+      if (/^error|API count exceeded/i.test(text.trim())) return null;
+      return text.split('\n').map((l) => l.split(',')[0] ?? '');
+    }
+  }
+];
+
 /**
- * Passive subdomain discovery from Certificate Transparency logs (crt.sh). Lists names
- * that have had a certificate issued; it never contacts the target and cannot prove a
- * name still resolves.
+ * Passive subdomain discovery. Tries Certificate Transparency (crt.sh, with a retry), then
+ * Certspotter, then HackerTarget's passive DNS, and stops at the first that answers: crt.sh
+ * alone is too flaky to depend on. It never contacts the target and cannot prove a name
+ * still resolves. Returns null only when every source failed (failures are not cached).
  */
 export async function fetchSubdomains(registrableDomain: string, cfg: ExternalConfig): Promise<SubdomainData | null> {
   if (cfg.subdomains === false) return null;
-  return cached(cfg, `subdomains:${registrableDomain}`, 24 * 3600, async () => {
+  return cached(cfg, `subdomains2:${registrableDomain}`, 24 * 3600, async () => {
     const f = cfg.fetchImpl ?? fetch;
-    const res = await f(`https://crt.sh/?q=${encodeURIComponent('%.' + registrableDomain)}&output=json`, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(20_000) });
-    if (!res.ok) return null;
-    const rows = (await res.json()) as { name_value?: string }[];
-    if (!Array.isArray(rows)) return null;
-    const { names, total } = collectSubdomains(rows.map((r) => r.name_value ?? ''), registrableDomain);
-    return { checkedAt: new Date().toISOString(), source: 'ct-log', names, total };
+    for (const src of SUBDOMAIN_SOURCES) {
+      const raw = await src.fetch(registrableDomain, f).catch(() => null);
+      if (!raw) continue;
+      const { names, total } = collectSubdomains(raw, registrableDomain);
+      return { checkedAt: new Date().toISOString(), source: src.id, names, total };
+    }
+    return null;
   });
 }

@@ -282,9 +282,6 @@
   font-family: var(--font-mono);
   font-size: 12px;
 }
-.sec-head .sec-title {
-  margin-top: var(--s5);
-}
 .sec-head .actions {
   display: flex;
   gap: 8px;
@@ -329,10 +326,6 @@
   grid-template-columns: minmax(0, 1fr) minmax(0, 340px);
   gap: var(--s9);
   align-items: end;
-}
-.home-hero h1 {
-  font-size: clamp(2.5rem, 1.2rem + 4.2vw, 4.75rem);
-  line-height: 1;
 }
 .scanform {
   margin-top: var(--s9);
@@ -602,7 +595,7 @@
   align-items: end;
 }
 .rhero h1 {
-  font-size: clamp(2rem, 1rem + 3.6vw, 4rem);
+  font-size: var(--fluid-h1);
   line-height: 1.04;
   overflow-wrap: anywhere;
 }
@@ -819,10 +812,6 @@
 .chip.st {
   justify-self: start;
   align-self: start;
-  height: 20px;
-  font: 500 11px/16px var(--font-mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 .chip.st.good {
   background: rgb(var(--tint-green));
@@ -883,15 +872,13 @@
 .techgrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-  gap: 0;
-  border-top: 1px solid var(--c-line-2);
+  gap: 4px 24px;
 }
 .tech {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 14px 16px 14px 0;
-  border-bottom: 1px solid var(--c-line-2);
+  padding: 10px 0;
   min-width: 0;
 }
 .tech .ti {
@@ -1161,18 +1148,14 @@
 
 /* subdomains */
 .subs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 22rem;
-  overflow: auto;
-  padding: 2px;
-  margin: -2px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 0 32px;
 }
-.subs .tag {
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: var(--r-sm);
+.subs span {
+  font: 400 13px/20px var(--font-mono);
+  padding: 9px 0;
+  border-top: 1px solid var(--c-line-2);
   overflow-wrap: anywhere;
 }
 .subtools {
@@ -1209,34 +1192,6 @@
 }
 
 /* prose pages */
-.docgrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
-  gap: var(--s9);
-  padding-block: 40px;
-  border-top: 1px solid var(--c-line-2);
-}
-.docgrid:first-of-type {
-  border-top: 0;
-}
-.docgrid h2 {
-  font-size: var(--fluid-title);
-  line-height: 1.18;
-  letter-spacing: -0.02em;
-}
-.docgrid .lbl-s {
-  font: 400 11px var(--font-mono);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--c-subtle);
-  margin-bottom: 12px;
-}
-@media (max-width: 939.98px) {
-  .docgrid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
 .optout {
   display: grid;
   gap: 10px;
@@ -1250,8 +1205,28 @@
   .no-print {
     display: none !important;
   }
-}
-
-.v2-foot .foot .logo {
-  color: var(--c-text);
+  .frame::before,
+  .frame::after {
+    display: none;
+  }
+  .sec,
+  .sec.compact {
+    padding-block: 28px 32px;
+  }
+  .sec-head {
+    break-after: avoid;
+    margin-bottom: 20px;
+  }
+  .frow,
+  .tech,
+  .chain .l,
+  .dlx dt,
+  .dlx dd,
+  tr,
+  .vital {
+    break-inside: avoid;
+  }
+  .acc details {
+    break-inside: auto;
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectSubdomains, fetchPsi, resourceBreakdown } from '../src/external/index.js';
+import { collectSubdomains, fetchPsi, fetchSubdomains, resourceBreakdown } from '../src/external/index.js';
 
 const audits = {
   'largest-contentful-paint': { numericValue: 2800 },
@@ -70,5 +70,33 @@ describe('collectSubdomains', () => {
     const r = collectSubdomains(['www.example.com\nexample.com', '*.example.com', 'api.example.com\nAPI.example.com', 'example.com.evil.net', 'shop.example.com', 'deep.api.example.com'], 'example.com');
     expect(r.names).toEqual(['api.example.com', 'shop.example.com', 'www.example.com', 'deep.api.example.com']);
     expect(r.total).toBe(4);
+  });
+});
+
+describe('fetchSubdomains', () => {
+  const json = (v: unknown, status = 200) => new Response(JSON.stringify(v), { status });
+  it('uses crt.sh when it answers', async () => {
+    const fetchImpl = (async () => json([{ name_value: 'a.example.com\n*.example.com' }])) as unknown as typeof fetch;
+    const r = await fetchSubdomains('example.com', { fetchImpl });
+    expect(r).toMatchObject({ source: 'ct-log', names: ['a.example.com'], total: 1 });
+  });
+  it('retries crt.sh, then falls back to Certspotter when it keeps failing', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (u: string) => {
+      calls.push(new URL(u).hostname);
+      return u.includes('crt.sh') ? new Response('bad gateway', { status: 502 }) : json([{ dns_names: ['www.example.com', 'mail.example.com'] }]);
+    }) as unknown as typeof fetch;
+    const r = await fetchSubdomains('example.com', { fetchImpl });
+    expect(calls.filter((c) => c === 'crt.sh')).toHaveLength(2);
+    expect(r).toMatchObject({ source: 'certspotter', total: 2 });
+  }, 15_000);
+  it('falls back to HackerTarget and rejects its error text', async () => {
+    const fetchImpl = (async (u: string) => (u.includes('hackertarget') ? new Response('www.example.com,1.2.3.4\nm.example.com,1.2.3.5') : new Response('nope', { status: 429 }))) as unknown as typeof fetch;
+    expect(await fetchSubdomains('example.com', { fetchImpl })).toMatchObject({ source: 'hackertarget', total: 2 });
+    const limited = (async (u: string) => (u.includes('hackertarget') ? new Response('API count exceeded - Increase Quota') : new Response('nope', { status: 429 }))) as unknown as typeof fetch;
+    expect(await fetchSubdomains('example.com', { fetchImpl: limited })).toBeNull();
+  }, 15_000);
+  it('is null when disabled', async () => {
+    expect(await fetchSubdomains('example.com', { subdomains: false })).toBeNull();
   });
 });

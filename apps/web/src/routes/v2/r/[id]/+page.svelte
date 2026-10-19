@@ -112,7 +112,7 @@
   let subFilter = $state('');
   let techs = $derived((report?.technologies ?? []).filter((t) => !techFilter || t.name.toLowerCase().includes(techFilter.toLowerCase()) || t.categories.some((c) => c.name.toLowerCase().includes(techFilter.toLowerCase()))));
   let anyVersion = $derived((report?.technologies ?? []).some((t) => t.version));
-  let tiles = $derived((report?.technologies ?? []).filter((t) => !t.implied && t.confidence !== 'low' && !t.categories.every((c) => notBuiltWith.test(c.name))).slice(0, 18));
+  let tiles = $derived((report?.technologies ?? []).filter((t) => !t.implied && t.confidence !== 'low' && !t.categories.every((c) => notBuiltWith.test(c.name))).slice(0, 12));
   let platformName = $derived(report?.cms ? { wordpress: 'WordPress', shopify: 'Shopify', webflow: 'Webflow', wix: 'Wix', squarespace: 'Squarespace' }[report.cms.platform] : '');
   let themeLine = $derived(report?.cms?.theme ? dot(`${report.cms.theme.name ?? report.cms.theme.slug}${report.cms.theme.version ? ` ${report.cms.theme.version}` : ''}`, report.cms.theme.author ? `by ${report.cms.theme.author}` : null) : '');
   let chain = $derived.by((): (CertChainEntry & { role: string })[] => {
@@ -156,6 +156,8 @@
   });
   let subs = $derived(report?.external.subdomains ?? null);
   let subsShown = $derived((subs?.names ?? []).filter((n) => !subFilter || n.includes(subFilter.toLowerCase().trim())));
+  const SUB_FIRST = 45;
+  const subSource = { 'ct-log': 'crt.sh, public Certificate Transparency logs', certspotter: 'Certspotter, public Certificate Transparency logs', hackertarget: 'HackerTarget, a passive DNS database' } as const;
 
   /** Every warning and failure across sections, worst first. */
   let fixes = $derived.by(() => {
@@ -622,7 +624,7 @@
           {/if}
           <dt>DNS provider</dt><dd>{report.infra.dnsProvider?.name ?? '—'}</dd>
           {#if report.external.greenHosting}<dt>Green hosting</dt><dd>{report.external.greenHosting.green ? `Yes: ${report.external.greenHosting.hostedBy ?? 'listed by the Green Web Foundation'}` : 'Not listed by the Green Web Foundation'}</dd>{/if}
-          {#if report.domain?.status.length}<dt>Domain status</dt><dd>{report.domain.status.join(', ')}</dd>{/if}
+          {#if report.domain?.status.length}<dt>Domain status</dt><dd><span class="chips">{#each report.domain.status as st}<span class="chip">{st}</span>{/each}</span></dd>{/if}
         </dl>
         <div class="acc" style="margin-top: 24px">
           {#if report.infra.ips.length > 2}
@@ -669,7 +671,7 @@
       <div class="frame sec compact">
         <div class="sec-head">
           <div><div class="sec-num"></div><h2 class="sec-title">Subdomains</h2></div>
-          <p class="sec-desc">Hostnames under {report.target.registrableDomain} that have had a TLS certificate issued, from public Certificate Transparency logs. Nothing was probed; some may no longer exist.</p>
+          <p class="sec-desc">Hostnames under {report.target.registrableDomain} seen in public records{subs ? ` (${subSource[subs.source] ?? 'public records'})` : ''}. Nothing was probed; some may no longer exist.</p>
         </div>
         {#if subs}
           <div class="subtools">
@@ -678,8 +680,16 @@
           </div>
           {#if subs.names.length}
             <div class="subs">
-              {#each subsShown as n (n)}<span class="tag">{n}</span>{:else}<span class="muted">Nothing matches that filter.</span>{/each}
+              {#each (subFilter ? subsShown : subsShown.slice(0, SUB_FIRST)) as n (n)}<span>{n}</span>{:else}<span class="muted" style="border: 0">Nothing matches that filter.</span>{/each}
             </div>
+            {#if !subFilter && subsShown.length > SUB_FIRST}
+              <div class="acc" style="margin-top: 16px">
+                <details open={printMode}>
+                  <summary>Show {subsShown.length - SUB_FIRST} more</summary>
+                  <div class="ans flush"><div class="subs">{#each subsShown.slice(SUB_FIRST) as n (n)}<span>{n}</span>{/each}</div></div>
+                </details>
+              </div>
+            {/if}
           {:else}
             <p class="note-s" style="margin-top: 0">No other hostnames appear in Certificate Transparency logs for this domain.</p>
           {/if}
