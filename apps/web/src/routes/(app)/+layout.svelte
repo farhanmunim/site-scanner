@@ -57,7 +57,7 @@
           <ul><li><a href="https://farhan.app/" rel="noopener">Built by Farhan</a></li><li><a href="/archive/v1">Archived design</a></li></ul>
         </div>
       </div>
-      <div class="legal"><span class="built">{data.siteName} · design v2</span><a class="built link-muted" href="https://farhan.app/" rel="noopener">Built by Farhan</a></div>
+      <div class="legal"><span class="built">{data.siteName}</span><a class="built link-muted" href="https://farhan.app/" rel="noopener">Built by Farhan</a></div>
     </div>
   </footer>
 </div>
