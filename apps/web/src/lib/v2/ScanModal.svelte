@@ -46,7 +46,7 @@
       (u) => {
         status = u.status;
         if (u.stages) stages = u.stages;
-        if (TERMINAL.has(u.status) && !redirect) redirect = setTimeout(() => void goto(`/v2/r/${scanId}`), 600);
+        if (TERMINAL.has(u.status) && !redirect) redirect = setTimeout(() => void goto(`/r/${scanId}`), 600);
       },
       { lite: true }
     );
@@ -82,7 +82,7 @@
       <p class="scan-note">Google PageSpeed can take up to a minute. Everything else is ready.</p>
     {/if}
     {#if elapsed >= 15 && !terminal}
-      <div style="margin-top: 16px"><a class="btn outline sm" href="/v2/r/{scanId}">Open the report now</a> <span class="caption" style="margin-left: 8px">It keeps filling in.</span></div>
+      <div style="margin-top: 16px"><a class="btn outline sm" href="/r/{scanId}">Open the report now</a> <span class="caption" style="margin-left: 8px">It keeps filling in.</span></div>
     {/if}
   </div>
 </div>

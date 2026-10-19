@@ -48,3 +48,9 @@ Deployment: see [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Application code is private/unlicensed. The fingerprint database is fetched at build time from
 [enthec/webappanalyzer](https://github.com/enthec/webappanalyzer) (GPL-3.0) and is not committed.
+
+## Routes
+
+- `/`, `/bot`, `/privacy`, `/r/<id>`: the current design (Devin design system; tokens in `apps/web/src/lib/v2/design.css`).
+- `/archive/v1/…`: the first design, kept for reference. `/admin` still uses its styling.
+- `/v2/…` redirects to the same path without the prefix.

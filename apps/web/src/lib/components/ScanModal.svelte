@@ -5,7 +5,7 @@
   import { subscribeScan, TERMINAL } from '$lib/scan-events';
   import ScanLog from './ScanLog.svelte';
 
-  let { scanId, host }: { scanId: string; host: string } = $props();
+  let { scanId, host, base = '' }: { scanId: string; host: string; base?: string } = $props();
   let status = $state('queued');
   let stages = $state<Partial<Record<StageName, StageMeta>>>({});
   let elapsed = $state(0);
@@ -21,7 +21,7 @@
       (u) => {
         status = u.status;
         if (u.stages) stages = u.stages;
-        if (TERMINAL.has(u.status) && !redirect) redirect = setTimeout(() => void goto(`/r/${scanId}`), 600);
+        if (TERMINAL.has(u.status) && !redirect) redirect = setTimeout(() => void goto(`${base}/r/${scanId}`), 600);
       },
       { lite: true }
     );
@@ -41,7 +41,7 @@
     <ScanLog {host} {stages} {status} {elapsed} />
     {#if showOpen}
       <div class="escape">
-        <a class="btn btn-outline" href="/r/{scanId}">Open the report now</a>
+        <a class="btn btn-outline" href="{base}/r/{scanId}">Open the report now</a>
         <span>It keeps filling in as the last checks finish.</span>
       </div>
     {/if}

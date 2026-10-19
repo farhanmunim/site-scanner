@@ -248,7 +248,7 @@
     </div>
     <div class="acts no-print">
       <button class="btn outline sm wide" type="button" onclick={share}>{shareLabel}</button>
-      <a class="btn outline sm wide" href="/v2?url={encodeURIComponent(data.scan.url)}" title="Runs a fresh scan if the cached result is older than 15 minutes">Scan again</a>
+      <a class="btn outline sm wide" href="/?url={encodeURIComponent(data.scan.url)}" title="Runs a fresh scan if the cached result is older than 15 minutes">Scan again</a>
       {#if !running}<button class="btn outline sm wide" type="button" onclick={downloadPdf} disabled={pdfState === 'preparing'} aria-live="polite">{pdfState === 'preparing' ? 'Preparing PDF…' : pdfState === 'error' ? 'PDF failed, retry' : 'Download PDF'}</button>{/if}
       <a class="btn ghost sm wide" href="/api/scans/{data.scan.id}" rel="nofollow">JSON</a>
     </div>
@@ -696,7 +696,7 @@
         {:else if running}
           <div class="row"><span class="spinner" aria-hidden="true"></span><span class="muted">Querying Certificate Transparency logs…</span></div>
         {:else}
-          <div class="alert warn">{@render warnIcon()}<div><b>Subdomains unavailable for this scan.</b> The Certificate Transparency source (crt.sh) did not answer in time, or external lookups are switched off. <a class="a ink" href="/v2?url={encodeURIComponent(data.scan.url)}">Scan again</a> to retry.</div></div>
+          <div class="alert warn">{@render warnIcon()}<div><b>Subdomains unavailable for this scan.</b> The Certificate Transparency source (crt.sh) did not answer in time, or external lookups are switched off. <a class="a ink" href="/?url={encodeURIComponent(data.scan.url)}">Scan again</a> to retry.</div></div>
         {/if}
       </div>
     </section>

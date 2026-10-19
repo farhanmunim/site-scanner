@@ -11,7 +11,7 @@
     <div>
       <p class="sec-desc">{notFound ? 'That link does not point to anything here. Reports are removed when data is deleted or expires.' : (page.error?.message ?? 'An unexpected error occurred.')}</p>
       <div class="row" style="margin-top: 20px">
-        <a class="btn primary" href="/v2">Scan a website</a>
+        <a class="btn primary" href="/">Scan a website</a>
         {#if !notFound}<a class="btn outline" href={page.url.pathname}>Try again</a>{/if}
       </div>
     </div>

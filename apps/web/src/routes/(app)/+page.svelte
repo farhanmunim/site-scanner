@@ -46,7 +46,7 @@
         return;
       }
       if (j.cached) {
-        await goto(`/v2/r/${j.scanId}${j.notice ? `?notice=${encodeURIComponent(j.notice)}` : ''}`);
+        await goto(`/r/${j.scanId}${j.notice ? `?notice=${encodeURIComponent(j.notice)}` : ''}`);
         return;
       }
       scan = { id: j.scanId, host: url.replace(/[/?#].*$/, '') };
@@ -165,7 +165,7 @@
       <div>
         <div class="sec-num">03</div>
         <h2 class="sec-title" style="margin-top: 12px">Questions</h2>
-        <p class="sec-desc" style="margin-top: 12px">More detail on <a class="a ink" href="/v2/bot">how the scanner behaves</a> and <a class="a ink" href="/v2/privacy">what is stored</a>.</p>
+        <p class="sec-desc" style="margin-top: 12px">More detail on <a class="a ink" href="/bot">how the scanner behaves</a> and <a class="a ink" href="/privacy">what is stored</a>.</p>
       </div>
       <div class="acc">
         <details><summary>Does it touch my server?</summary><div class="ans">Only with ordinary read requests for your homepage and a few standard files. Everything else (DNS, certificates, registration, performance) comes from public sources.</div></details>

@@ -46,7 +46,7 @@
         return;
       }
       if (j.cached) {
-        await goto(`/r/${j.scanId}${j.notice ? `?notice=${encodeURIComponent(j.notice)}` : ''}`);
+        await goto(`/archive/v1/r/${j.scanId}${j.notice ? `?notice=${encodeURIComponent(j.notice)}` : ''}`);
         return;
       }
       scan = { id: j.scanId, host: url.replace(/[/?#].*$/, '') };
@@ -102,4 +102,4 @@
   </div>
 </section>
 
-{#if scan}<ScanModal scanId={scan.id} host={scan.host} />{/if}
+{#if scan}<ScanModal scanId={scan.id} host={scan.host} base="/archive/v1" />{/if}

@@ -22,7 +22,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   response.headers.set('cross-origin-opener-policy', 'same-origin');
   if (event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https') response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
-  if (event.url.pathname.startsWith('/r/') || event.url.pathname.startsWith('/v2/r/') || event.url.pathname.startsWith('/admin')) response.headers.set('x-robots-tag', 'noindex, nofollow');
+  if (event.url.pathname.startsWith('/r/') || event.url.pathname.startsWith('/archive/') || event.url.pathname.startsWith('/admin')) response.headers.set('x-robots-tag', 'noindex, nofollow');
   return response;
 };
 

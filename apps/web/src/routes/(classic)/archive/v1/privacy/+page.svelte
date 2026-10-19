@@ -23,12 +23,12 @@
     <table class="table kv"><tbody>
       <tr><td>Tracking</td><td>No advertising and no tracking cookies. Page views are counted with self-hosted, cookieless Umami analytics; the only cookie is an admin session for the operator.</td></tr>
       <tr><td>Cloudflare</td><td>Cloudflare sits in front of this site for protection; its <a href="https://www.cloudflare.com/privacypolicy/" rel="noopener">privacy policy</a> applies to that traffic. If a human check appears, that is Cloudflare Turnstile.</td></tr>
-      <tr><td>Scanned sites</td><td>They receive only ordinary read requests (see <a href="/bot">how it works</a>). Set-Cookie values from scanned sites are redacted before storage.</td></tr>
+      <tr><td>Scanned sites</td><td>They receive only ordinary read requests (see <a href="/archive/v1/bot">how it works</a>). Set-Cookie values from scanned sites are redacted before storage.</td></tr>
     </tbody></table>
   </div>
 
   <div class="card">
     <div class="card-h"><div class="card-title">Your rights</div></div>
-    <p class="note" style="border-top: 0">You can ask for lookup records associated with your IP, or a report, to be deleted{#if data.abuseContact}&nbsp;by emailing <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. Website owners can opt their domain out on the <a href="/bot#opt-out">how it works</a> page.</p>
+    <p class="note" style="border-top: 0">You can ask for lookup records associated with your IP, or a report, to be deleted{#if data.abuseContact}&nbsp;by emailing <a href="mailto:{data.abuseContact}">{data.abuseContact}</a>{/if}. Website owners can opt their domain out on the <a href="/archive/v1/bot#opt-out">how it works</a> page.</p>
   </div>
 </div>

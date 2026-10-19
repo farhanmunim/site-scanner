@@ -1230,3 +1230,38 @@
     break-inside: auto;
   }
 }
+
+/* ---------- small screens ---------- */
+.home-hero > *,
+.rhero > *,
+.verdict > *,
+.hero > * {
+  min-width: 0;
+}
+@media (pointer: coarse) {
+  .btn.sm,
+  .mnav-links a,
+  .topbar .iconbtn,
+  .fchip {
+    min-height: 36px;
+  }
+  .topbar .iconbtn {
+    width: 36px;
+    height: 36px;
+  }
+  .foot a {
+    display: inline-block;
+    padding-block: 6px;
+  }
+  .acc summary {
+    min-height: 48px;
+  }
+  .input.sm {
+    height: 36px;
+    font-size: 16px; /* stops iOS zooming into the field */
+  }
+  .scanbox input,
+  .input {
+    font-size: 16px;
+  }
+}

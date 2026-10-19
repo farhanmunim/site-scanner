@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requestScan } from '$lib/server/scan-service.js';
 
-/** `/?url=example.com` prefills the form (used by "scan another site" links). */
+/** `/?url=example.com` prefills the form (used by "scan again" links). */
 export const load: PageServerLoad = ({ url }) => ({ prefill: url.searchParams.get('url')?.slice(0, 2048) ?? '' });
 
 export const actions: Actions = {

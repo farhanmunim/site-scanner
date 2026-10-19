@@ -2,7 +2,7 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requestScan } from '$lib/server/scan-service.js';
 
-/** `/v2?url=example.com` prefills the form (used by "scan again" links). */
+/** `/?url=example.com` prefills the form (used by "scan another site" links). */
 export const load: PageServerLoad = ({ url }) => ({ prefill: url.searchParams.get('url')?.slice(0, 2048) ?? '' });
 
 export const actions: Actions = {
@@ -26,6 +26,6 @@ export const actions: Actions = {
       return fail(500, { error: 'The scanner hit a problem starting this scan. It has been logged; please try again in a moment.', input });
     }
     if (!result.ok) return fail(result.status, { error: result.error, input });
-    redirect(303, `/v2/r/${result.scanId}${result.notice ? `?notice=${encodeURIComponent(result.notice)}` : ''}`);
+    redirect(303, `/archive/v1/r/${result.scanId}${result.notice ? `?notice=${encodeURIComponent(result.notice)}` : ''}`);
   }
 };
