@@ -19,7 +19,7 @@
         <a href="/" aria-current={current('/')}>Scanner</a>
         <a href="/bot" aria-current={current('/bot')}>How it works</a>
         <a href="/privacy" aria-current={current('/privacy')}>Privacy</a>
-        {#if data.admin}<a href="/admin">Admin</a>{/if}
+        {#if data.admin}<a href="/admin" data-sveltekit-reload>Admin</a>{/if}
       </nav>
       <div class="nav-r">
         <ThemeToggle />
@@ -54,7 +54,7 @@
         </div>
         <div>
           <h4>More</h4>
-          <ul><li><a href="https://farhan.app/" rel="noopener">Built by Farhan</a></li><li><a href="/archive/v1">Archived design</a></li></ul>
+          <ul><li><a href="https://farhan.app/" rel="noopener">Built by Farhan</a></li><li><a href="/archive/v1" data-sveltekit-reload>Archived design</a></li></ul>
         </div>
       </div>
       <div class="legal"><span class="built">{data.siteName}</span><a class="built link-muted" href="https://farhan.app/" rel="noopener">Built by Farhan</a></div>
