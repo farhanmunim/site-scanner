@@ -1,0 +1,63 @@
+<script lang="ts">
+  import '$lib/v2/design.css';
+  import '$lib/v2/app.css';
+  import { page } from '$app/state';
+  import Mark from '$lib/v2/Mark.svelte';
+  import ThemeToggle from '$lib/v2/ThemeToggle.svelte';
+  let { children, data } = $props();
+  const path = $derived(page.url.pathname.replace(/\/$/, '') || '/');
+  const current = (href: string) => (path === href ? ('page' as const) : undefined);
+  const onReport = $derived(path.startsWith('/v2/r/'));
+</script>
+
+<div class="v2">
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar band" style="border-top: 0">
+    <div class="frame">
+      <a class="logo" href="/v2" aria-label="{data.siteName} home"><Mark /><span class="name">{data.siteName}</span></a>
+      <nav class="topnav" aria-label="Primary">
+        <a href="/v2" aria-current={current('/v2')}>Scanner</a>
+        <a href="/v2/bot" aria-current={current('/v2/bot')}>How it works</a>
+        <a href="/v2/privacy" aria-current={current('/v2/privacy')}>Privacy</a>
+        {#if data.admin}<a href="/admin">Admin</a>{/if}
+      </nav>
+      <div class="nav-r">
+        <ThemeToggle />
+        <a class="btn primary sm wide" href="/v2">{onReport ? 'Scan another site' : 'New scan'}</a>
+      </div>
+    </div>
+    <nav class="mnav-links" aria-label="Primary">
+      <a href="/v2" aria-current={current('/v2')}>Scanner</a>
+      <a href="/v2/bot" aria-current={current('/v2/bot')}>How it works</a>
+      <a href="/v2/privacy" aria-current={current('/v2/privacy')}>Privacy</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    {@render children()}
+  </main>
+
+  <footer class="band v2-foot">
+    <div class="frame">
+      <div class="foot">
+        <div>
+          <a class="logo" href="/v2"><Mark />{data.siteName}</a>
+          <p class="small" style="margin-top: 12px; max-width: 32ch">Plain-language website reports. Free, no account, nothing is probed.</p>
+        </div>
+        <div>
+          <h4>Product</h4>
+          <ul><li><a href="/v2">Scanner</a></li><li><a href="/v2/bot">How it works</a></li></ul>
+        </div>
+        <div>
+          <h4>Legal</h4>
+          <ul><li><a href="/v2/privacy">Privacy</a></li><li><a href="/v2/bot#opt-out">Opt out</a></li></ul>
+        </div>
+        <div>
+          <h4>More</h4>
+          <ul><li><a href="https://farhan.app/" rel="noopener">Built by Farhan</a></li><li><a href="/">Classic design</a></li></ul>
+        </div>
+      </div>
+      <div class="legal"><span class="built">{data.siteName} · design v2</span><span class="built">Typeset in Geist</span></div>
+    </div>
+  </footer>
+</div>
