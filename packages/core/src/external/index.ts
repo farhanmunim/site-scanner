@@ -1,3 +1,4 @@
+import { promises as dnsPromises } from 'node:dns';
 import { parse as parseDomain } from 'tldts';
 import type { ExternalData, PsiMetrics, SafeBrowsingData, SubdomainData } from '../types.js';
 
@@ -15,6 +16,8 @@ export interface ExternalConfig {
   wayback?: boolean;
   greenWeb?: boolean;
   subdomains?: boolean;
+  /** Test hook: true = resolves, false = definitely does not, null = could not tell. */
+  resolveName?: (name: string) => Promise<boolean | null>;
   fetchImpl?: typeof fetch;
   /** Cache: get/set JSON by key with TTL seconds. */
   cache?: { get<T>(key: string): Promise<T | null | undefined>; set(key: string, value: unknown, ttlSec: number): Promise<void> };
@@ -303,6 +306,47 @@ const SUBDOMAIN_SOURCES: { id: SubdomainSource; fetch: (d: string, f: typeof fet
   }
 ];
 
+const NO_RECORD = new Set(['ENOTFOUND', 'ENODATA', 'NXDOMAIN']);
+
+/** True when the name has an address or alias record, false when DNS says it does not exist, null when unsure. */
+export async function nameResolves(name: string, timeoutMs = 4000): Promise<boolean | null> {
+  const attempt = Promise.any([dnsPromises.resolve4(name), dnsPromises.resolve6(name), dnsPromises.resolveCname(name)]).then(() => true as const);
+  const timer = new Promise<null>((r) => setTimeout(() => r(null), timeoutMs).unref?.());
+  try {
+    return await Promise.race([attempt, timer]);
+  } catch (e) {
+    const errs = (e as AggregateError).errors ?? [e];
+    return errs.every((x: { code?: string }) => NO_RECORD.has(x?.code ?? '')) ? false : null;
+  }
+}
+
+/** Split names into those that resolve now and those that do not, within a time budget. */
+async function checkLive(domain: string, names: string[], cfg: ExternalConfig): Promise<Pick<SubdomainData, 'live' | 'wildcard' | 'unverified'>> {
+  const resolve = cfg.resolveName ?? ((n: string) => nameResolves(n));
+  // A wildcard record makes every name resolve; then resolving proves nothing.
+  if ((await resolve(`zz-${Math.random().toString(36).slice(2, 10)}.${domain}`)) === true) return { wildcard: true };
+  const deadline = Date.now() + 15_000;
+  const live: string[] = [];
+  let unverified = 0;
+  let next = 0;
+  const worker = async () => {
+    while (next < names.length) {
+      const n = names[next++]!;
+      if (Date.now() > deadline) {
+        unverified++;
+        continue;
+      }
+      const r = await resolve(n).catch(() => null);
+      if (r === true) live.push(n);
+      else if (r === null) unverified++;
+    }
+  };
+  await Promise.all(Array.from({ length: 25 }, worker));
+  const order = new Map(names.map((n, i) => [n, i]));
+  live.sort((a, b) => order.get(a)! - order.get(b)!);
+  return { live, unverified };
+}
+
 /**
  * Passive subdomain discovery. Tries Certificate Transparency (crt.sh, with a retry), then
  * Certspotter, then HackerTarget's passive DNS, and stops at the first that answers: crt.sh
@@ -311,13 +355,13 @@ const SUBDOMAIN_SOURCES: { id: SubdomainSource; fetch: (d: string, f: typeof fet
  */
 export async function fetchSubdomains(registrableDomain: string, cfg: ExternalConfig): Promise<SubdomainData | null> {
   if (cfg.subdomains === false) return null;
-  return cached(cfg, `subdomains2:${registrableDomain}`, 24 * 3600, async () => {
+  return cached(cfg, `subdomains3:${registrableDomain}`, 24 * 3600, async () => {
     const f = cfg.fetchImpl ?? fetch;
     for (const src of SUBDOMAIN_SOURCES) {
       const raw = await src.fetch(registrableDomain, f).catch(() => null);
       if (!raw) continue;
       const { names, total } = collectSubdomains(raw, registrableDomain);
-      return { checkedAt: new Date().toISOString(), source: src.id, names, total };
+      return { checkedAt: new Date().toISOString(), source: src.id, names, total, ...(await checkLive(registrableDomain, names, cfg)) };
     }
     return null;
   });

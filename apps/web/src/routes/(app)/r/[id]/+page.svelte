@@ -155,7 +155,10 @@
     return { c: st < 400 ? 'green' : 'red', t: `HTTP ${st}` } as const;
   });
   let subs = $derived(report?.external.subdomains ?? null);
-  let subsShown = $derived((subs?.names ?? []).filter((n) => !subFilter || n.includes(subFilter.toLowerCase().trim())));
+  /** Names that currently resolve; older reports (and wildcard domains) have no such split, so every name is listed. */
+  let subsMain = $derived(subs?.live ?? subs?.names ?? []);
+  let subsGone = $derived(subs?.live ? subs.names.filter((n) => !subs!.live!.includes(n)) : []);
+  let subsShown = $derived(subsMain.filter((n) => !subFilter || n.includes(subFilter.toLowerCase().trim())));
   const SUB_FIRST = 45;
   const subSource = { 'ct-log': 'crt.sh, public Certificate Transparency logs', certspotter: 'Certspotter, public Certificate Transparency logs', hackertarget: 'HackerTarget, a passive DNS database' } as const;
 
@@ -376,7 +379,7 @@
           {/if}
           <dt>Connection</dt><dd>{connectionLine}</dd>
           <dt>Subdomains</dt>
-          <dd>{#if subs}<a class="a ink" href="#c-subdomains">{subs.total} found</a>{:else if running}<span class="muted">Checking…</span>{:else}<a class="a ink" href="#c-subdomains">Unavailable</a>{/if}</dd>
+          <dd>{#if subs}<a class="a ink" href="#c-subdomains">{subs.live ? `${subs.live.length} live` : `${subs.total} found`}</a>{:else if running}<span class="muted">Checking…</span>{:else}<a class="a ink" href="#c-subdomains">Unavailable</a>{/if}</dd>
           <dt>Third parties</dt>
           <dd><a class="a ink" href="#c-privacy">{report.thirdParties.length} external service{report.thirdParties.length === 1 ? '' : 's'}</a>{#if report.privacy.find((f) => f.id === 'analytics')?.observed && !/^No /.test(report.privacy.find((f) => f.id === 'analytics')!.observed)}<span class="sub">{report.privacy.find((f) => f.id === 'analytics')!.observed}</span>{/if}</dd>
         </dl>
@@ -671,14 +674,15 @@
       <div class="frame sec compact">
         <div class="sec-head">
           <div><div class="sec-num"></div><h2 class="sec-title">Subdomains</h2></div>
-          <p class="sec-desc">Hostnames under {report.target.registrableDomain} seen in public records{subs ? ` (${subSource[subs.source] ?? 'public records'})` : ''}. Nothing was probed; some may no longer exist.</p>
+          <p class="sec-desc">Hostnames under {report.target.registrableDomain} seen in public records{subs ? ` (${subSource[subs.source] ?? 'public records'})` : ''}{subs?.live ? ', checked against DNS now' : ''}. Nothing on the site itself was contacted.</p>
         </div>
         {#if subs}
           <div class="subtools">
-            <span class="chip">{subs.total} found{#if subs.total > subs.names.length} · showing first {subs.names.length}{/if}</span>
-            {#if subs.names.length > 12}<input type="search" class="input sm filter no-print" placeholder="Filter subdomains…" bind:value={subFilter} aria-label="Filter subdomains" />{/if}
+            <span class="chip">{#if subs.live}{subs.live.length} live{subsGone.length ? ` · ${subsGone.length} no longer resolve` : ''}{:else}{subs.total} found{/if}{#if subs.total > subs.names.length} · first {subs.names.length} of {subs.total} checked{/if}</span>
+            {#if subsMain.length > 12}<input type="search" class="input sm filter no-print" placeholder="Filter subdomains…" bind:value={subFilter} aria-label="Filter subdomains" />{/if}
           </div>
           {#if subs.names.length}
+            {#if subs.live && !subs.live.length}<p class="note-s" style="margin-top: 0">None of the {subs.names.length} hostnames seen in public records currently resolve.</p>{/if}
             <div class="subs">
               {#each (subFilter ? subsShown : subsShown.slice(0, SUB_FIRST)) as n (n)}<span>{n}</span>{:else}<span class="muted" style="border: 0">Nothing matches that filter.</span>{/each}
             </div>
@@ -690,6 +694,16 @@
                 </details>
               </div>
             {/if}
+            {#if subsGone.length}
+              <div class="acc" style="margin-top: 16px">
+                <details open={printMode}>
+                  <summary>{subsGone.length} seen in public records but no longer resolve</summary>
+                  <div class="ans flush"><div class="subs">{#each subsGone as n (n)}<span class="subtle">{n}</span>{/each}</div></div>
+                </details>
+              </div>
+            {/if}
+            {#if subs.wildcard}<p class="note-s">This domain has a wildcard DNS record, so every name resolves and there is no way to tell which of these hosts are real.</p>{/if}
+            {#if subs.unverified}<p class="note-s">{subs.unverified} name{subs.unverified === 1 ? '' : 's'} could not be checked in time and {subs.unverified === 1 ? 'is' : 'are'} not shown as live.</p>{/if}
           {:else}
             <p class="note-s" style="margin-top: 0">No other hostnames appear in Certificate Transparency logs for this domain.</p>
           {/if}

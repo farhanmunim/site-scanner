@@ -96,6 +96,19 @@ describe('fetchSubdomains', () => {
     const limited = (async (u: string) => (u.includes('hackertarget') ? new Response('API count exceeded - Increase Quota') : new Response('nope', { status: 429 }))) as unknown as typeof fetch;
     expect(await fetchSubdomains('example.com', { fetchImpl: limited })).toBeNull();
   }, 15_000);
+  it('separates names that still resolve from retired ones', async () => {
+    const fetchImpl = (async () => json([{ name_value: 'www.example.com\nold.example.com\nslow.example.com' }])) as unknown as typeof fetch;
+    const resolveName = async (n: string) => (n === 'www.example.com' ? true : n === 'slow.example.com' ? null : false);
+    const r = await fetchSubdomains('example.com', { fetchImpl, resolveName });
+    expect(r).toMatchObject({ total: 3, live: ['www.example.com'], unverified: 1 });
+    expect(r?.wildcard).toBeUndefined();
+  });
+  it('does not filter when the domain has a wildcard record', async () => {
+    const fetchImpl = (async () => json([{ name_value: 'a.example.com\nb.example.com' }])) as unknown as typeof fetch;
+    const r = await fetchSubdomains('example.com', { fetchImpl, resolveName: async () => true });
+    expect(r).toMatchObject({ wildcard: true, total: 2 });
+    expect(r?.live).toBeUndefined();
+  });
   it('is null when disabled', async () => {
     expect(await fetchSubdomains('example.com', { subdomains: false })).toBeNull();
   });

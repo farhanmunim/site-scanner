@@ -426,6 +426,16 @@ export interface SubdomainData {
   names: string[];
   /** Total distinct names before the cap. */
   total: number;
+  /**
+   * Names from `names` that currently resolve in DNS. Certificate logs keep every name that ever had a
+   * certificate, so retired hosts stay in `names`; this is the subset that is still live. Absent on
+   * older reports, and when `wildcard` is set (everything resolves, so nothing can be told apart).
+   */
+  live?: string[];
+  /** The domain has a wildcard DNS record, so resolving says nothing about whether a name is real. */
+  wildcard?: boolean;
+  /** How many of `names` could not be verified (resolver timeout or error) and are not in `live`. */
+  unverified?: number;
 }
 
 export interface SafeBrowsingData {
