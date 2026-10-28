@@ -221,7 +221,7 @@ describe('scan scopes', () => {
     expect(isScope('nope')).toBe(false);
     expect(isScope('__proto__')).toBe(false);
     expect(planFor('nope').stages).toEqual(planFor('full').stages);
-    expect(planFor(null).external).toHaveLength(14);
+    expect(planFor(null).external).toHaveLength(15);
   });
   it('runs only what a tool needs, and pulls in dependencies', () => {
     expect(planFor('spf')).toEqual({ stages: ['dns'], external: [] });
@@ -231,7 +231,7 @@ describe('scan scopes', () => {
     expect(planFor('ai-readiness').stages).toEqual(['http', 'files']);
     expect(planFor('privacy').stages).toEqual(['http', 'files', 'browser']);
     // performance must not drag in the other lookups
-    expect(planFor('performance').external).toEqual(['psi']);
+    expect(planFor('performance').external).toEqual(['psi', 'crux']);
     for (const s of SCOPES) if (s !== 'full') expect(planFor(s).stages.length).toBeLessThan(planFor('full').stages.length + 1);
   });
   it('lets a full scan answer any request but not the reverse', () => {

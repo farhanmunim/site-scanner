@@ -45,7 +45,7 @@
     if (report.cms) {
       const cRoll = rollup(report.cms.flags, platformLabel(report));
       out.push({ id: 'wordpress', icon: 'wp', title: platformLabel(report), sub: report.cms.version ? `Version ${report.cms.version}` : 'Version hidden', big: String(report.cms.plugins.length), small: report.cms.platform === 'wordpress' ? 'plugins' : 'apps', tone: cRoll.tone, chip: cRoll.label, bullets: top(report.cms.flags).length ? top(report.cms.flags) : [{ t: 'No warnings', tone: 'good' }] });
-    } else {
+    } else if (pv) {
       out.push({ id: 'wordpress', icon: 'wp', title: 'Platform', sub: pv ? `${pv.name}${pv.version ? ` ${pv.version}` : ''}` : 'What the site is built with', big: null, tone: '', chip: pv ? kindLabel[pv.kind] : 'Custom or unknown', bullets: [pv ? { t: `Built with ${pv.name}${pv.confidence === 'low' ? ' (possible)' : ''}`, tone: '' } : { t: 'No CMS, shop or website builder recognised', tone: '' }] });
     }
     return out;

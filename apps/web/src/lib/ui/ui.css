@@ -365,3 +365,16 @@
     .ss-card > .body { padding: var(--space-4); }
   }
 }
+
+@layer app {
+  .ss-trend { margin-top: var(--space-5); }
+  .ss-trend h3 { font-size: var(--text-base); font-weight: var(--weight-semibold); margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: baseline; }
+  .ss-trend h3 small { font-weight: var(--weight-regular); color: var(--text-muted); font-size: var(--text-xs); }
+  .ss-trend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: var(--space-3); }
+  .ss-trend-cell { padding: var(--space-3) var(--space-3-5); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--bg); min-width: 0; }
+  .ss-trend-cell .n { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); font: var(--weight-medium) var(--text-sm)/1 var(--font-mono); }
+  .ss-trend-cell .big { font-size: var(--text-2xl); font-weight: var(--weight-semibold); letter-spacing: -.03em; margin: var(--space-2) 0; font-variant-numeric: tabular-nums; }
+  .ss-trend-cell .t { font-size: var(--text-xs); color: var(--text-muted); margin-top: var(--space-2); }
+  .ss-trend-cell .ln { color: var(--accent); }
+  .ss-trend-cell .ln.good { color: var(--success); } .ss-trend-cell .ln.warn { color: var(--warning); } .ss-trend-cell .ln.bad { color: var(--danger); }
+}

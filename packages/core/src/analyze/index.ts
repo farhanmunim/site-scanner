@@ -175,6 +175,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     platform: detectPlatform(technologies),
     exposure,
     eol,
+    fieldHistory: data.external?.crux ?? null,
     php,
     aiReadiness,
     vulnerableLibraries,

@@ -28,7 +28,7 @@
     add('HTTPS and certificate', r.security.filter((f) => TLS_IDS.has(f.id)));
     add('SEO', r.seo?.findings);
     const p = r.performance;
-    add('Performance', null, p ? `Lighthouse (${p.strategy}): performance ${p.scores.performance ?? '—'}, accessibility ${p.scores.accessibility ?? '—'}, best practices ${p.scores.bestPractices ?? '—'}, SEO ${p.scores.seo ?? '—'}. LCP ${p.lab.lcpMs != null ? (p.lab.lcpMs / 1000).toFixed(1) + ' s' : '—'}, CLS ${p.lab.cls ?? '—'}, TBT ${p.lab.tbtMs != null ? Math.round(p.lab.tbtMs) + ' ms' : '—'}.` : undefined);
+    add('Performance', null, p ? `Lighthouse (${p.strategy}): performance ${p.scores.performance ?? '—'}, accessibility ${p.scores.accessibility ?? '—'}, best practices ${p.scores.bestPractices ?? '—'}, SEO ${p.scores.seo ?? '—'}. LCP ${p.lab.lcpMs != null ? (p.lab.lcpMs / 1000).toFixed(1) + ' s' : '—'}, CLS ${p.lab.cls ?? '—'}, TBT ${p.lab.tbtMs != null ? Math.round(p.lab.tbtMs) + ' ms' : '—'}.${r.fieldHistory?.periods.length ? ` Real users (Chrome UX Report, latest): LCP ${r.fieldHistory.periods.at(-1)?.lcpMs ?? '—'} ms, INP ${r.fieldHistory.periods.at(-1)?.inpMs ?? '—'} ms, CLS ${r.fieldHistory.periods.at(-1)?.cls ?? '—'}.` : ''}` : undefined);
     if (r.aiReadiness) add(`AI readiness (${r.aiReadiness.score}/100, grade ${r.aiReadiness.grade})`, r.aiReadiness.items.map((i) => ({ id: i.id, title: i.title, status: i.status, observed: i.observed, detail: i.detail }) as Finding));
     add('PHP', r.php?.findings);
     add('Support status', r.eol?.findings);

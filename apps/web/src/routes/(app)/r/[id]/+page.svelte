@@ -49,7 +49,17 @@
   let tool = $derived(scopeTool ?? (printMode ? null : toolBySlug(page.url.searchParams.get('tool'))));
   let stageOrder = $derived(planFor(data.scan.scope).stages);
   const FULL: SectionId[] = ['fixes', 'domain', 'email', 'spf', 'blocklist', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'ports', 'subdomains', 'privacy'];
-  let shown = $derived<SectionId[]>(tool ? tool.sections : FULL);
+  // In the full report, skip sections that have nothing to say (no PHP, no recognised platform, no port data).
+  // A focused tool always shows its section, so "PHP version checker" can still answer "not detected".
+  const worthShowing = (id: SectionId): boolean => {
+    const r = data.scan.report as Report | null;
+    if (!r) return true;
+    if (id === 'php') return !!r.php?.detected;
+    if (id === 'wordpress') return !!r.cms || !!r.platform;
+    if (id === 'ports') return !!r.exposure;
+    return true;
+  };
+  let shown = $derived<SectionId[]>(tool ? tool.sections : FULL.filter((id) => running || failed || worthShowing(id)));
   let has = $derived((id: SectionId) => shown.includes(id));
 
   let active = $state<string>('');

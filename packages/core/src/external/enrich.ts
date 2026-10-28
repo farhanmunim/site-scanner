@@ -1,4 +1,4 @@
-import type { EolCycle, EolItem, ExternalData, GeoInfo, InternetDbData, InternetDbHost, OsvAdvisory, TrancoRank } from '../types.js';
+import type { CruxHistory, CruxPeriod, EolCycle, EolItem, ExternalData, GeoInfo, InternetDbData, InternetDbHost, OsvAdvisory, TrancoRank } from '../types.js';
 import type { LibraryMatch } from './retire.js';
 import type { ExternalConfig } from './index.js';
 
@@ -229,4 +229,61 @@ export async function fetchGeo(ip: string | null | undefined, cfg: ExternalConfi
   });
 }
 
-export type EnrichKeys = Pick<ExternalData, 'internetDb' | 'eolTables' | 'osv' | 'tranco' | 'geo'>;
+// ---------------------------------------------------------------------------
+// Chrome UX Report History API: real-user p75 per weekly window. Uses the same Google key as PageSpeed.
+// ---------------------------------------------------------------------------
+
+interface CruxResponse {
+  record?: {
+    metrics?: Record<string, { percentilesTimeseries?: { p75s?: (number | string | null)[] } }>;
+    collectionPeriods?: { lastDate?: { year: number; month: number; day: number } }[];
+  };
+}
+
+const numOrNull = (v: unknown): number | null => {
+  const n = typeof v === 'string' ? Number(v) : v;
+  return typeof n === 'number' && Number.isFinite(n) ? n : null;
+};
+
+/** Pure: turn the API's parallel arrays into one row per window. CLS p75s arrive as strings. */
+export function parseCrux(origin: string, j: CruxResponse): CruxHistory | null {
+  const rec = j.record;
+  const periods = rec?.collectionPeriods ?? [];
+  if (!rec || !periods.length) return null;
+  const series = (name: string) => rec.metrics?.[name]?.percentilesTimeseries?.p75s ?? [];
+  const lcp = series('largest_contentful_paint');
+  const inp = series('interaction_to_next_paint');
+  const cls = series('cumulative_layout_shift');
+  const ttfb = series('experimental_time_to_first_byte');
+  const rows: CruxPeriod[] = periods.map((p, i) => {
+    const d = p.lastDate;
+    return { end: d ? `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}` : '', lcpMs: numOrNull(lcp[i]), inpMs: numOrNull(inp[i]), cls: numOrNull(cls[i]), ttfbMs: numOrNull(ttfb[i]) };
+  });
+  const kept = rows.filter((r) => r.end && (r.lcpMs !== null || r.inpMs !== null || r.cls !== null));
+  return kept.length ? { origin, formFactor: 'PHONE', periods: kept } : null;
+}
+
+export async function fetchCrux(url: string, cfg: ExternalConfig): Promise<CruxHistory | null> {
+  if (cfg.crux === false || !cfg.googleApiKey) return null;
+  let origin: string;
+  try {
+    origin = new URL(url).origin;
+  } catch {
+    return null;
+  }
+  const f = cfg.fetchImpl ?? fetch;
+  return cached(cfg, `crux:${origin}`, 24 * 3600, async () => {
+    const res = await f(`https://chromeuxreport.googleapis.com/v1/records:queryHistoryRecord?key=${encodeURIComponent(cfg.googleApiKey!)}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ origin, formFactor: 'PHONE', metrics: ['largest_contentful_paint', 'interaction_to_next_paint', 'cumulative_layout_shift', 'experimental_time_to_first_byte'] }),
+      signal: AbortSignal.timeout(10_000)
+    });
+    // 404 = Google has no real-user data for this origin (too little traffic). That is an answer, not an error.
+    if (res.status === 404) return null;
+    if (!res.ok) return null;
+    return parseCrux(origin, (await res.json()) as CruxResponse);
+  });
+}
+
+export type EnrichKeys = Pick<ExternalData, 'internetDb' | 'eolTables' | 'osv' | 'tranco' | 'geo' | 'crux'>;

@@ -32,6 +32,8 @@ export interface ExternalConfig {
   osv?: boolean;
   tranco?: boolean;
   geo?: boolean;
+  /** Chrome UX Report history (needs googleApiKey with the CrUX API enabled). */
+  crux?: boolean;
   /** Test hook: true = resolves, false = definitely does not, null = could not tell. */
   resolveName?: (name: string) => Promise<boolean | null>;
   fetchImpl?: typeof fetch;

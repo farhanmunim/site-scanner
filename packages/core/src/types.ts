@@ -443,6 +443,8 @@ export interface Report {
   /** Open ports and known CVEs seen by a passive internet scanner, plus rank and location. */
   exposure?: Exposure | null;
   eol?: { items: EolItem[]; findings: Finding[] } | null;
+  /** Real-user Core Web Vitals over time (Chrome UX Report). */
+  fieldHistory?: CruxHistory | null;
   wellKnown: { securityTxt: boolean; adsTxt: boolean; llmsTxt: boolean };
   /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
   php?: PhpInfo | null;
@@ -644,6 +646,23 @@ export interface ExternalData {
   tranco?: TrancoRank | null;
   /** Where the primary IP is (city/region), from ipwho.is. */
   geo?: GeoInfo | null;
+  /** Chrome UX Report history: weekly real-user p75 values for the origin (phones). Needs the Google key with the CrUX API enabled. */
+  crux?: CruxHistory | null;
+}
+
+export interface CruxPeriod {
+  /** Last day of the 28-day collection window, YYYY-MM-DD. */
+  end: string;
+  lcpMs: number | null;
+  inpMs: number | null;
+  cls: number | null;
+  ttfbMs: number | null;
+}
+export interface CruxHistory {
+  origin: string;
+  formFactor: 'PHONE';
+  /** Oldest first. */
+  periods: CruxPeriod[];
 }
 
 export interface InternetDbHost {

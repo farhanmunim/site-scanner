@@ -74,3 +74,24 @@ describe('OSV, Tranco, geo', () => {
     expect(planFor('full').external).toEqual(expect.arrayContaining(['internetDb', 'eol', 'osv', 'tranco', 'geo']));
   });
 });
+
+import { fetchCrux, parseCrux } from '../src/external/enrich.js';
+describe('Chrome UX Report history', () => {
+  const body = { record: { collectionPeriods: [{ lastDate: { year: 2026, month: 9, day: 5 } }, { lastDate: { year: 2026, month: 9, day: 12 } }, { lastDate: { year: 2026, month: 9, day: 19 } }], metrics: { largest_contentful_paint: { percentilesTimeseries: { p75s: [2400, 2300, 2100] } }, interaction_to_next_paint: { percentilesTimeseries: { p75s: [180, null, 170] } }, cumulative_layout_shift: { percentilesTimeseries: { p75s: ['0.05', '0.06', '0.04'] } } } } };
+  it('zips the parallel arrays and reads string CLS values', () => {
+    const h = parseCrux('https://a.test', body)!;
+    expect(h.periods).toHaveLength(3);
+    expect(h.periods[0]).toEqual({ end: '2026-09-05', lcpMs: 2400, inpMs: 180, cls: 0.05, ttfbMs: null });
+    expect(h.periods[1]!.inpMs).toBeNull();
+    expect(parseCrux('https://a.test', { record: { collectionPeriods: [], metrics: {} } })).toBeNull();
+  });
+  it('needs the key, treats 404 as no data, and sends the origin', async () => {
+    let sent: { url: string; body: string } | null = null;
+    const f = (async (u: string, init: RequestInit) => ((sent = { url: u, body: String(init.body) }), new Response(JSON.stringify(body)))) as unknown as typeof fetch;
+    expect(await fetchCrux('https://a.test/page?x=1', { fetchImpl: f })).toBeNull();
+    const h = await fetchCrux('https://a.test/page?x=1', { googleApiKey: 'K', fetchImpl: f });
+    expect(h!.origin).toBe('https://a.test');
+    expect(JSON.parse(sent!.body)).toMatchObject({ origin: 'https://a.test', formFactor: 'PHONE' });
+    expect(await fetchCrux('https://b.test/', { googleApiKey: 'K', fetchImpl: (async () => new Response('', { status: 404 })) as typeof fetch })).toBeNull();
+  });
+});
