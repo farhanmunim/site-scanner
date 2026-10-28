@@ -46,6 +46,7 @@
   {#if prop}
     <div>
       <div class="sub-h">Propagation across {resolvers.length} public resolvers</div>
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div class="ss-prop" tabindex="0" role="region" aria-label="DNS answers from each resolver (scrollable)"><table>
         <thead><tr><th>Record</th>{#each resolvers as rs}<th title={rs.ip}>{rs.name}</th>{/each}</tr></thead>
         <tbody>

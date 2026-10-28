@@ -74,3 +74,32 @@ Status: **Fixed** = changed and re-tested. **Mitigated** = risk reduced, residua
 - Production build: unauthenticated writes to ten encoded admin path variants → 401, no rows written; owner flow works.
 - Real scans of framer.com, webflow.com and squarespace.com through the web API, worker and Postgres; a PDF rendered from the new print route.
 - Concurrent migrations against a fresh database.
+
+## Follow-up round: free-API budgets and verification
+
+**Spending controls.** Every outside service now has its own per-minute and per-day budget (below the provider's
+free allowance), shared by all workers through Redis and shown on the admin Health page. A source over budget is
+skipped for that scan, never queued; cache hits cost nothing; if the counter store is down the answer is no. On top
+of that sit the per-visitor, per-site, flood and new daily-scan limits.
+
+Checked live, not assumed:
+
+| What | Result |
+|---|---|
+| VirusTotal budget (3 a minute) with six scans at once | 3 lookups made, 3 refused, all six scans still completed |
+| Daily scan cap set to 8 | refused after the cap; a cached repeat was not counted |
+| Per-visitor limit set to 3 an hour | 4th and 5th refused |
+| Per-site limit (6 an hour), caching off | 7th and 8th answered with the latest result |
+| 75 junk requests in a row | 60 handled, 15 refused with no log rows written |
+| All 18 focused tools on a fresh site | all complete in 0.3–5.7 s, each ran only its own stages, none scored |
+| Hostile page (quadratic markup) | analysis stopped on its deadline; normal scans interleaved with it unaffected |
+| Stuck running / stuck queued / expired data | recovered, reaped and deleted; recent data untouched |
+| 35 hostile inputs (private IPs, odd ports, credentials, internal names, file/gopher) | all refused; names that merely resolve to 127.0.0.1 refused at resolve |
+| Script-injection payloads in every free-text field and every URL (13 views) | 0 executions |
+| Accessibility, axe-core, 10 pages x 2 themes | 0 violations (was 3 rule types) |
+| Production build | boots and migrates, admin writes 401, headers present, image route refuses traversal and SVG |
+
+Bugs this round found in earlier work: NUL stripping corrupted scripts containing the literal text `\u0000` and failed
+those scans (seen on stripe.com); a killed analysis process failed the next request; the favicon picker chose an icon
+over the size cap; a headless CMS (Contentful) was reported as the platform; light-theme green and amber text was about
+3:1 contrast.
