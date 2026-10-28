@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { and, blocklist, desc, domains, eq, gt, inArray, lookups, scans, settings, SETTINGS_KEYS, count } from '@site-scanner/db';
-import { LIMITS, prepareTarget, ScanRefused } from '@site-scanner/core';
+import { isScope, LIMITS, prepareTarget, ScanRefused } from '@site-scanner/core';
 import { getDb } from './db.js';
 import { getQueue, rateLimitHit } from './redis.js';
 import { config } from './config.js';
@@ -19,6 +19,8 @@ export interface ScanRequest {
   referrer: string | null;
   turnstileToken?: string | null;
   source: 'web' | 'api' | 'admin';
+  /** Focused tool to run (see core scope.ts); anything else is a full scan. */
+  scope?: string | null;
   /** Bypass cache (admin re-scan). */
   force?: boolean;
 }
@@ -64,6 +66,9 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
 
   if (req.source !== 'admin' && (await setting(SETTINGS_KEYS.scanningPaused, false))) return refuse(503, 'Scanning is paused for maintenance. Please try again later.');
 
+  const scope = isScope(req.scope) ? req.scope : 'full';
+  // A full scan can answer any focused request; a focused scan only answers the same tool.
+  const acceptable = scope === 'full' ? ['full'] : ['full', scope];
   let target;
   try {
     const blocked = (await db.select({ domain: blocklist.domain }).from(blocklist)).map((b) => b.domain);
@@ -85,7 +90,7 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
     const [recent] = await db
       .select({ id: scans.id, status: scans.status })
       .from(scans)
-      .where(and(eq(scans.url, target.url), gt(scans.createdAt, new Date(Date.now() - cacheMinutes * 60_000)), inArray(scans.status, ['complete', 'partial', 'restricted'])))
+      .where(and(eq(scans.url, target.url), gt(scans.createdAt, new Date(Date.now() - cacheMinutes * 60_000)), inArray(scans.status, ['complete', 'partial', 'restricted']), inArray(scans.scope, acceptable)))
       .orderBy(desc(scans.createdAt))
       .limit(1);
     if (recent) {
@@ -96,7 +101,7 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
     const [active] = await db
       .select({ id: scans.id })
       .from(scans)
-      .where(and(eq(scans.registrableDomain, target.registrableDomain), inArray(scans.status, ['queued', 'running'])))
+      .where(and(eq(scans.registrableDomain, target.registrableDomain), inArray(scans.status, ['queued', 'running']), inArray(scans.scope, acceptable)))
       .orderBy(desc(scans.createdAt))
       .limit(1);
     if (active) {
@@ -131,7 +136,7 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
 
   const [row] = await db
     .insert(scans)
-    .values({ host: target.host, displayHost: target.displayHost, registrableDomain: target.registrableDomain, inputUrl: req.input.slice(0, 2048), url: target.url, requesterIpHash: ipHash, requesterCountry: req.country })
+    .values({ scope, host: target.host, displayHost: target.displayHost, registrableDomain: target.registrableDomain, inputUrl: req.input.slice(0, 2048), url: target.url, requesterIpHash: ipHash, requesterCountry: req.country })
     .returning({ id: scans.id });
   const scanId = row!.id;
   await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId, cacheHit: false });

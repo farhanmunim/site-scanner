@@ -99,6 +99,7 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
         denySuffixes: config.denySuffixes,
         blockedDomains: blocked,
         fingerprintsVersion,
+        scope: row.scope,
         external: externalEnabled ? { googleApiKey: config.googleApiKey, wordfenceApiKey: config.wordfenceApiKey, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false },
         onStage: (stage, d) => persist(stage, d),
         browser: browserEnabled ? renderPage : undefined
@@ -122,8 +123,9 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
     }
     await tx
       .insert(domains)
-      .values({ registrableDomain: row.registrableDomain, scanCount: 1, latestScanId: scanId })
-      .onConflictDoUpdate({ target: domains.registrableDomain, set: { lastScannedAt: new Date(), scanCount: sql`${domains.scanCount} + 1`, latestScanId: scanId } });
+      .values({ registrableDomain: row.registrableDomain, scanCount: 1, latestScanId: row.scope === 'full' ? scanId : null })
+      // Only a full scan becomes "the latest result": it is what rate-limited and cooled-down requests are shown.
+      .onConflictDoUpdate({ target: domains.registrableDomain, set: { lastScannedAt: new Date(), scanCount: sql`${domains.scanCount} + 1`, ...(row.scope === 'full' ? { latestScanId: scanId } : {}) } });
     // Restricted → cool down this domain so public users can't make us keep knocking.
     const httpStatus = data.http?.final?.status;
     if (data.http?.challenge || (httpStatus && isRestrictedStatus(httpStatus))) {

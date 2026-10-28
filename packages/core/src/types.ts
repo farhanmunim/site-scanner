@@ -216,6 +216,8 @@ export interface GatheredData {
     createdAt: string;
     scannerVersion: string;
     fingerprintsVersion: string | null;
+    /** Focused tool this scan was run for ("full" or absent = everything). */
+    scope?: string;
   };
   stages: Record<StageName, StageMeta>;
   dns?: DnsRecords;

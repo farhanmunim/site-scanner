@@ -209,3 +209,52 @@ describe('email audit additions', () => {
     expect(by).toMatchObject({ 'spf-lookups': 'bad', 'spf-void': 'warn', 'spf-ptr': 'warn', blocklist: 'bad', 'tls-rpt': 'info', dane: 'info' });
   });
 });
+
+import { isScope, NOT_NEEDED, planFor, scopeSatisfies, SCOPES } from '../src/scope.js';
+import { analyse } from '../src/analyze/index.js';
+import type { GatheredData } from '../src/types.js';
+
+describe('scan scopes', () => {
+  it('knows every tool and treats anything else as a full scan', () => {
+    expect(SCOPES).toContain('email');
+    expect(isScope('email')).toBe(true);
+    expect(isScope('nope')).toBe(false);
+    expect(isScope('__proto__')).toBe(false);
+    expect(planFor('nope').stages).toEqual(planFor('full').stages);
+    expect(planFor(null).external).toHaveLength(9);
+  });
+  it('runs only what a tool needs, and pulls in dependencies', () => {
+    expect(planFor('spf')).toEqual({ stages: ['dns'], external: [] });
+    expect(planFor('email').stages).toEqual(['dns', 'external']);
+    expect(planFor('subdomains').stages).toEqual(['external']);
+    // files and the browser need the page
+    expect(planFor('ai-readiness').stages).toEqual(['http', 'files']);
+    expect(planFor('privacy').stages).toEqual(['http', 'files', 'browser']);
+    // performance must not drag in the other lookups
+    expect(planFor('performance').external).toEqual(['psi']);
+    for (const s of SCOPES) if (s !== 'full') expect(planFor(s).stages.length).toBeLessThan(planFor('full').stages.length + 1);
+  });
+  it('lets a full scan answer any request but not the reverse', () => {
+    expect(scopeSatisfies('full', 'email')).toBe(true);
+    expect(scopeSatisfies('email', 'email')).toBe(true);
+    expect(scopeSatisfies('email', 'full')).toBe(false);
+    expect(scopeSatisfies('email', 'spf')).toBe(false);
+    expect(scopeSatisfies(undefined, 'spf')).toBe(true);
+  });
+  it('does not call an email-only scan failed, and does not score it', () => {
+    const skipped = { status: 'skipped' as const, note: NOT_NEEDED };
+    const data: GatheredData = {
+      target: { input: 'x.test', url: 'https://x.test/', host: 'x.test', displayHost: 'x.test', registrableDomain: 'x.test', isSubdomain: false },
+      scan: { id: '1', createdAt: new Date().toISOString(), scannerVersion: 't', fingerprintsVersion: null, scope: 'email' },
+      stages: { dns: { status: 'complete' }, http: skipped, files: skipped, rdap: skipped, cert: skipped, browser: skipped, external: { status: 'complete' } },
+      dns: { A: [], AAAA: [], CNAME: [], MX: [{ priority: 1, exchange: 'mx.x.test' }], NS: [], TXT: ['v=spf1 -all'], CAA: [], SOA: null, dnssec: false, dmarc: [], mtaSts: [], dkimSelectors: [], bimi: [] }
+    };
+    const r = analyse(data);
+    expect(r.scan.quality).toBe('complete');
+    expect(r.scan.scope).toBe('email');
+    expect(r.scores).toBeUndefined();
+    expect(r.email.length).toBeGreaterThan(0);
+    // the same data as a full scan has no page, which is a failure
+    expect(analyse({ ...data, scan: { ...data.scan, scope: 'full' } }).scan.quality).toBe('failed');
+  });
+});

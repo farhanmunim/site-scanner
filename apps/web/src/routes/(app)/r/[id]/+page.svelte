@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/state';
   import type { Report, StageMeta, StageName } from '@site-scanner/core/types';
-  import { STAGE_ORDER } from '@site-scanner/core/types';
+  import { planFor } from '@site-scanner/core/scope';
   import { scoreTone } from '@site-scanner/core/analyze/score';
   import { PROFILE_LABELS } from '@site-scanner/core/analyze/profile';
   import { explainFailure } from '@site-scanner/core/analyze/reasons';
@@ -40,8 +40,13 @@
   let durationMs = $state<number | null>(data.scan.durationMs ?? null);
   let running = $derived(!TERMINAL.has(status));
 
-  /** `?tool=email` narrows the report to what that tool is about; the full report is one click away. */
-  let tool = $derived(printMode ? null : toolBySlug(page.url.searchParams.get('tool')));
+  /**
+   * A focused scan only ran one tool's checks, so that is all it can show. A full scan can be viewed through any
+   * tool with `?tool=email`; the full report is one click away.
+   */
+  let scopeTool = $derived(data.scan.scope && data.scan.scope !== 'full' ? toolBySlug(data.scan.scope) : null);
+  let tool = $derived(scopeTool ?? (printMode ? null : toolBySlug(page.url.searchParams.get('tool'))));
+  let stageOrder = $derived(planFor(data.scan.scope).stages);
   const FULL: SectionId[] = ['fixes', 'domain', 'email', 'spf', 'blocklist', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'subdomains', 'privacy'];
   let shown = $derived<SectionId[]>(tool ? tool.sections : FULL);
   let has = $derived((id: SectionId) => shown.includes(id));
@@ -184,21 +189,22 @@
       <span class="eui-eyebrow">{toolLabel ?? 'Website report'} · {fmtDate(data.scan.createdAt, true)}{durationMs ? ` · ${fmtMs(durationMs)} scan` : running ? ' · in progress' : ''}</span>
       <h1><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank">{data.scan.displayHost}</a></h1>
       <div class="ss-rmeta">
-        {#if report}<span class="ss-chip {httpChip.c}">{httpChip.t}</span>{/if}
+        {#if report?.http}<span class="ss-chip {httpChip.c}">{httpChip.t}</span>{/if}
         {#if status !== 'complete'}<span class="ss-chip {status === 'failed' ? 'bad' : running ? 'info' : 'warn'}">{statusText[status] ?? status}</span>{/if}
         {#if report?.profile}<span class="ss-chip" title={report.profile.signals.join(' · ')}>{PROFILE_LABELS[report.profile.kind]}</span>{/if}
         {#if report?.infra.ips[0]}<span class="ss-chip">{report.infra.ips[0].ip}</span>{/if}
-        {#if tool}<a class="ss-chip" href="/r/{data.scan.id}" style="text-decoration: none">Show full report →</a>{/if}
+        {#if tool && !scopeTool}<a class="ss-chip" href="/r/{data.scan.id}" style="text-decoration: none">Show full report →</a>{/if}
       </div>
     </div>
     <div class="ss-acts no-print">
       <button class="eui-btn outline sm" type="button" onclick={share}><Icon name="copy" size={14} />{shareLabel}</button>
-      <a class="eui-btn outline sm" href="/?url={encodeURIComponent(data.scan.url)}{tool ? `&tool=${tool.slug}` : ''}" title="Runs a fresh scan if the cached result is older than 15 minutes"><Icon name="refresh" size={14} />Scan again</a>
+      <a class="eui-btn outline sm" href="/?url={encodeURIComponent(data.scan.url)}{scopeTool ? `&tool=${scopeTool.slug}` : ''}" title="Runs a fresh scan if the cached result is older than 15 minutes"><Icon name="refresh" size={14} />Scan again</a>
       {#if !running}<button class="eui-btn outline sm" type="button" onclick={downloadPdf} disabled={pdfState === 'preparing'} aria-live="polite"><Icon name="download" size={14} />{pdfState === 'preparing' ? 'Preparing PDF…' : pdfState === 'error' ? 'PDF failed, retry' : 'PDF'}</button>{/if}
       <a class="eui-btn ghost sm" href="/api/scans/{data.scan.id}" rel="nofollow">JSON</a>
     </div>
   </div>
 
+  {#if scopeTool && !running}<div class="ss-alert info" role="status"><Icon name="info" /><div>This was a focused <b>{scopeTool.title}</b> scan, so only its checks ran. <a href="/?url={encodeURIComponent(data.scan.url)}&go=1" style="text-decoration: underline">Run the full scan</a> for scores and every section.</div></div>{/if}
   {#if data.notice}<div class="ss-alert info" role="status"><Icon name="info" /><div>{data.notice}</div></div>{/if}
   {#if report?.safeBrowsing?.threats.length}<div class="ss-alert err" role="alert"><Icon name="alert" /><div><b>Google Safe Browsing flags this site</b> ({report.safeBrowsing.threats.join(', ').toLowerCase()}). Visit with care.</div></div>{/if}
   {#if failed}<div class="ss-alert err" role="alert"><Icon name="alert" /><div><b>We couldn't load this page:</b> {failureReason}. DNS, registration, certificate and email checks still ran; nothing that needs the page could be assessed, so the site is not scored.</div></div>{/if}
@@ -209,7 +215,7 @@
       <header><div><h2>{running ? 'Scanning…' : failed ? 'Scan log' : 'No data'}</h2><p>{running ? 'Usually 10–40 seconds. Results fill in below as each step finishes.' : failed ? 'Which steps ran and where the page fetch stopped.' : (scanError ?? 'The scan produced no data.')}</p></div></header>
       <div class="body">
         <div class="ss-steps-list" aria-live="polite">
-          {#each STAGE_ORDER as s (s)}
+          {#each stageOrder as s (s)}
             {@const r = stageRow(s)}
             <div class="s {r.cls}" title={stages[s]?.note ?? undefined}>
               {#if r.cls === 'cur'}<span class="ss-spin" aria-hidden="true"></span>{:else}<span class="dt {r.dt}" aria-hidden="true"></span>{/if}
@@ -245,7 +251,7 @@
           {#each side as s (s.id)}
             <a href="#s-{s.id}" class:on={active === s.id}><span>{s.label}</span>{#if s.sc}<span class="sc {s.tone}">{s.sc}</span>{/if}</a>
           {/each}
-          {#if tool}<hr /><a href="/r/{data.scan.id}"><span>Full report</span><Icon name="arrow" size={12} /></a>{/if}
+          {#if tool}<hr /><a href={scopeTool ? `/?url=${encodeURIComponent(data.scan.url)}&go=1` : `/r/${data.scan.id}`}><span>{scopeTool ? 'Run full scan' : 'Full report'}</span><Icon name="arrow" size={12} /></a>{/if}
         </nav>
       {/if}
       <div class="ss-stack">
@@ -269,8 +275,11 @@
 
         {#if tool}
           <section class="ss-card no-print">
-            <header><div><h2>Try another tool on {data.scan.displayHost}</h2><p>Each tool is a view of the same scan: no need to wait again.</p></div><a class="eui-btn outline sm" href="/r/{data.scan.id}">Full report</a></header>
-            <div class="body"><div class="ss-grid">{#each siblings as o (o.slug)}<a class="ss-tool" href="/r/{data.scan.id}?tool={o.slug}"><span class="ico"><Icon name={o.icon} size={18} /></span><h3>{o.title}</h3><p>{o.short}</p></a>{/each}</div></div>
+            <header>
+              <div><h2>Try another tool on {data.scan.displayHost}</h2><p>{scopeTool ? 'Each tool runs only the checks it needs, so it is quick.' : 'This is a full scan, so any tool can show its view instantly.'}</p></div>
+              <a class="eui-btn outline sm" href={scopeTool ? `/?url=${encodeURIComponent(data.scan.url)}&go=1` : `/r/${data.scan.id}`}>{scopeTool ? 'Run the full scan' : 'Full report'}</a>
+            </header>
+            <div class="body"><div class="ss-grid">{#each siblings as o (o.slug)}<a class="ss-tool" href={scopeTool ? `/?url=${encodeURIComponent(data.scan.url)}&go=1&tool=${o.slug}` : `/r/${data.scan.id}?tool=${o.slug}`}><span class="ico"><Icon name={o.icon} size={18} /></span><h3>{o.title}</h3><p>{o.short}</p></a>{/each}</div></div>
           </section>
         {/if}
         <p class="ss-note">{dot(`Scanner ${report.scan.scannerVersion}`, report.scan.fingerprintsVersion ? `fingerprints ${report.scan.fingerprintsVersion}` : null, `report v${report.reportVersion}`)}</p>

@@ -14,6 +14,7 @@ import { analyseAiReadiness } from './ai.js';
 import { findExposedSecrets } from './secrets.js';
 import { auditDomain } from './domain.js';
 import { findVulnerableLibraries } from '../external/retire.js';
+import { planFor } from '../scope.js';
 import type { TlsInfo } from '../gather/stages/tls.js';
 
 export { parseHtml } from './html.js';
@@ -113,8 +114,13 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     security.unshift({ id: 'safe-browsing', title: 'Google Safe Browsing', status: 'bad', observed: `Flagged: ${data.external.safeBrowsing.threats.join(', ')}.`, detail: 'Google currently lists this URL as unsafe. Browsers may show a warning page.' });
   }
 
-  const stageStatuses = Object.values(data.stages).map((s) => s.status);
-  const quality: Report['scan']['quality'] = !final && !browser ? 'failed' : http?.challenge || browser?.blocked ? 'restricted' : stageStatuses.some((s) => s === 'failed' || s === 'restricted') ? 'partial' : 'complete';
+  const scope = data.scan.scope ?? 'full';
+  const focused = scope !== 'full';
+  const plan = planFor(scope);
+  // A focused scan is judged on the stages it ran: an email check has no page, and that is not a failure.
+  const ranStatuses = (Object.entries(data.stages) as [StageName, { status: string }][]).filter(([k]) => plan.stages.includes(k)).map(([, v]) => v.status);
+  const needsPage = plan.stages.includes('http');
+  const quality: Report['scan']['quality'] = needsPage && !final && !browser ? 'failed' : http?.challenge || browser?.blocked ? 'restricted' : ranStatuses.some((s) => s === 'failed' || s === 'restricted') ? 'partial' : 'complete';
 
   const psi = data.external?.psi ?? null;
   const screenshot = browser?.screenshot && opts.screenshotUrl ? { url: opts.screenshotUrl(browser.screenshot.path), width: browser.screenshot.width, height: browser.screenshot.height } : psi?.screenshotDataUrl ? { dataUrl: psi.screenshotDataUrl } : null;
@@ -169,7 +175,8 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     screenshot,
     safeBrowsing: data.external?.safeBrowsing ?? null,
     external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null, subdomains: data.external?.subdomains ?? null },
-    scores: scoreReport({ security, email, privacy, seo, performance: psi, quality, failureReason: quality === 'failed' ? explainFailure(data.stages.http?.note) : null }),
+    // A focused scan has no scores: sections it did not run would read as a perfect 100.
+    scores: focused ? undefined : scoreReport({ security, email, privacy, seo, performance: psi, quality, failureReason: quality === 'failed' ? explainFailure(data.stages.http?.note) : null }),
     profile
   };
 }

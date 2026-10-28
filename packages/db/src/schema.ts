@@ -19,6 +19,8 @@ export const scans = pgTable(
     inputUrl: text('input_url').notNull(),
     url: text('url').notNull(),
     finalUrl: text('final_url'),
+    /** "full" or the focused tool this scan was run for (see core scope.ts). */
+    scope: varchar('scope', { length: 32 }).notNull().default('full'),
     status: varchar('status', { length: 16 }).$type<ScanStatus>().notNull().default('queued'),
     scannerVersion: varchar('scanner_version', { length: 32 }),
     fingerprintsVersion: varchar('fingerprints_version', { length: 64 }),

@@ -8,11 +8,12 @@ import type { Report } from './types.js';
 const args = process.argv.slice(2);
 const url = args.find((a) => !a.startsWith('--'));
 if (!url) {
-  console.error('Usage: pnpm scan <url> [--json] [--no-external]');
+  console.error('Usage: pnpm scan <url> [--json] [--no-external] [--tool=<slug>]');
   process.exit(1);
 }
 const json = args.includes('--json');
 const noExternal = args.includes('--no-external');
+const scope = args.find((a) => a.startsWith('--tool='))?.slice(7);
 
 try {
   const target = prepareTarget(url, {});
@@ -20,6 +21,7 @@ try {
   const started = Date.now();
   const data = await gather(target, {
     scanId: randomUUID(),
+    scope,
     selfUrl: process.env.PUBLIC_SITE_URL ?? 'https://site-scanner.local',
     fingerprintsVersion: version,
     external: noExternal ? { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false } : { googleApiKey: process.env.GOOGLE_API_KEY, wordfenceApiKey: process.env.WORDFENCE_API_KEY },

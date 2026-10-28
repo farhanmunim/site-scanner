@@ -1,12 +1,13 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requestScan } from '$lib/server/scan-service.js';
+import { isScope } from '@site-scanner/core';
 
 /** `/?url=example.com` prefills the form; `go=1` starts the scan straight away (the nav search box); `tool` keeps a tool's focused view. */
 export const load: PageServerLoad = ({ url }) => ({
   prefill: url.searchParams.get('url')?.slice(0, 2048) ?? '',
   autostart: url.searchParams.get('go') === '1',
-  tool: url.searchParams.get('tool')?.slice(0, 40) ?? null
+  tool: isScope(url.searchParams.get('tool')) ? url.searchParams.get('tool') : null
 });
 
 export const actions: Actions = {

@@ -45,7 +45,7 @@
           return;
         }
       }
-      const r = await fetch('/api/scans', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'x-scan-source': 'web' }, body: JSON.stringify({ url, turnstileToken: token }) });
+      const r = await fetch('/api/scans', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'x-scan-source': 'web' }, body: JSON.stringify({ url, tool: tool ?? undefined, turnstileToken: token }) });
       const j = (await r.json()) as { scanId?: string; cached?: boolean; notice?: string | null; error?: string };
       if (!r.ok || !j.scanId) {
         error = j.error ?? 'Something went wrong. Please try again.';
@@ -85,4 +85,4 @@
   <div class="ss-try"><span>Try</span>{#each examples as ex}<button type="button" onclick={() => { value = ex; input?.focus(); }}>{ex}</button>{/each}</div>
 </form>
 
-{#if scan}<ScanModal scanId={scan.id} host={scan.host} after={suffix()} />{/if}
+{#if scan}<ScanModal scanId={scan.id} host={scan.host} scope={tool} after={suffix()} />{/if}

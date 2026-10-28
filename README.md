@@ -51,7 +51,7 @@ Application code is private/unlicensed. The fingerprint database is fetched at b
 
 ## Routes
 
-- `/`: quick scan. `/tools` and `/tools/<slug>`: focused tools (the same scan, filtered; definitions in `apps/web/src/lib/ui/tools.ts`).
+- `/`: quick scan. `/tools` and `/tools/<slug>`: focused tools. A tool runs only the stages and lookups it needs (plans in `packages/core/src/scope.ts`; `POST /api/scans` takes `"tool"`), stored as `scans.scope`. A full scan can answer any tool; a focused scan only its own.
 - `/r/<id>`: the full report. `/r/<id>?tool=<slug>` narrows it to one tool's sections. `/bot`, `/privacy`: info pages.
 - Design: the farhan.app UI library tokens and primitives (vendored in `apps/web/src/lib/ui/css/`, dark by default), app styles in `apps/web/src/lib/ui/ui.css`, report sections in `apps/web/src/lib/ui/report/`.
 - `/archive/v1/…`: the first design, kept for reference. `/admin` still uses its own styling.

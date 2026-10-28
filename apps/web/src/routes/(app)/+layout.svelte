@@ -39,7 +39,7 @@
               {#each TOOLS as t (t.slug)}
                 <a href="/tools/{t.slug}" role="menuitem"><span class="ss-tool-ico" style="color: var(--text-secondary); margin-top: 2px"><Icon name={t.icon} /></span><span><b>{t.title}</b><span class="d">{t.short}</span></span></a>
               {/each}
-              <div class="ss-menu-foot"><a href="/tools">All tools →</a></div>
+              <div class="ss-menu-foot"><a href="/tools">All tools →</a><a href="/bot">How it works</a><a href="/privacy">Privacy</a></div>
             </div>
           {/if}
         </div>
@@ -56,7 +56,10 @@
           {#if path.startsWith('/tools/')}<input type="hidden" name="tool" value={path.slice(7)} />{/if}
         </form>
       {/if}
-      <div class="ss-iconbtn-wrap"><ThemeToggle /></div>
+      <div class="ss-iconbtn-wrap">
+        {#if !onHome}<a class="eui-iconbtn ss-nav-scan-m" href="/" aria-label="Scan a website" title="Scan a website"><Icon name="search" /></a>{/if}
+        <ThemeToggle />
+      </div>
     </div>
   </header>
 

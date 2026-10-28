@@ -1,0 +1,1 @@
+ALTER TABLE "scans" ADD COLUMN "scope" varchar(32) DEFAULT 'full' NOT NULL;

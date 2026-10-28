@@ -9,6 +9,7 @@ import { gatherRdap } from './stages/rdap.js';
 import { gatherTls } from './stages/tls.js';
 import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchSubdomains, fetchWayback, fetchWordPressOrg, fetchWordfence, fetchWordPressLatest, fetchWordPressThemes, fetchRetire, fetchBlocklists, type ExternalConfig } from '../external/index.js';
 import { checkPropagation } from './stages/propagation.js';
+import { isScope, NOT_NEEDED, planFor } from '../scope.js';
 import { SCANNER_VERSION, type BrowserData, type GatheredData, type StageMeta, type StageName } from '../types.js';
 
 export * from './url.js';
@@ -36,6 +37,8 @@ export interface GatherOptions {
   blockedDomains?: string[];
   fingerprintsVersion?: string | null;
   external?: ExternalConfig;
+  /** Focused tool to run (see scope.ts). Absent or "full" runs everything. */
+  scope?: string;
   /** Called after each stage finishes, with the data so far (for progressive persistence). */
   onStage?: (stage: StageName, data: GatheredData) => Promise<void> | void;
   /** Provided by the worker when a browser is available. */
@@ -81,10 +84,13 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   const safeFetchImpl = createSafeFetch(dispatcher);
   const budget = new RequestBudget();
   const preResolved = new Map<string, boolean>();
+  const plan = planFor(opts.scope);
+  const run = (s: StageName) => plan.stages.includes(s);
+  const wants = (c: (typeof plan.external)[number]) => plan.external.includes(c);
 
   const data: GatheredData = {
     target: { input: target.input, url: target.url, host: target.host, displayHost: target.displayHost, registrableDomain: target.registrableDomain, isSubdomain: target.isSubdomain },
-    scan: { id: opts.scanId, createdAt: new Date().toISOString(), scannerVersion: SCANNER_VERSION, fingerprintsVersion: opts.fingerprintsVersion ?? null },
+    scan: { id: opts.scanId, createdAt: new Date().toISOString(), scannerVersion: SCANNER_VERSION, fingerprintsVersion: opts.fingerprintsVersion ?? null, scope: isScope(opts.scope) ? opts.scope : 'full' },
     stages: { dns: { status: 'pending' }, http: { status: 'pending' }, files: { status: 'pending' }, rdap: { status: 'pending' }, cert: { status: 'pending' }, browser: { status: 'pending' }, external: { status: 'pending' } }
   };
   const done = async (stage: StageName, meta: StageMeta) => {
@@ -95,21 +101,27 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
 
   // DNS, RDAP and TLS are independent of the HTTP fetch; run them alongside it.
   const t0 = Date.now();
-  const dnsP = gatherDns(target.host, target.registrableDomain)
+  const skip = (stage: StageName) => done(stage, { status: 'skipped', note: NOT_NEEDED });
+  const dnsP = !run('dns')
+    ? skip('dns')
+    : gatherDns(target.host, target.registrableDomain)
     .then(async (r) => {
       data.dns = r.records;
       data.ips = r.ips;
       await done('dns', stageMeta(r.records.A.length || r.records.AAAA.length ? 'complete' : 'failed', t0, r.records.A.length || r.records.AAAA.length ? undefined : 'No address records found'));
     })
     .catch(async (e) => done('dns', stageMeta('failed', t0, String(e?.message ?? e))));
-  const rdapP = gatherRdap(target.registrableDomain)
+  const rdapP = !run('rdap')
+    ? skip('rdap')
+    : gatherRdap(target.registrableDomain)
     .then(async (r) => {
       data.rdap = r;
       await done('rdap', stageMeta(r ? 'complete' : 'failed', t0, r ? undefined : 'RDAP lookup unavailable for this TLD'));
     })
     .catch(async (e) => done('rdap', stageMeta('failed', t0, String(e?.message ?? e))));
-  const tlsP =
-    target.port === 443 || target.port === 8443
+  const tlsP = !run('cert')
+    ? skip('cert')
+    : target.port === 443 || target.port === 8443
       ? gatherTls(target.host, target.port, blockedIps)
           .then(async (r) => {
             data.cert = r;
@@ -121,18 +133,27 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   // HTTP → files (files depend on the page).
   const t1 = Date.now();
   const httpP = (async () => {
+    if (!run('http')) {
+      await skip('http');
+      await skip('files');
+      return;
+    }
     try {
       const http = await gatherHttp(target.url, fetchOpts);
       data.http = http;
       if (!http.final) {
         await done('http', stageMeta('failed', t1, http.error ?? 'The site did not respond'));
-        await done('files', { status: 'skipped', note: 'No page to analyse' });
+        await (run('files') ? done('files', { status: 'skipped', note: 'No page to analyse' }) : skip('files'));
         return;
       }
       const restricted = http.challenge || isRestrictedStatus(http.final.status);
       await done('http', stageMeta(restricted ? 'restricted' : 'complete', t1, restricted ? `${http.challenge ? http.challenge.vendor + ' challenge' : 'HTTP ' + http.final.status} — the site restricts automated access` : undefined));
       if (restricted) {
-        await done('files', { status: 'skipped', note: 'Skipped: the site restricts automated access' });
+        await (run('files') ? done('files', { status: 'skipped', note: 'Skipped: the site restricts automated access' }) : skip('files'));
+        return;
+      }
+      if (!run('files')) {
+        await skip('files');
         return;
       }
       const t2 = Date.now();
@@ -144,7 +165,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
       }
     } catch (e) {
       await done('http', stageMeta('failed', t1, String((e as Error)?.message ?? e)));
-      await done('files', { status: 'skipped' });
+      await (run('files') ? done('files', { status: 'skipped' }) : skip('files'));
     }
   })();
 
@@ -152,7 +173,9 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
 
   // Browser (optional, provided by the worker). Skipped when restricted.
   const t3 = Date.now();
-  if (opts.browser && data.http?.final && data.stages.http.status === 'complete') {
+  if (!run('browser')) {
+    await skip('browser');
+  } else if (opts.browser && data.http?.final && data.stages.http.status === 'complete') {
     try {
       const b = await opts.browser(data, { blockedIps, userAgent: `Mozilla/5.0 (compatible; SiteScanBot/1.0; +${opts.selfUrl.replace(/\/$/, '')}/bot)` });
       data.browser = b;
@@ -167,25 +190,27 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   // External enrichment (free APIs; all optional).
   const t4 = Date.now();
   const ext = opts.external ?? {};
-  try {
+  if (!run('external')) {
+    await skip('external');
+  } else try {
     const finalUrl = data.http?.final?.url ?? target.url;
     const wp = data.http?.final ? extractWordPressRefs(data.http.final.body) : { detected: false, pluginSlugs: [] as string[], themeSlugs: [] as string[] };
     const wpItems = wp.detected ? [...wp.pluginSlugs.map((slug) => ({ type: 'plugin' as const, slug })), ...wp.themeSlugs.slice(0, 2).map((slug) => ({ type: 'theme' as const, slug })), { type: 'core' as const, slug: 'wordpress' }] : [];
     const scriptUrls = data.http?.final ? [...new Set([...extractScriptUrls(data.http.final.body, finalUrl), ...(data.files?.scripts.map((f) => f.path) ?? []), ...(data.browser?.requests.filter((r) => r.type === 'script').map((r) => r.url) ?? [])])] : [];
     const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
     const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfenceVulns, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation] = await Promise.all([
-      data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null,
-      fetchSafeBrowsing(finalUrl, ext),
-      fetchWayback(target.registrableDomain, ext),
-      fetchGreenWeb(target.host, ext),
-      wp.detected ? fetchWordPressOrg(wp.pluginSlugs, ext) : {},
-      wpItems.length ? fetchWordfence(wpItems, ext) : Promise.resolve(null),
-      wp.detected ? fetchWordPressLatest(ext) : null,
-      wp.detected ? fetchWordPressThemes(wp.themeSlugs, ext) : {},
-      fetchSubdomains(target.registrableDomain, ext),
-      data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : null,
-      fetchBlocklists(data.dns ?? null, data.ips ?? [], ext).catch(() => null),
-      ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null)
+      wants('psi') && data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null,
+      wants('safeBrowsing') ? fetchSafeBrowsing(finalUrl, ext) : null,
+      wants('wayback') ? fetchWayback(target.registrableDomain, ext) : null,
+      wants('greenWeb') ? fetchGreenWeb(target.host, ext) : null,
+      wants('wordpress') && wp.detected ? fetchWordPressOrg(wp.pluginSlugs, ext) : {},
+      wants('wordpress') && wpItems.length ? fetchWordfence(wpItems, ext) : Promise.resolve(null),
+      wants('wordpress') && wp.detected ? fetchWordPressLatest(ext) : null,
+      wants('wordpress') && wp.detected ? fetchWordPressThemes(wp.themeSlugs, ext) : {},
+      wants('subdomains') ? fetchSubdomains(target.registrableDomain, ext) : null,
+      wants('retire') && data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : null,
+      wants('blocklists') ? fetchBlocklists(data.dns ?? null, data.ips ?? [], ext).catch(() => null) : null,
+      !wants('propagation') || ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null)
     ]);
     // Summary kept for older readers of `wordfence`: plugin advisory counts regardless of version.
     const wordfence: NonNullable<typeof data.external>['wordfence'] = {};
