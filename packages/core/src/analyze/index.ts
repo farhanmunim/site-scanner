@@ -98,7 +98,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
   const security = profile ? applyProfile(rawSecurity, profile) : rawSecurity;
   const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain, data.external?.blocklists) : [];
   const thirdParties = summariseThirdParties(parsed, browser?.requests ?? null, new URL(baseUrl).hostname, technologies);
-  const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}) ?? analyseShopify(rawHtml || renderedHtml, technologies);
+  const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}, baseUrl) ?? analyseShopify(rawHtml || renderedHtml, technologies);
   const privacy = final || browser ? auditPrivacy(technologies, thirdParties, cookies, robots) : [];
 
   const cookieNames = [...(final?.cookies ?? []), ...cookies.map((c) => `${c.name}=`)];

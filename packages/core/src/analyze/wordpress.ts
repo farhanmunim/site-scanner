@@ -5,8 +5,8 @@ import { extractWordPressRefs } from '../gather/stages/files.js';
  * WordPress deep dive (InspectWP-style): core version, theme, plugins with versions, plus
  * public-exposure flags. Everything here comes from the page and files it referenced.
  */
-export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | null, techs: TechnologyDetection[], external: ExternalData | undefined, headers: Record<string, string>): CmsDeepDive | null {
-  const refs = extractWordPressRefs(html);
+export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | null, techs: TechnologyDetection[], external: ExternalData | undefined, headers: Record<string, string>, pageUrl?: string): CmsDeepDive | null {
+  const refs = extractWordPressRefs(html, pageUrl, headers);
   const wpTech = techs.find((t) => t.name === 'WordPress');
   if (!refs.detected && !(wpTech && !wpTech.implied && wpTech.score >= 100)) return null;
 

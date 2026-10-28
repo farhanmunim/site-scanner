@@ -1,6 +1,7 @@
 import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { hasValidSession } from '$lib/server/auth.js';
 import { clientIp } from '$lib/server/scan-service.js';
+import { isAdminRoute, mustRefuseAdminWrite } from '$lib/server/admin-guard.js';
 
 export const handle: Handle = async ({ event, resolve }) => {
   const { ip, country } = clientIp(event.request, () => {
@@ -14,10 +15,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.country = country;
   event.locals.admin = hasValidSession(event.cookies);
 
-  // Page loads under /admin are guarded by the layout, but form actions are plain POSTs that skip it. Refuse every
-  // state-changing admin request without a session here, once, instead of trusting each action to check.
-  const { pathname } = event.url;
-  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !event.locals.admin && !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method) && pathname !== '/admin/login') {
+  if (mustRefuseAdminWrite({ routeId: event.route.id, pathname: event.url.pathname, method: event.request.method, isAdmin: event.locals.admin })) {
     return new Response('Unauthorized', { status: 401, headers: { 'cache-control': 'no-store' } });
   }
 
@@ -29,7 +27,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   response.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   response.headers.set('cross-origin-opener-policy', 'same-origin');
   if (event.url.protocol === 'https:' || event.request.headers.get('x-forwarded-proto') === 'https') response.headers.set('strict-transport-security', 'max-age=31536000; includeSubDomains');
-  if (event.url.pathname.startsWith('/r/') || event.url.pathname.startsWith('/archive/') || event.url.pathname.startsWith('/admin')) response.headers.set('x-robots-tag', 'noindex, nofollow');
+  if (event.url.pathname.startsWith('/r/') || event.url.pathname.startsWith('/archive/') || isAdminRoute(event.route.id, event.url.pathname)) response.headers.set('x-robots-tag', 'noindex, nofollow');
   return response;
 };
 

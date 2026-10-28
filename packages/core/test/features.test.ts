@@ -258,3 +258,64 @@ describe('scan scopes', () => {
     expect(analyse({ ...data, scan: { ...data.scan, scope: 'full' } }).scan.quality).toBe('failed');
   });
 });
+
+import { confirmWordPress, extractWordPressRefs } from '../src/gather/stages/files.js';
+
+describe('WordPress confirmation gate (decides whether any WordPress API is called)', () => {
+  const page = 'https://example.com/';
+  it('is not fooled by pages that merely talk about WordPress', () => {
+    expect(confirmWordPress('<p>Use the /wp-json/ endpoint and /wp-includes/ files</p><code>/wp-content/themes/foo/</code>', page).confirmed).toBe(false);
+    expect(confirmWordPress('<img src="https://other-blog.com/wp-content/uploads/a.png">', page).confirmed).toBe(false);
+    expect(confirmWordPress('<img src="/wp-content/uploads/a.png">', page).confirmed).toBe(false); // one asset alone is only a hint
+    expect(extractWordPressRefs('<p>/wp-content/plugins/elementor/ is a plugin</p>', page).pluginSlugs).toEqual([]);
+  });
+  it('confirms on strong evidence', () => {
+    expect(confirmWordPress('<meta name="generator" content="WordPress 6.4.1">', page).signals).toContain('generator meta');
+    expect(confirmWordPress('<meta content="WordPress 6.4" name="generator">', page).confirmed).toBe(true);
+    expect(confirmWordPress("<link rel='https://api.w.org/' href='https://example.com/wp-json/'>", page).confirmed).toBe(true);
+    expect(confirmWordPress('<html></html>', page, { link: '<https://example.com/wp-json/>; rel="https://api.w.org/"' }).confirmed).toBe(true);
+    expect(confirmWordPress('<link href="/wp-content/themes/a/style.css"><script src="/wp-includes/js/jquery.js"></script>', page).confirmed).toBe(true);
+  });
+  it('accepts an image CDN that carries the site name, and two weak hints together', () => {
+    expect(confirmWordPress('<img src="https://i0.wp.com/example.com/wp-content/uploads/a.jpg"><img src="https://i1.wp.com/example.com/wp-content/uploads/b.jpg">', page).confirmed).toBe(true);
+    expect(confirmWordPress('<img src="/wp-content/uploads/a.png">', page, { 'x-pingback': 'https://example.com/xmlrpc.php' }).confirmed).toBe(true);
+  });
+  it('reads theme and plugin slugs only from first-party URLs', () => {
+    const html = '<meta name="generator" content="WordPress 6.4"><link href="/wp-content/themes/mine/style.css"><script src="/wp-content/plugins/real-plugin/a.js"></script><img src="https://elsewhere.org/wp-content/plugins/not-ours/x.png">';
+    const r = extractWordPressRefs(html, page);
+    expect(r.themeSlugs).toEqual(['mine']);
+    expect(r.pluginSlugs).toEqual(['real-plugin']);
+  });
+});
+
+describe('Wordfence backoff', () => {
+  const store = () => {
+    const m = new Map<string, unknown>();
+    return { get: async (k: string) => m.get(k) as never, set: async (k: string, v: unknown) => void m.set(k, v) };
+  };
+  const items = [{ type: 'plugin' as const, slug: 'foo' }];
+  it('does not retry the download after a 429, even across a restart, and honours the shared cooldown', async () => {
+    resetWordfenceMemo();
+    let calls = 0;
+    const cache = store();
+    const cfg = { wordfenceApiKey: 'k', cache, fetchImpl: (async () => { calls++; return new Response('slow down', { status: 429, headers: { 'retry-after': '120' } }); }) as typeof fetch };
+    expect(await fetchWordfence(items, cfg)).toBeNull();
+    expect(await fetchWordfence(items, cfg)).toBeNull();
+    expect(await fetchWordfence([{ type: 'plugin', slug: 'bar' }], cfg)).toBeNull();
+    expect(calls).toBe(1);
+    // a new process (memory wiped) still sees the cooldown in the shared cache
+    resetWordfenceMemo();
+    expect(await fetchWordfence(items, cfg)).toBeNull();
+    expect(calls).toBe(1);
+  });
+  it('also backs off after network errors and malformed responses', async () => {
+    for (const impl of [(async () => { throw new Error('boom'); }) as typeof fetch, (async () => new Response('not json', { status: 200 })) as typeof fetch]) {
+      resetWordfenceMemo();
+      let calls = 0;
+      const cfg = { wordfenceApiKey: 'k', cache: store(), fetchImpl: ((...a: Parameters<typeof fetch>) => { calls++; return impl(...a); }) as typeof fetch };
+      await fetchWordfence(items, cfg);
+      await fetchWordfence(items, cfg);
+      expect(calls).toBe(1);
+    }
+  });
+});

@@ -26,22 +26,81 @@ export function extractScriptUrls(html: string, baseUrl: string): string[] {
 }
 
 export interface WordPressRefs {
+  /** WordPress is confirmed by strong evidence, not merely mentioned in the page. */
   detected: boolean;
+  /** Which signals confirmed it (empty when not confirmed). */
+  signals: string[];
   themeSlugs: string[];
   pluginSlugs: string[];
 }
 
-/** Find WordPress theme/plugin slugs referenced by the page (paths only, no guessing). */
-export function extractWordPressRefs(html: string): WordPressRefs {
+const ATTR_URL = /(?:src|href|srcset|data-src|data-lazy-src|content)\s*=\s*["']([^"']+)["']/gi;
+
+/**
+ * Is this really WordPress? A page that merely mentions "wp-json" (a tutorial, a docs site) or hotlinks someone
+ * else's wp-content is not. Every WordPress lookup (WordPress.org, Wordfence, extra requests to the site) is gated
+ * on this, so it has to be strict: one strong signal, or two independent medium ones.
+ */
+export function confirmWordPress(html: string, pageUrl?: string, headers: Record<string, string> = {}): { confirmed: boolean; signals: string[] } {
+  const strong: string[] = [];
+  const medium: string[] = [];
+  if (/<meta\b[^>]*\bname\s*=\s*["']generator["'][^>]*\bcontent\s*=\s*["']WordPress\b/i.test(html) || /<meta\b[^>]*\bcontent\s*=\s*["']WordPress\b[^>]*\bname\s*=\s*["']generator["']/i.test(html)) strong.push('generator meta');
+  if (/<link\b[^>]*\brel\s*=\s*["']https:\/\/api\.w\.org\/?["']/i.test(html) || /rel\s*=\s*["']?https:\/\/api\.w\.org\/?["']?/i.test(headers['link'] ?? '')) strong.push('REST API discovery link');
+  let host = '';
+  try {
+    host = pageUrl ? new URL(pageUrl).hostname : '';
+  } catch {
+    /* no page URL */
+  }
+  const firstParty = new Set<string>();
+  for (const m of html.matchAll(ATTR_URL)) {
+    for (const raw of m[1]!.split(/\s*,\s*/)) {
+      const u = raw.trim().split(/\s+/)[0] ?? '';
+      if (!/\/wp-(?:content|includes)\//i.test(u)) continue;
+      // Same site, relative, or an image CDN that carries the site name in the path (i0.wp.com/example.com/wp-content/...).
+      let ours = !/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(u);
+      if (!ours && host) {
+        try {
+          ours = sameSite(new URL(u, pageUrl).hostname, host) || u.toLowerCase().includes(`/${host.replace(/^www\./, '')}/`);
+        } catch {
+          ours = false;
+        }
+      }
+      if (ours) firstParty.add(u.replace(/[?#].*$/, ''));
+    }
+  }
+  if (firstParty.size >= 2) strong.push(`${firstParty.size} first-party wp-content/wp-includes assets`);
+  else if (firstParty.size === 1) medium.push('1 first-party WordPress asset');
+  if (/xmlrpc\.php/i.test(headers['x-pingback'] ?? '')) medium.push('X-Pingback header');
+  if (/<link\b[^>]*\brel\s*=\s*["']EditURI["'][^>]*xmlrpc\.php/i.test(html)) medium.push('EditURI link');
+  if (/wp-emoji-release\.min\.js/i.test(html)) medium.push('wp-emoji script');
+  const signals = [...strong, ...medium];
+  return { confirmed: strong.length > 0 || medium.length >= 2, signals };
+}
+
+/** Find WordPress theme/plugin slugs referenced by the page (paths only, no guessing). Slugs come only from first-party URLs when the page URL is known. */
+export function extractWordPressRefs(html: string, pageUrl?: string, headers: Record<string, string> = {}): WordPressRefs {
+  const { confirmed, signals } = confirmWordPress(html, pageUrl, headers);
   const themes = new Set<string>();
   const plugins = new Set<string>();
-  const re = /\/wp-content\/(themes|plugins)\/([a-z0-9_-]+)\//gi;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) {
-    (m[1]!.toLowerCase() === 'themes' ? themes : plugins).add(m[2]!.toLowerCase());
+  if (confirmed) {
+    const re = /\/wp-content\/(themes|plugins)\/([a-z0-9_-]+)\//gi;
+    const source = pageUrl ? [...html.matchAll(ATTR_URL)].flatMap((m) => m[1]!.split(/\s*,\s*/).map((s) => s.trim().split(/\s+/)[0] ?? '')).filter((u) => confirmedOwn(u, pageUrl)).join('\n') : html;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(source))) (m[1]!.toLowerCase() === 'themes' ? themes : plugins).add(m[2]!.toLowerCase());
   }
-  const detected = themes.size > 0 || plugins.size > 0 || /\/wp-includes\/|wp-json|<meta name="generator" content="WordPress/i.test(html);
-  return { detected, themeSlugs: [...themes], pluginSlugs: [...plugins].slice(0, LIMITS.maxPluginReadmes) };
+  return { detected: confirmed, signals, themeSlugs: [...themes], pluginSlugs: [...plugins].slice(0, LIMITS.maxPluginReadmes) };
+}
+
+function confirmedOwn(u: string, pageUrl: string): boolean {
+  if (!/\/wp-content\//i.test(u)) return false;
+  if (!/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(u)) return true;
+  try {
+    const host = new URL(pageUrl).hostname;
+    return sameSite(new URL(u, pageUrl).hostname, host) || u.toLowerCase().includes(`/${host.replace(/^www\./, '')}/`);
+  } catch {
+    return false;
+  }
 }
 
 function pickScripts(urls: string[], targetHost: string): string[] {
@@ -66,11 +125,11 @@ async function tryFetch(url: string, opts: SafeFetchOptions, accept: string): Pr
  * Well-known files + a handful of scripts + CMS public files. Everything requested here is
  * either a standard public file or something the page itself referenced.
  */
-export async function gatherFiles(html: string, finalUrl: string, opts: SafeFetchOptions): Promise<FilesStageData> {
+export async function gatherFiles(html: string, finalUrl: string, opts: SafeFetchOptions, headers: Record<string, string> = {}): Promise<FilesStageData> {
   const origin = new URL(finalUrl).origin;
   const host = new URL(finalUrl).hostname;
   const scriptUrls = extractScriptUrls(html, finalUrl);
-  const wp = extractWordPressRefs(html);
+  const wp = extractWordPressRefs(html, finalUrl, headers);
 
   const cmsFiles = new Set<string>();
   if (wp.detected) {

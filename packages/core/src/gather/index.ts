@@ -158,7 +158,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
       }
       const t2 = Date.now();
       try {
-        data.files = await gatherFiles(http.final.body, http.final.url, fetchOpts);
+        data.files = await gatherFiles(http.final.body, http.final.url, fetchOpts, http.final.headers);
         await done('files', stageMeta('complete', t2));
       } catch (e) {
         await done('files', stageMeta('failed', t2, String((e as Error)?.message ?? e)));
@@ -194,7 +194,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     await skip('external');
   } else try {
     const finalUrl = data.http?.final?.url ?? target.url;
-    const wp = data.http?.final ? extractWordPressRefs(data.http.final.body) : { detected: false, pluginSlugs: [] as string[], themeSlugs: [] as string[] };
+    const wp = data.http?.final ? extractWordPressRefs(data.http.final.body, data.http.final.url, data.http.final.headers) : { detected: false, signals: [] as string[], pluginSlugs: [] as string[], themeSlugs: [] as string[] };
     const wpItems = wp.detected ? [...wp.pluginSlugs.map((slug) => ({ type: 'plugin' as const, slug })), ...wp.themeSlugs.slice(0, 2).map((slug) => ({ type: 'theme' as const, slug })), { type: 'core' as const, slug: 'wordpress' }] : [];
     const scriptUrls = data.http?.final ? [...new Set([...extractScriptUrls(data.http.final.body, finalUrl), ...(data.files?.scripts.map((f) => f.path) ?? []), ...(data.browser?.requests.filter((r) => r.type === 'script').map((r) => r.url) ?? [])])] : [];
     const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
