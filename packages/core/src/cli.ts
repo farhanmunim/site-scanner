@@ -22,7 +22,7 @@ try {
     scanId: randomUUID(),
     selfUrl: process.env.PUBLIC_SITE_URL ?? 'https://site-scanner.local',
     fingerprintsVersion: version,
-    external: noExternal ? { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false } : { googleApiKey: process.env.GOOGLE_API_KEY },
+    external: noExternal ? { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false } : { googleApiKey: process.env.GOOGLE_API_KEY, wordfenceApiKey: process.env.WORDFENCE_API_KEY },
     onStage: (stage, d) => {
       if (!json) console.error(`  ${stage.padEnd(9)} ${d.stages[stage].status}${d.stages[stage].note ? ` — ${d.stages[stage].note}` : ''}`);
     }

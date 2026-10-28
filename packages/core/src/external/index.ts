@@ -14,6 +14,8 @@ export * from './retire.js';
 
 export interface ExternalConfig {
   googleApiKey?: string;
+  /** Free key from wordfence.com (Integrations); the v3 vulnerability feed rejects anonymous requests. */
+  wordfenceApiKey?: string;
   psi?: boolean;
   safeBrowsing?: boolean;
   wordpress?: boolean;
@@ -203,46 +205,76 @@ export interface WordfenceItem {
 const wfKey = (i: WordfenceItem) => `${i.type}:${i.slug}`;
 
 /**
- * Wordfence Intelligence vulnerability feed (free, no key). The feed is tens of MB, so it is only
- * downloaded when a requested component is not already cached; results are cached per component
- * (an empty list is a real answer: "no advisories").
+ * Wordfence Intelligence vulnerability feed (v3, free but needs an API key). Results are cached per
+ * component (an empty list is a real answer: "no advisories"). Returns null when the feed is unavailable
+ * (no key, download failed), which callers must not read as "clean".
  */
-export async function fetchWordfence(items: WordfenceItem[], cfg: ExternalConfig): Promise<Record<string, WordfenceVuln[]>> {
+export async function fetchWordfence(items: WordfenceItem[], cfg: ExternalConfig): Promise<Record<string, WordfenceVuln[]> | null> {
   const out: Record<string, WordfenceVuln[]> = {};
-  if (cfg.wordpress === false || items.length === 0) return out;
+  if (cfg.wordpress === false || !cfg.wordfenceApiKey || items.length === 0) return null;
   const missing: WordfenceItem[] = [];
   for (const i of items) {
-    const hit = cfg.cache ? await cfg.cache.get<WordfenceVuln[]>(`wordfence2:${wfKey(i)}`).catch(() => undefined) : undefined;
+    const hit = cfg.cache ? await cfg.cache.get<WordfenceVuln[]>(`wordfence3:${wfKey(i)}`).catch(() => undefined) : undefined;
     if (hit) out[wfKey(i)] = hit;
     else missing.push(i);
   }
   if (!missing.length) return out;
-  const f = cfg.fetchImpl ?? fetch;
-  const res = await f('https://www.wordfence.com/api/intelligence/v2/vulnerabilities/production', { signal: AbortSignal.timeout(90_000) }).catch(() => null);
-  if (!res?.ok) return out;
-  const j = (await res.json().catch(() => null)) as Record<string, WordfenceRecord> | null;
-  if (!j) return out;
-  const want = new Map(missing.map((i) => [wfKey(i), [] as WordfenceVuln[]]));
-  for (const v of Object.values(j)) {
-    for (const sw of v.software ?? []) {
-      const key = `${sw.type}:${sw.slug}`;
-      const bucket = want.get(key);
-      if (!bucket) continue;
-      bucket.push({
-        title: v.title ?? 'Untitled advisory',
-        cve: v.cve ?? null,
-        cvss: typeof v.cvss?.score === 'number' ? v.cvss.score : null,
-        ranges: Object.values(sw.affected_versions ?? {}).map((r) => ({ from: r.from_version && r.from_version !== '*' ? r.from_version : null, fromInclusive: r.from_inclusive !== false, to: r.to_version && r.to_version !== '*' ? r.to_version : null, toInclusive: r.to_inclusive !== false })),
-        patched: sw.patched_versions ?? [],
-        patchedFlag: !!sw.patched
-      });
-    }
-  }
-  for (const [key, list] of want) {
-    out[key] = list;
-    if (cfg.cache) await cfg.cache.set(`wordfence2:${key}`, list, 24 * 3600).catch(() => {});
+  const index = await wordfenceIndex(cfg);
+  // Partial results would read as "no advisories" for the rest, so report unavailable instead.
+  if (!index) return null;
+  for (const i of missing) {
+    const list = index.get(wfKey(i)) ?? [];
+    out[wfKey(i)] = list;
+    if (cfg.cache) await cfg.cache.set(`wordfence3:${wfKey(i)}`, list, 24 * 3600).catch(() => {});
   }
   return out;
+}
+
+let wordfenceMemo: { at: number; key: string; pending: Promise<Map<string, WordfenceVuln[]> | null> } | null = null;
+
+/** Test hook. */
+export function resetWordfenceMemo(): void {
+  wordfenceMemo = null;
+}
+
+/**
+ * The production feed is one JSON document of ~150 MB, so it is parsed once per process (shared by
+ * concurrent scans) and compacted to just what matching needs; the raw document is then garbage.
+ */
+function wordfenceIndex(cfg: ExternalConfig): Promise<Map<string, WordfenceVuln[]> | null> {
+  const key = cfg.wordfenceApiKey!;
+  if (wordfenceMemo && wordfenceMemo.key === key && Date.now() - wordfenceMemo.at < 6 * 3600_000) return wordfenceMemo.pending;
+  const f = cfg.fetchImpl ?? fetch;
+  const pending = (async () => {
+    const res = await f('https://www.wordfence.com/api/intelligence/v3/vulnerabilities/production', { headers: { authorization: `Bearer ${key}`, accept: 'application/json' }, signal: AbortSignal.timeout(180_000) }).catch(() => null);
+    if (!res?.ok) return null;
+    const j = (await res.json().catch(() => null)) as Record<string, WordfenceRecord> | null;
+    if (!j) return null;
+    const idx = new Map<string, WordfenceVuln[]>();
+    for (const v of Object.values(j)) {
+      for (const sw of v.software ?? []) {
+        if (!sw.slug || (sw.type !== 'plugin' && sw.type !== 'theme' && sw.type !== 'core')) continue;
+        const k = `${sw.type}:${sw.slug}`;
+        const list = idx.get(k) ?? [];
+        list.push({
+          title: v.title ?? 'Untitled advisory',
+          cve: v.cve ?? null,
+          cvss: typeof v.cvss?.score === 'number' ? v.cvss.score : null,
+          ranges: Object.values(sw.affected_versions ?? {}).map((r) => ({ from: r.from_version && r.from_version !== '*' ? r.from_version : null, fromInclusive: r.from_inclusive !== false, to: r.to_version && r.to_version !== '*' ? r.to_version : null, toInclusive: r.to_inclusive !== false })),
+          patched: sw.patched_versions ?? [],
+          patchedFlag: !!sw.patched
+        });
+        idx.set(k, list);
+      }
+    }
+    return idx;
+  })();
+  wordfenceMemo = { at: Date.now(), key, pending };
+  // A failed download must not be remembered for six hours.
+  void pending.then((r) => {
+    if (!r && wordfenceMemo?.pending === pending) wordfenceMemo = null;
+  });
+  return pending;
 }
 
 interface WordfenceRecord {

@@ -31,6 +31,7 @@ export const config = {
   screenshotRetentionDays: Number(process.env.SCREENSHOT_RETENTION_DAYS ?? 90),
   ipRetentionDays: Number(process.env.IP_RETENTION_DAYS ?? 30),
   googleApiKey: process.env.GOOGLE_API_KEY || undefined,
+  wordfenceApiKey: process.env.WORDFENCE_API_KEY || undefined,
   psiEnabled: process.env.PSI_ENABLED !== 'false',
   safeBrowsingEnabled: process.env.SAFE_BROWSING_ENABLED !== 'false',
   wordpressApisEnabled: process.env.WORDPRESS_APIS_ENABLED !== 'false',

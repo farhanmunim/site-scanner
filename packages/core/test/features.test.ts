@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { inspectSpf } from '../src/gather/stages/spf.js';
 import { checkPropagation } from '../src/gather/stages/propagation.js';
-import { dnsblName, fetchBlocklists, fetchWordfence, findVulnerableLibraries, normaliseRepo } from '../src/external/index.js';
+import { dnsblName, fetchBlocklists, fetchWordfence, resetWordfenceMemo, findVulnerableLibraries, normaliseRepo } from '../src/external/index.js';
 import { affectsVersion, analyseWordPress, auditDomain, detectPhp, findExposedSecrets, analyseAiReadiness, auditEmail } from '../src/analyze/index.js';
 import type { DnsRecords, FetchedFile, WordfenceVuln } from '../src/types.js';
 
@@ -87,22 +87,35 @@ describe('Wordfence matching', () => {
     expect(cms!.flags.find((f) => f.id === 'wp-core-outdated')!.status).toBe('warn');
     expect(cms!.plugins.find((p) => p.slug === 'foo')!.vulnerable).toBe(true);
   });
+  it('does not claim a clean bill of health without advisory data', () => {
+    const html = '<link href="/wp-content/plugins/foo/a.css?ver=1.4.0"><meta name="generator" content="WordPress 6.4.1">';
+    const cms = analyseWordPress(html, null, [], {}, {});
+    expect(cms!.flags.map((f) => f.id)).not.toContain('wp-vulnerable');
+  });
   it('downloads the feed once and caches per component', async () => {
+    resetWordfenceMemo();
     let downloads = 0;
+    let auth = '';
     const store = new Map<string, unknown>();
     const cfg = {
+      wordfenceApiKey: 'k',
       cache: { get: async (k: string) => store.get(k) as never, set: async (k: string, v: unknown) => void store.set(k, v) },
-      fetchImpl: (async () => {
+      fetchImpl: (async (_u: string, init?: RequestInit) => {
         downloads++;
+        auth = String((init?.headers as Record<string, string>).authorization);
         return new Response(JSON.stringify({ a: { title: 'T', cve: 'CVE-1', cvss: { score: 7 }, software: [{ type: 'plugin', slug: 'foo', patched: true, patched_versions: ['2.0'], affected_versions: { '* - 1.9': { from_version: '*', from_inclusive: true, to_version: '1.9', to_inclusive: true } } }] } }));
       }) as typeof fetch
     };
     const items = [{ type: 'plugin' as const, slug: 'foo' }, { type: 'theme' as const, slug: 'none' }];
-    const first = await fetchWordfence(items, cfg);
+    const first = (await fetchWordfence(items, cfg))!;
     expect(first['plugin:foo']![0]).toMatchObject({ cve: 'CVE-1', cvss: 7, patched: ['2.0'], ranges: [{ from: null, to: '1.9', toInclusive: true }] });
     expect(first['theme:none']).toEqual([]);
     await fetchWordfence(items, cfg);
     expect(downloads).toBe(1);
+    expect(auth).toBe('Bearer k');
+    expect(await fetchWordfence(items, { ...cfg, wordfenceApiKey: undefined })).toBeNull();
+    resetWordfenceMemo();
+    expect(await fetchWordfence([{ type: 'core', slug: 'wordpress' }], { wordfenceApiKey: 'k', fetchImpl: (async () => new Response('nope', { status: 500 })) as typeof fetch })).toBeNull();
   });
 });
 
