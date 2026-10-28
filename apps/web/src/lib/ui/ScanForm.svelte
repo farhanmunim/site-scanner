@@ -23,7 +23,10 @@
     return s ? `?${s}` : '';
   };
 
-  async function submit(e?: SubmitEvent) {
+  /** Turnstile tokens are single-use: every attempt, successful or not, must be followed by a fresh one. */
+  const HUMAN_CHECK = /human check/i;
+
+  async function submit(e?: SubmitEvent, retried = false) {
     e?.preventDefault();
     const url = clean(value);
     if (!url) {
@@ -33,6 +36,7 @@
     }
     busy = true;
     error = null;
+    let rejectedToken = false;
     try {
       let token: string | undefined;
       if (turnstile) {
@@ -48,25 +52,33 @@
       const r = await fetch('/api/scans', { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'x-scan-source': 'web' }, body: JSON.stringify({ url, tool: tool ?? undefined, turnstileToken: token }) });
       const j = (await r.json()) as { scanId?: string; cached?: boolean; notice?: string | null; error?: string };
       if (!r.ok || !j.scanId) {
-        error = j.error ?? 'Something went wrong. Please try again.';
-        turnstile?.reset();
-        return;
-      }
-      if (j.cached) {
+        rejectedToken = !!token && HUMAN_CHECK.test(j.error ?? '');
+        error = rejectedToken ? 'The human check expired. Retrying…' : (j.error ?? 'Something went wrong. Please try again.');
+      } else if (j.cached) {
         await goto(`/r/${j.scanId}${suffix(j.notice)}`);
-        return;
+      } else {
+        scan = { id: j.scanId, host: url.replace(/[/?#].*$/, '') };
       }
-      scan = { id: j.scanId, host: url.replace(/[/?#].*$/, '') };
     } catch {
       error = 'Could not reach the scanner. Check your connection and try again.';
     } finally {
       busy = false;
       checking = false;
+      turnstile?.reset();
     }
+    // A stale or already-used token is rejected by Cloudflare: get a new one and try once more, silently.
+    if (rejectedToken && !retried) await submit(undefined, true);
+    else if (rejectedToken) error = 'The human check could not be completed. Reload the page and try again.';
   }
 
   onMount(() => {
     if (autostart && clean(value)) void submit();
+    // Back/forward restores this page from memory, token and all; the restored token has already been spent.
+    const onShow = (ev: PageTransitionEvent) => {
+      if (ev.persisted) turnstile?.reset();
+    };
+    window.addEventListener('pageshow', onShow);
+    return () => window.removeEventListener('pageshow', onShow);
   });
 </script>
 

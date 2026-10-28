@@ -200,7 +200,7 @@
       <button class="eui-btn outline sm" type="button" onclick={share}><Icon name="copy" size={14} />{shareLabel}</button>
       <a class="eui-btn outline sm" href="/?url={encodeURIComponent(data.scan.url)}{scopeTool ? `&tool=${scopeTool.slug}` : ''}" title="Runs a fresh scan if the cached result is older than 15 minutes"><Icon name="refresh" size={14} />Scan again</a>
       {#if !running}<button class="eui-btn outline sm" type="button" onclick={downloadPdf} disabled={pdfState === 'preparing'} aria-live="polite"><Icon name="download" size={14} />{pdfState === 'preparing' ? 'Preparing PDF…' : pdfState === 'error' ? 'PDF failed, retry' : 'PDF'}</button>{/if}
-      <a class="eui-btn ghost sm" href="/api/scans/{data.scan.id}" rel="nofollow">JSON</a>
+      <a class="eui-btn ghost sm" href="/api/scans/{data.scan.id}" rel="nofollow" data-sveltekit-reload title="Raw report data as JSON">JSON</a>
     </div>
   </div>
 

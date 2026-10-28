@@ -14,6 +14,13 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.country = country;
   event.locals.admin = hasValidSession(event.cookies);
 
+  // Page loads under /admin are guarded by the layout, but form actions are plain POSTs that skip it. Refuse every
+  // state-changing admin request without a session here, once, instead of trusting each action to check.
+  const { pathname } = event.url;
+  if ((pathname === '/admin' || pathname.startsWith('/admin/')) && !event.locals.admin && !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method) && pathname !== '/admin/login') {
+    return new Response('Unauthorized', { status: 401, headers: { 'cache-control': 'no-store' } });
+  }
+
   const response = await resolve(event);
   // Our own house in order: the headers we grade other sites on.
   response.headers.set('x-content-type-options', 'nosniff');
