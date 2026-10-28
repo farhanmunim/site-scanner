@@ -9,7 +9,8 @@
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export function isAdminRoute(routeId: string | null | undefined, pathname: string): boolean {
-  if (routeId && routeId.startsWith('/(classic)/admin')) return true;
+  // Route ids look like "/(admin)/admin/blocklist": any chain of route groups, then the admin segment.
+  if (routeId && /^\/(?:\([^)]*\)\/)*admin(?:\/|$)/.test(routeId)) return true;
   let p = pathname;
   try {
     p = decodeURIComponent(pathname);
@@ -25,5 +26,5 @@ export function mustRefuseAdminWrite(args: { routeId: string | null | undefined;
   if (args.isAdmin || SAFE_METHODS.has(args.method.toUpperCase())) return false;
   if (!isAdminRoute(args.routeId, args.pathname)) return false;
   // Only the login form may be posted to without a session, and only when the router itself resolved it to that route.
-  return args.routeId !== '/(classic)/admin/login';
+  return !/^\/(?:\([^)]*\)\/)*admin\/login$/.test(args.routeId ?? '');
 }

@@ -10,7 +10,7 @@
   <meta name="description" content="Domain, DNS, email, security, performance, AI readiness and WordPress checks for any website in one scan. Free, no account, nothing is probed." />
 </svelte:head>
 
-<section class="ss-hero">
+<section class="ss-hero" id="scan">
   <div class="ss-wrap">
     <span class="ss-pill"><i></i>Passive · no login · reads public data only</span>
     <h1>Scan any website in one shot</h1>
@@ -50,13 +50,34 @@
   </ol>
 </section>
 
-<section class="ss-wrap ss-sec" id="faq" style="padding-bottom: var(--space-16)">
-  <div class="ss-sec-head"><div><span class="eui-eyebrow">FAQ</span><h2>Questions</h2></div></div>
-  <div class="ss-faq">
-    <details><summary>Does it touch my server?</summary><div class="ans">Only with ordinary read requests for your homepage and a few standard files. DNS, certificates, registration, blocklists and performance come from public sources. See <a href="/bot">how the scanner behaves</a>.</div></details>
-    <details><summary>Why doesn't it check for exposed .env files or open ports?</summary><div class="ans">Those need active probing, which is what attacker scanners do. This tool stays passive on purpose, so it is safe to point at any site and will never get your IP blocklisted.</div></details>
-    <details><summary>Where do the subdomains come from?</summary><div class="ans">From public Certificate Transparency logs: every hostname that has ever had a TLS certificate issued. Nothing is probed, so a few names may no longer exist.</div></details>
-    <details><summary>Is it free? Do I need an account?</summary><div class="ans">Free, no account. A Cloudflare human check may appear to keep automated abuse out.</div></details>
-    <details><summary>Who can see my report?</summary><div class="ans">Anyone with the link. Reports are unguessable, unlisted and marked noindex. <a href="/privacy">What is stored</a>.</div></details>
+<section class="ss-wrap ss-sec" id="faq">
+  <div class="ss-faqsplit">
+    <div class="intro">
+      <span class="eui-eyebrow">FAQ</span>
+      <h2>Questions, answered</h2>
+      <p>What the scanner does to your site, what it deliberately never does, and what happens to your report.</p>
+      <div class="ss-row" style="margin-top: var(--space-5)">
+        <a class="eui-btn outline sm" href="/bot">How it behaves <Icon name="arrow" size={13} /></a>
+        <a class="eui-btn ghost sm" href="/privacy">Privacy</a>
+      </div>
+    </div>
+    <div class="ss-faq">
+      <details open><summary>Does it touch my server?</summary><div class="ans">Only with ordinary read requests for your homepage and a few standard files, about 25 at most. DNS, certificates, registration, blocklists and performance come from public sources. See <a href="/bot">how the scanner behaves</a>.</div></details>
+      <details><summary>Why doesn't it check for exposed .env files or open ports?</summary><div class="ans">Those need active probing, which is what attacker scanners do. This tool stays passive on purpose, so it is safe to point at any site and will never get your IP blocklisted.</div></details>
+      <details><summary>Where do the subdomains come from?</summary><div class="ans">From public Certificate Transparency logs: every hostname that has ever had a TLS certificate issued. Nothing is probed, so a few names may no longer exist.</div></details>
+      <details><summary>Is it free? Do I need an account?</summary><div class="ans">Free, no account. A Cloudflare human check may appear to keep automated abuse out.</div></details>
+      <details><summary>Who can see my report?</summary><div class="ans">Anyone with the link. Reports are unguessable, unlisted and marked noindex. <a href="/privacy">What is stored</a>.</div></details>
+      <details><summary>Can I opt my site out?</summary><div class="ans">Yes. Email the operator and the domain, with all of its subdomains, is refused from then on. Details on <a href="/bot#opt-out">the how-it-works page</a>.</div></details>
+    </div>
+  </div>
+</section>
+
+<section class="ss-wrap" style="padding-bottom: var(--space-16)">
+  <div class="ss-cta">
+    <div>
+      <h2>Check a website in under a minute</h2>
+      <p>No account, nothing installed, nothing probed. Start with the whole picture, or pick one tool.</p>
+    </div>
+    <div class="ss-row"><a class="eui-btn lg" href="#scan"><Icon name="search" />Scan a website</a><a class="eui-btn outline lg" href="/tools">Browse tools</a></div>
   </div>
 </section>
