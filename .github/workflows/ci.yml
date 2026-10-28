@@ -26,10 +26,4 @@ jobs:
       - name: Migrations apply cleanly (two runners at once)
         env:
           DATABASE_URL: postgres://scanner:scanner@localhost:5432/scanner
-        run: |
-          cat > packages/db/ci-migrate.mts <<'TS'
-          import { runMigrations } from './src/index.ts';
-          await Promise.all([runMigrations(), runMigrations()]);
-          console.log('migrations ok');
-          TS
-          cd packages/db && npx tsx ci-migrate.mts
+        run: pnpm --filter @site-scanner/worker exec tsx ../../scripts/ci-migrate.mts
