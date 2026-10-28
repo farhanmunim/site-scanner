@@ -602,7 +602,7 @@
         {/if}
       </div>
 
-      <p class="note no-print" style="border: 0; padding: 0 4px">{dot(`Scanner ${report.scan.scannerVersion}`, report.scan.fingerprintsVersion ? `fingerprints ${report.scan.fingerprintsVersion}` : null, `report v${report.reportVersion}`)}</p>
+      <p class="note no-print" style="border: 0; padding: 0 4px">{dot(`Scanner ${report.scan.scannerVersion}`, report.scan.fingerprintsVersion ? `fingerprints ${report.scan.fingerprintsVersion}` : null)}</p>
     </div>
   </div>
 {/if}

@@ -302,7 +302,7 @@
             <div class="body"><div class="ss-grid">{#each siblings as o (o.slug)}<a class="ss-tool" href={scopeTool ? `/?url=${encodeURIComponent(data.scan.url)}&go=1&tool=${o.slug}` : `/r/${data.scan.id}?tool=${o.slug}`}><span class="ico"><Icon name={o.icon} size={18} /></span><h3>{o.title}</h3><p>{o.short}</p></a>{/each}</div></div>
           </section>
         {/if}
-        <p class="ss-note">{dot(`Scanner ${report.scan.scannerVersion}`, report.scan.fingerprintsVersion ? `fingerprints ${report.scan.fingerprintsVersion}` : null, `report v${report.reportVersion}`)}</p>
+        <p class="ss-note">{dot(`Scanner ${report.scan.scannerVersion}`, report.scan.fingerprintsVersion ? `fingerprints ${report.scan.fingerprintsVersion}` : null)}</p>
       </div>
     </div>
   {/if}
