@@ -9,6 +9,11 @@ import { analyseRobots, analyseSeo } from './audits/seo.js';
 import { summariseThirdParties } from './thirdparties.js';
 import { analyseShopify, analyseWordPress } from './wordpress.js';
 import { auditPrivacy } from './privacy.js';
+import { detectPhp } from './php.js';
+import { analyseAiReadiness } from './ai.js';
+import { findExposedSecrets } from './secrets.js';
+import { auditDomain } from './domain.js';
+import { findVulnerableLibraries } from '../external/retire.js';
 import type { TlsInfo } from '../gather/stages/tls.js';
 
 export { parseHtml } from './html.js';
@@ -20,6 +25,11 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
+export { detectPhp, PHP_EOL, phpBranch } from './php.js';
+export { analyseAiReadiness } from './ai.js';
+export { findExposedSecrets } from './secrets.js';
+export { auditDomain } from './domain.js';
+export { affectsVersion, fixedIn } from './wordpress.js';
 export { scoreReport, scoreTone, gradeFor, cwvVerdict, vitals, CWV_THRESHOLDS, PENALTY_OVERRIDES, SECTION_LABELS, SECTION_WEIGHTS } from './score.js';
 import { scoreReport } from './score.js';
 import { explainFailure } from './reasons.js';
@@ -85,10 +95,19 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
   const blocked = !!(http?.challenge || browser?.blocked);
   const profile = parsed && !blocked ? profileSite({ technologies, html: parsed, cookies, xhrSameOrigin, security: rawSecurity }) : undefined;
   const security = profile ? applyProfile(rawSecurity, profile) : rawSecurity;
-  const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain) : [];
+  const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain, data.external?.blocklists) : [];
   const thirdParties = summariseThirdParties(parsed, browser?.requests ?? null, new URL(baseUrl).hostname, technologies);
   const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}) ?? analyseShopify(rawHtml || renderedHtml, technologies);
   const privacy = final || browser ? auditPrivacy(technologies, thirdParties, cookies, robots) : [];
+
+  const cookieNames = [...(final?.cookies ?? []), ...cookies.map((c) => `${c.name}=`)];
+  const php = final ? detectPhp(final.headers, cookieNames, parsed, technologies) : null;
+  const aiReadiness = final ? analyseAiReadiness({ robots, llms: data.files?.llmsTxt ?? null, sitemap: data.files?.sitemap ?? null, rawHtml: rawHtml || renderedHtml, parsed, seo }) : null;
+  const scriptSources = [{ source: 'page', text: rawHtml }, ...(data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, text: f.body! }))];
+  const exposedSecrets = final ? findExposedSecrets(scriptSources) : [];
+  const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
+  const vulnerableLibraries = data.external?.retire ? findVulnerableLibraries(data.external.retire, [...new Set([...(parsed?.scriptSrc ?? []), ...scriptBodies.map((b) => b.source)])], scriptBodies) : null;
+  const domainChecks = auditDomain(data.rdap ?? null);
 
   if (data.external?.safeBrowsing?.threats.length) {
     security.unshift({ id: 'safe-browsing', title: 'Google Safe Browsing', status: 'bad', observed: `Flagged: ${data.external.safeBrowsing.threats.join(', ')}.`, detail: 'Google currently lists this URL as unsafe. Browsers may show a warning page.' });
@@ -136,6 +155,13 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     robots,
     thirdParties,
     cms,
+    php,
+    aiReadiness,
+    vulnerableLibraries,
+    exposedSecrets,
+    domainChecks,
+    blocklists: data.external?.blocklists ?? null,
+    propagation: data.external?.propagation ?? null,
     wellKnown: { securityTxt: data.files?.securityTxt?.status === 200, adsTxt: data.files?.adsTxt?.status === 200, llmsTxt: data.files?.llmsTxt?.status === 200 },
     cookies,
     privacy,

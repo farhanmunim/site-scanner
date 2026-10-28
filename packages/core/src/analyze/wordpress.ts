@@ -1,4 +1,4 @@
-import type { CmsDeepDive, ExternalData, FetchedFile, Finding, TechnologyDetection } from '../types.js';
+import type { CmsDeepDive, ExternalData, FetchedFile, Finding, TechnologyDetection, WordfenceVuln } from '../types.js';
 import { extractWordPressRefs } from '../gather/stages/files.js';
 
 /**
@@ -65,12 +65,65 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
     return lu && Date.now() - Date.parse(lu) > 2 * 365 * 86_400_000;
   });
   if (stale.length) flags.push({ id: 'wp-plugins-stale', title: 'Possibly abandoned plugins', status: 'warn', observed: stale.map((p) => `${p.name ?? p.slug} (last update ${external!.wordpressOrg![p.slug]!.lastUpdated!.slice(0, 10)})`).join('; '), detail: 'A plugin with no releases for years may be abandoned and will not receive security fixes.', owasp: 'A06' });
-  if (external?.wordfence) {
+  const vulnerabilities: NonNullable<CmsDeepDive['vulnerabilities']> = [];
+  const feed = external?.wordfenceVulns;
+  const components: { component: 'core' | 'plugin' | 'theme'; slug: string; label: string; version: string | null }[] = [
+    { component: 'core', slug: 'wordpress', label: 'WordPress core', version },
+    ...(theme ? [{ component: 'theme' as const, slug: theme.slug, label: `Theme ${theme.name ?? theme.slug}`, version: theme.version }] : []),
+    ...plugins.map((p) => ({ component: 'plugin' as const, slug: p.slug, label: `Plugin ${p.name ?? p.slug}`, version: p.version }))
+  ];
+  if (feed) {
+    for (const c of components) {
+      for (const v of feed[`${c.component}:${c.slug}`] ?? []) {
+        vulnerabilities.push({ component: c.component, slug: c.slug, version: c.version, title: v.title, cve: v.cve, cvss: v.cvss, fixedIn: fixedIn(v), affectsInstalled: c.version ? affectsVersion(v, c.version) : null });
+      }
+    }
+    const hits = vulnerabilities.filter((v) => v.affectsInstalled === true);
+    const unknown = vulnerabilities.filter((v) => v.affectsInstalled === null);
+    for (const p of plugins) p.vulnerable = hits.some((h) => h.component === 'plugin' && h.slug === p.slug);
+    const describe = (v: (typeof vulnerabilities)[number]) => `${components.find((c) => c.component === v.component && c.slug === v.slug)!.label}${v.version ? ` ${v.version}` : ''}: ${v.title}${v.cve ? ` (${v.cve})` : ''}${v.cvss ? `, CVSS ${v.cvss}` : ''}${v.fixedIn ? `, fixed in ${v.fixedIn}` : ', no fix listed'}`;
+    if (hits.length) flags.push({ id: 'wp-vulnerable', title: 'Known vulnerabilities in installed versions', status: 'bad', observed: hits.slice(0, 8).map(describe).join('; ') + (hits.length > 8 ? `; and ${hits.length - 8} more` : ''), detail: 'Matched against the Wordfence Intelligence feed using the version detected on the public site. Update the listed components.', owasp: 'A06' });
+    if (unknown.length) {
+      const names = [...new Set(unknown.map((v) => components.find((c) => c.component === v.component && c.slug === v.slug)!.label))];
+      flags.push({ id: 'wp-plugins-advisories', title: 'Components with advisories (version unknown)', status: 'warn', observed: `${names.join(', ')}: ${unknown.length} advisor${unknown.length === 1 ? 'y' : 'ies'} on record, but the installed version is not visible.`, detail: 'Wordfence lists advisories for these components. Without the installed version we cannot tell if this site is affected; check the version in the WordPress dashboard.', owasp: 'A06' });
+    }
+    const checkedClean = components.filter((c) => c.version && (feed[`${c.component}:${c.slug}`]?.length ?? 0) > 0 && !hits.some((h) => h.component === c.component && h.slug === c.slug));
+    if (!hits.length && !unknown.length) flags.push({ id: 'wp-vulnerable', title: 'Known vulnerabilities', status: 'good', observed: `No Wordfence advisories match the ${components.filter((c) => c.version).length} component version(s) we could read.` });
+    void checkedClean;
+  } else if (external?.wordfence) {
     const adv = plugins.filter((p) => external.wordfence![p.slug]?.count);
     if (adv.length) flags.push({ id: 'wp-plugins-advisories', title: 'Plugins with known security issues', status: 'warn', observed: adv.map((p) => `${p.name ?? p.slug}: ${external.wordfence![p.slug]!.count} advisor${external.wordfence![p.slug]!.count === 1 ? 'y' : 'ies'}${external.wordfence![p.slug]!.affectedBelow ? ` (fixed in ${external.wordfence![p.slug]!.affectedBelow})` : ''}`).join('; '), detail: 'From the Wordfence Intelligence feed. An advisory for a plugin does not mean this site runs an affected version; compare the installed version with the fixed version.', owasp: 'A06' });
   }
 
-  return { platform: 'wordpress', version, theme, plugins, flags };
+  const latest = external?.wordpressLatest ?? null;
+  if (version && latest) {
+    const behind = cmpVer(version, latest) < 0;
+    flags.push(behind ? { id: 'wp-core-outdated', title: 'WordPress core out of date', status: 'warn', observed: `Running ${version}; latest is ${latest}.`, detail: 'Security fixes ship in new releases; WordPress backports them to older branches only for a limited time.', owasp: 'A06' } : { id: 'wp-core-outdated', title: 'WordPress core', status: 'good', observed: `Version ${version} is current (latest ${latest}).` });
+  }
+  const themeLatest = theme ? external?.wordpressThemes?.[theme.slug]?.version : null;
+  if (theme?.version && themeLatest && cmpVer(theme.version, themeLatest) < 0) flags.push({ id: 'wp-theme-outdated', title: 'Theme out of date', status: 'warn', observed: `${theme.name ?? theme.slug} ${theme.version} → ${themeLatest}`, owasp: 'A06' });
+
+  return { platform: 'wordpress', version, theme, plugins, flags, latestVersion: latest, vulnerabilities };
+}
+
+/** Does an advisory's version range cover `version`? Ranges are OR-ed. */
+export function affectsVersion(v: WordfenceVuln, version: string): boolean {
+  return v.ranges.some((r) => {
+    if (r.from) {
+      const c = cmpVer(version, r.from);
+      if (c < 0 || (c === 0 && !r.fromInclusive)) return false;
+    }
+    if (r.to) {
+      const c = cmpVer(version, r.to);
+      if (c > 0 || (c === 0 && !r.toInclusive)) return false;
+    }
+    return true;
+  });
+}
+
+/** The first patched release above the vulnerable range, when Wordfence lists one. */
+export function fixedIn(v: WordfenceVuln): string | null {
+  return v.patched.length ? [...v.patched].sort(cmpVer).at(0) ?? null : null;
 }
 
 /** "2.6.7" yes; "1773435315" (a cache-busting timestamp) or "a1b2c3" no. */

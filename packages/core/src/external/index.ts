@@ -1,6 +1,10 @@
 import { promises as dnsPromises } from 'node:dns';
 import { parse as parseDomain } from 'tldts';
-import type { ExternalData, PsiMetrics, SafeBrowsingData, SubdomainData } from '../types.js';
+import { dohQuery } from '../gather/doh.js';
+import { identifyLibraries, normaliseRepo, type RetireRepoEntry } from './retire.js';
+import type { BlocklistData, BlocklistHit, DnsRecords, ExternalData, IpInfo, PsiMetrics, RetireLibrary, SafeBrowsingData, SubdomainData, WordfenceVuln } from '../types.js';
+
+export * from './retire.js';
 
 /**
  * Optional free enrichment APIs. Every function returns null (never throws) when the key
@@ -16,6 +20,9 @@ export interface ExternalConfig {
   wayback?: boolean;
   greenWeb?: boolean;
   subdomains?: boolean;
+  retire?: boolean;
+  blocklists?: boolean;
+  propagation?: boolean;
   /** Test hook: true = resolves, false = definitely does not, null = could not tell. */
   resolveName?: (name: string) => Promise<boolean | null>;
   fetchImpl?: typeof fetch;
@@ -188,31 +195,153 @@ function normaliseWpDate(s: string): string | null {
   return m ? m[1]! : null;
 }
 
-/** Wordfence Intelligence vulnerability feed (free, no key). Large (~tens of MB): cache for a day. */
-export async function fetchWordfence(slugs: string[], cfg: ExternalConfig): Promise<NonNullable<ExternalData['wordfence']>> {
-  const out: NonNullable<ExternalData['wordfence']> = {};
-  if (cfg.wordpress === false || slugs.length === 0) return out;
-  const index = await cached(cfg, 'wordfence:index', 24 * 3600, async () => {
-    const f = cfg.fetchImpl ?? fetch;
-    const res = await f('https://www.wordfence.com/api/intelligence/v2/vulnerabilities/production', { signal: AbortSignal.timeout(60_000) });
-    if (!res.ok) return null;
-    const j = (await res.json()) as Record<string, { title?: string; software?: { type?: string; slug?: string; affected_versions?: Record<string, { to_version?: string; patched?: boolean; patched_versions?: string[] }> }[] }>;
-    const idx: Record<string, { count: number; latestTitle: string | null; affectedBelow: string | null }> = {};
-    for (const v of Object.values(j)) {
-      for (const sw of v.software ?? []) {
-        if (sw.type !== 'plugin' || !sw.slug) continue;
-        const cur = (idx[sw.slug] ??= { count: 0, latestTitle: null, affectedBelow: null });
-        cur.count++;
-        cur.latestTitle ??= v.title ?? null;
-        const patched = Object.values(sw.affected_versions ?? {}).flatMap((a) => a.patched_versions ?? []);
-        if (patched.length) cur.affectedBelow = patched.sort().at(-1) ?? cur.affectedBelow;
-      }
+export interface WordfenceItem {
+  type: 'plugin' | 'theme' | 'core';
+  slug: string;
+}
+
+const wfKey = (i: WordfenceItem) => `${i.type}:${i.slug}`;
+
+/**
+ * Wordfence Intelligence vulnerability feed (free, no key). The feed is tens of MB, so it is only
+ * downloaded when a requested component is not already cached; results are cached per component
+ * (an empty list is a real answer: "no advisories").
+ */
+export async function fetchWordfence(items: WordfenceItem[], cfg: ExternalConfig): Promise<Record<string, WordfenceVuln[]>> {
+  const out: Record<string, WordfenceVuln[]> = {};
+  if (cfg.wordpress === false || items.length === 0) return out;
+  const missing: WordfenceItem[] = [];
+  for (const i of items) {
+    const hit = cfg.cache ? await cfg.cache.get<WordfenceVuln[]>(`wordfence2:${wfKey(i)}`).catch(() => undefined) : undefined;
+    if (hit) out[wfKey(i)] = hit;
+    else missing.push(i);
+  }
+  if (!missing.length) return out;
+  const f = cfg.fetchImpl ?? fetch;
+  const res = await f('https://www.wordfence.com/api/intelligence/v2/vulnerabilities/production', { signal: AbortSignal.timeout(90_000) }).catch(() => null);
+  if (!res?.ok) return out;
+  const j = (await res.json().catch(() => null)) as Record<string, WordfenceRecord> | null;
+  if (!j) return out;
+  const want = new Map(missing.map((i) => [wfKey(i), [] as WordfenceVuln[]]));
+  for (const v of Object.values(j)) {
+    for (const sw of v.software ?? []) {
+      const key = `${sw.type}:${sw.slug}`;
+      const bucket = want.get(key);
+      if (!bucket) continue;
+      bucket.push({
+        title: v.title ?? 'Untitled advisory',
+        cve: v.cve ?? null,
+        cvss: typeof v.cvss?.score === 'number' ? v.cvss.score : null,
+        ranges: Object.values(sw.affected_versions ?? {}).map((r) => ({ from: r.from_version && r.from_version !== '*' ? r.from_version : null, fromInclusive: r.from_inclusive !== false, to: r.to_version && r.to_version !== '*' ? r.to_version : null, toInclusive: r.to_inclusive !== false })),
+        patched: sw.patched_versions ?? [],
+        patchedFlag: !!sw.patched
+      });
     }
-    return idx;
-  });
-  if (!index) return out;
-  for (const s of slugs) if (index[s]) out[s] = index[s]!;
+  }
+  for (const [key, list] of want) {
+    out[key] = list;
+    if (cfg.cache) await cfg.cache.set(`wordfence2:${key}`, list, 24 * 3600).catch(() => {});
+  }
   return out;
+}
+
+interface WordfenceRecord {
+  title?: string;
+  cve?: string | null;
+  cvss?: { score?: number };
+  software?: { type?: string; slug?: string; patched?: boolean; patched_versions?: string[]; affected_versions?: Record<string, { from_version?: string; from_inclusive?: boolean; to_version?: string; to_inclusive?: boolean }> }[];
+}
+
+/** Latest stable WordPress release. */
+export async function fetchWordPressLatest(cfg: ExternalConfig): Promise<string | null> {
+  if (cfg.wordpress === false) return null;
+  return cached(cfg, 'wp-latest', 6 * 3600, async () => {
+    const f = cfg.fetchImpl ?? fetch;
+    const res = await f('https://api.wordpress.org/core/version-check/1.7/', { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const j = (await res.json()) as { offers?: { response?: string; version?: string }[] };
+    return j.offers?.find((o) => o.response === 'upgrade' || !o.response)?.version ?? j.offers?.[0]?.version ?? null;
+  });
+}
+
+export async function fetchWordPressThemes(slugs: string[], cfg: ExternalConfig): Promise<NonNullable<ExternalData['wordpressThemes']>> {
+  const out: NonNullable<ExternalData['wordpressThemes']> = {};
+  if (cfg.wordpress === false) return out;
+  const f = cfg.fetchImpl ?? fetch;
+  await Promise.all(
+    slugs.slice(0, 3).map(async (slug) => {
+      const v = await cached(cfg, `wptheme:${slug}`, 24 * 3600, async () => {
+        const res = await f(`https://api.wordpress.org/themes/info/1.2/?action=theme_information&request[slug]=${encodeURIComponent(slug)}&request[fields][sections]=0`, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return null;
+        const j = (await res.json()) as { name?: string; version?: string; last_updated?: string; error?: string };
+        if (j.error || !j.name) return null;
+        return { name: j.name, version: j.version ?? null, lastUpdated: j.last_updated ? normaliseWpDate(j.last_updated) : null };
+      });
+      if (v) out[slug] = v;
+    })
+  );
+  return out;
+}
+
+/** retire.js repository, trimmed to the libraries that appear on this page (the full file is ~1 MB). */
+export async function fetchRetire(urls: string[], bodies: { source: string; body: string }[], cfg: ExternalConfig): Promise<RetireLibrary[] | null> {
+  if (cfg.retire === false) return null;
+  const repo = await cached(cfg, 'retire:repo', 24 * 3600, async () => {
+    const f = cfg.fetchImpl ?? fetch;
+    const res = await f('https://raw.githubusercontent.com/RetireJS/retire.js/master/repository/jsrepository.json', { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return null;
+    return normaliseRepo((await res.json()) as Record<string, RetireRepoEntry>);
+  });
+  if (!repo) return null;
+  const hit = new Set(identifyLibraries(repo, urls, bodies).map((m) => m.library));
+  return repo.filter((l) => hit.has(l.name));
+}
+
+const BLOCKLISTS = ['zen.spamhaus.org', 'bl.spamcop.net', 'b.barracudacentral.org', 'psbl.surriel.com', 'dnsbl-1.uceprotect.net', 'dnsbl.dronebl.org', 'all.s5h.net'];
+const CDN_ASN = /cloudflare|fastly|akamai|cloudfront|incapsula|imperva|sucuri|stackpath/i;
+
+/** Reverse an IPv4 address for DNSBL lookups; null for anything else. */
+export function dnsblName(ip: string, zone: string): string | null {
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(ip);
+  return m ? `${m[4]}.${m[3]}.${m[2]}.${m[1]}.${zone}` : null;
+}
+
+/**
+ * Check the site's own IPs (skipped behind a CDN) and its mail servers against public DNS blocklists.
+ * Several lists refuse queries from big public resolvers (127.255.255.x): those count as unavailable,
+ * never as "clean".
+ */
+export async function fetchBlocklists(dns: DnsRecords | null, ips: IpInfo[], cfg: ExternalConfig, query: (name: string) => Promise<{ status: number; answers: string[] } | null> = defaultDnsblQuery): Promise<BlocklistData | null> {
+  if (cfg.blocklists === false || !dns) return null;
+  const subjects = new Map<string, 'web' | 'mail'>();
+  for (const ip of ips) if (ip.version === 4 && !CDN_ASN.test(ip.asnOrg ?? '')) subjects.set(ip.ip, 'web');
+  const mxHosts = dns.MX.slice(0, 3).map((m) => m.exchange).filter(Boolean);
+  const mxIps = await Promise.all(mxHosts.map((h) => dohQuery(h, 'A').then((r) => r.answers.map((a) => a.data)).catch(() => [] as string[])));
+  for (const ip of mxIps.flat().slice(0, 6)) subjects.set(ip, 'mail');
+  const checked = [...subjects].slice(0, 8).map(([ip, role]) => ({ ip, role }));
+  if (!checked.length) return { checkedAt: new Date().toISOString(), checked, lists: BLOCKLISTS, listed: [], unavailable: [] };
+  const listed: BlocklistHit[] = [];
+  const unavailable = new Set<string>();
+  await Promise.all(
+    checked.flatMap(({ ip, role }) =>
+      BLOCKLISTS.map(async (zone) => {
+        const name = dnsblName(ip, zone);
+        if (!name) return;
+        const r = await query(name).catch(() => null);
+        if (!r || (r.status !== 0 && r.status !== 3)) return void unavailable.add(zone);
+        const code = r.answers.find((a) => a.startsWith('127.'));
+        if (!code) return;
+        if (code.startsWith('127.255.255.')) return void unavailable.add(zone);
+        listed.push({ list: zone, subject: ip, role, code });
+      })
+    )
+  );
+  return { checkedAt: new Date().toISOString(), checked, lists: BLOCKLISTS, listed, unavailable: [...unavailable] };
+}
+
+async function defaultDnsblQuery(name: string): Promise<{ status: number; answers: string[] } | null> {
+  const r = await dohQuery(name, 'A');
+  return { status: r.status, answers: r.answers.map((a) => a.data) };
 }
 
 export async function fetchWayback(host: string, cfg: ExternalConfig): Promise<{ firstSeen: string | null } | null> {

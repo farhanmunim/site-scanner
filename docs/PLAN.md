@@ -90,7 +90,9 @@ Health (workers, queue, DB size, egress IP reputation links).
 ## 7. Roadmap
 
 - **Done (v1):** everything above.
-- **Next:** retire.js vulnerable-library check; history/diff between scans of the same domain
+- **Done (tool parity pass):** version-aware Wordfence matching (core, themes, plugins) + latest-core check; recursive SPF inspector (10-lookup budget, void lookups, loops); DNSBL checks of mail/web IPs; PHP version + end-of-life; multi-resolver DNS propagation; AI-readiness score; retire.js vulnerable JS libraries; exposed-secret patterns in delivered code; DANE/TLS-RPT; domain expiry/age/lock. Results live on `Report` (`php`, `aiReadiness`, `vulnerableLibraries`, `exposedSecrets`, `domainChecks`, `blocklists`, `propagation`, `cms.vulnerabilities`, `dns.spf`) and have no UI yet.
+- **Deliberately not built:** exposed `.git`/`.env`/backup probing, port scanning, IIS probing and CORS probing (active; against the safety rules above); inbox tester (needs a mailbox).
+- **Next:** history/diff between scans of the same domain
   ("what changed"); compare two sites; JSON export polish and a documented public API with keys;
   scheduled re-scans + webhooks for owner-chosen domains; MCP server exposing
   `analyse_website` / `get_technology_stack` / `get_changes`.

@@ -42,6 +42,40 @@ export interface DnsRecords {
   dkimSelectors: string[];
   /** _bimi.<domain> TXT */
   bimi: string[];
+  /** _smtp._tls.<domain> TXT (TLS-RPT). Absent on older scans. */
+  tlsRpt?: string[];
+  /** DANE: TLSA records for _25._tcp.<mx>, keyed by MX host. Absent on older scans. */
+  tlsa?: Record<string, string[]>;
+  /** Recursive SPF walk. Absent on older scans or when the domain has no SPF record. */
+  spf?: SpfInspection | null;
+}
+
+export interface SpfNode {
+  domain: string;
+  record: string | null;
+  /** How this node was reached: the root, an include:, or a redirect=. */
+  via: 'root' | 'include' | 'redirect';
+  /** DNS-lookup mechanisms in this record alone (include, a, mx, ptr, exists, redirect). */
+  lookups: number;
+  error?: string;
+  children: SpfNode[];
+}
+
+export interface SpfInspection {
+  tree: SpfNode;
+  /** Total DNS-lookup mechanisms across the tree; RFC 7208 allows 10. */
+  totalLookups: number;
+  /** Lookups that returned nothing (NXDOMAIN / no data); receivers allow 2. */
+  voidLookups: number;
+  allQualifier: '-' | '~' | '?' | '+' | null;
+  ip4Count: number;
+  ip6Count: number;
+  hasPtr: boolean;
+  /** SPF records found at the root (more than one is a permanent error). */
+  recordCount: number;
+  /** Walk stopped early (depth or node cap) so totals may be low. */
+  truncated: boolean;
+  errors: string[];
 }
 
 export interface IpInfo {
@@ -313,8 +347,43 @@ export interface CmsDeepDive {
   platform: 'wordpress' | 'shopify' | 'webflow' | 'wix' | 'squarespace';
   version: string | null;
   theme: { slug: string; name: string | null; version: string | null; author: string | null } | null;
-  plugins: { slug: string; name: string | null; version: string | null }[];
+  plugins: { slug: string; name: string | null; version: string | null; vulnerable?: boolean }[];
   flags: Finding[];
+  /** WordPress only: latest core release and whether the detected version is behind it. */
+  latestVersion?: string | null;
+  vulnerabilities?: { component: 'core' | 'plugin' | 'theme'; slug: string; version: string | null; title: string; cve: string | null; cvss: number | null; fixedIn: string | null; affectsInstalled: boolean | null }[];
+}
+
+export interface PhpInfo {
+  detected: boolean;
+  version: string | null;
+  /** How we know: the X-Powered-By header, a .php URL, a PHPSESSID cookie, or a fingerprint. */
+  source: 'header' | 'fingerprint' | 'url' | 'cookie' | null;
+  /** Release branch such as "8.1". */
+  branch: string | null;
+  /** End of security support (ISO date) for the branch, when known. */
+  eol: string | null;
+  supported: boolean | null;
+  findings: Finding[];
+}
+
+export interface AiReadiness {
+  /** 0-100 from the items below. */
+  score: number;
+  grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  items: { id: string; title: string; status: FindingStatus; observed: string; detail?: string; points: number; max: number }[];
+  wordCount: number;
+  crawlersBlocked: number;
+  crawlersChecked: number;
+  llmsTxt: { present: boolean; hasTitle: boolean; links: number } | null;
+}
+
+export interface ExposedSecret {
+  kind: string;
+  /** Redacted match: the first and last characters only. */
+  preview: string;
+  source: string;
+  severity: 'high' | 'medium' | 'low';
 }
 
 export interface Report {
@@ -347,6 +416,14 @@ export interface Report {
   thirdParties: { domain: string; technology: string | null; category: string | null; count: number }[];
   cms: CmsDeepDive | null;
   wellKnown: { securityTxt: boolean; adsTxt: boolean; llmsTxt: boolean };
+  /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
+  php?: PhpInfo | null;
+  aiReadiness?: AiReadiness | null;
+  vulnerableLibraries?: VulnerableLibrary[] | null;
+  exposedSecrets?: ExposedSecret[];
+  domainChecks?: Finding[];
+  blocklists?: BlocklistData | null;
+  propagation?: PropagationData | null;
   cookies: BrowserCookie[];
   privacy: Finding[];
   performance: PsiMetrics | null;
@@ -438,6 +515,72 @@ export interface SubdomainData {
   unverified?: number;
 }
 
+export interface PropagationResolver {
+  name: string;
+  ip: string;
+}
+export interface PropagationRow {
+  type: 'A' | 'AAAA' | 'MX' | 'NS' | 'TXT' | 'CNAME';
+  /** One entry per resolver; null = no answer or error. */
+  answers: { resolver: PropagationResolver; values: string[] | null }[];
+  /** Every resolver that answered returned the same set. */
+  consistent: boolean;
+}
+export interface PropagationData {
+  checkedAt: string;
+  host: string;
+  rows: PropagationRow[];
+}
+
+export interface BlocklistHit {
+  list: string;
+  /** What was listed: an IP, with the role we found it in. */
+  subject: string;
+  role: 'web' | 'mail';
+  code: string;
+}
+export interface BlocklistData {
+  checkedAt: string;
+  /** IPs we queried, with role. */
+  checked: { ip: string; role: 'web' | 'mail' }[];
+  lists: string[];
+  listed: BlocklistHit[];
+  /** Lists that refused or rate-limited us (cannot say either way). */
+  unavailable: string[];
+}
+
+export interface WordfenceVuln {
+  title: string;
+  cve: string | null;
+  cvss: number | null;
+  /** Inclusive/exclusive version ranges this advisory affects. */
+  ranges: { from: string | null; fromInclusive: boolean; to: string | null; toInclusive: boolean }[];
+  patched: string[];
+  patchedFlag: boolean;
+}
+
+export interface RetireVuln {
+  severity: string | null;
+  summary: string | null;
+  cves: string[];
+  below: string | null;
+  atOrAbove: string | null;
+}
+export interface RetireLibrary {
+  name: string;
+  vulns: { atOrAbove?: string; below?: string; severity?: string; cve?: string[]; summary?: string }[];
+  uri: string[];
+  filename: string[];
+  filecontent: string[];
+}
+export interface VulnerableLibrary {
+  name: string;
+  version: string;
+  /** Script URL or "inline" it was identified from. */
+  source: string;
+  vulns: RetireVuln[];
+}
+
 export interface SafeBrowsingData {
   checkedAt: string;
   threats: string[]; // e.g. MALWARE, SOCIAL_ENGINEERING
@@ -452,4 +595,13 @@ export interface ExternalData {
   subdomains?: SubdomainData | null;
   wordpressOrg?: Record<string, { name: string; version: string | null; lastUpdated: string | null; activeInstalls: number | null; tested: string | null }>;
   wordfence?: Record<string, { count: number; latestTitle: string | null; affectedBelow: string | null }>;
+  /** Version-aware advisories keyed "plugin:slug", "theme:slug" or "core:wordpress". */
+  wordfenceVulns?: Record<string, WordfenceVuln[]>;
+  /** Latest stable WordPress release from api.wordpress.org. */
+  wordpressLatest?: string | null;
+  wordpressThemes?: Record<string, { name: string; version: string | null; lastUpdated: string | null }>;
+  blocklists?: BlocklistData | null;
+  propagation?: PropagationData | null;
+  /** retire.js repository entries trimmed to libraries that appear on this page. */
+  retire?: RetireLibrary[] | null;
 }

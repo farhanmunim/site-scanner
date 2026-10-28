@@ -4,10 +4,12 @@ import { createSafeDispatcher, createSafeFetch } from './node-agent.js';
 import { type SafeFetchOptions } from './fetch.js';
 import { gatherDns } from './stages/dns.js';
 import { gatherHttp } from './stages/http.js';
-import { gatherFiles, extractWordPressRefs } from './stages/files.js';
+import { gatherFiles, extractWordPressRefs, extractScriptUrls } from './stages/files.js';
 import { gatherRdap } from './stages/rdap.js';
 import { gatherTls } from './stages/tls.js';
-import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchSubdomains, fetchWayback, fetchWordPressOrg, fetchWordfence, type ExternalConfig } from '../external/index.js';
+import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchSubdomains, fetchWayback, fetchWordPressOrg, fetchWordfence, fetchWordPressLatest, fetchWordPressThemes, fetchRetire, fetchBlocklists, type ExternalConfig } from '../external/index.js';
+import type { WordfenceVuln } from '../types.js';
+import { checkPropagation } from './stages/propagation.js';
 import { SCANNER_VERSION, type BrowserData, type GatheredData, type StageMeta, type StageName } from '../types.js';
 
 export * from './url.js';
@@ -169,16 +171,30 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   try {
     const finalUrl = data.http?.final?.url ?? target.url;
     const wp = data.http?.final ? extractWordPressRefs(data.http.final.body) : { detected: false, pluginSlugs: [] as string[], themeSlugs: [] as string[] };
-    const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, subdomains] = await Promise.all([
+    const wpItems = wp.detected ? [...wp.pluginSlugs.map((slug) => ({ type: 'plugin' as const, slug })), ...wp.themeSlugs.slice(0, 2).map((slug) => ({ type: 'theme' as const, slug })), { type: 'core' as const, slug: 'wordpress' }] : [];
+    const scriptUrls = data.http?.final ? [...new Set([...extractScriptUrls(data.http.final.body, finalUrl), ...(data.files?.scripts.map((f) => f.path) ?? []), ...(data.browser?.requests.filter((r) => r.type === 'script').map((r) => r.url) ?? [])])] : [];
+    const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
+    const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfenceVulns, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation] = await Promise.all([
       data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null,
       fetchSafeBrowsing(finalUrl, ext),
       fetchWayback(target.registrableDomain, ext),
       fetchGreenWeb(target.host, ext),
       wp.detected ? fetchWordPressOrg(wp.pluginSlugs, ext) : {},
-      wp.detected ? fetchWordfence(wp.pluginSlugs, ext) : {},
-      fetchSubdomains(target.registrableDomain, ext)
+      wpItems.length ? fetchWordfence(wpItems, ext) : Promise.resolve({} as Record<string, WordfenceVuln[]>),
+      wp.detected ? fetchWordPressLatest(ext) : null,
+      wp.detected ? fetchWordPressThemes(wp.themeSlugs, ext) : {},
+      fetchSubdomains(target.registrableDomain, ext),
+      data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : null,
+      fetchBlocklists(data.dns ?? null, data.ips ?? [], ext).catch(() => null),
+      ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null)
     ]);
-    data.external = { psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, subdomains };
+    // Summary kept for older readers of `wordfence`: plugin advisory counts regardless of version.
+    const wordfence: NonNullable<typeof data.external>['wordfence'] = {};
+    for (const [k, list] of Object.entries(wordfenceVulns)) {
+      if (!k.startsWith('plugin:') || !list.length) continue;
+      wordfence[k.slice(7)] = { count: list.length, latestTitle: list[0]?.title ?? null, affectedBelow: list.flatMap((v) => v.patched).sort().at(-1) ?? null };
+    }
+    data.external = { psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, wordfenceVulns, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation };
     await done('external', stageMeta('complete', t4));
   } catch (e) {
     await done('external', stageMeta('failed', t4, String((e as Error)?.message ?? e)));

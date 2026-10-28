@@ -3,9 +3,9 @@
  * Cloudflare 1.1.1.1 is the default; Google 8.8.8.8 is the fallback.
  */
 
-export type RRType = 'A' | 'AAAA' | 'CNAME' | 'MX' | 'NS' | 'TXT' | 'CAA' | 'SOA' | 'PTR';
+export type RRType = 'A' | 'AAAA' | 'CNAME' | 'MX' | 'NS' | 'TXT' | 'CAA' | 'SOA' | 'PTR' | 'TLSA';
 
-const TYPE_IDS: Record<RRType, number> = { A: 1, AAAA: 28, CNAME: 5, MX: 15, NS: 2, TXT: 16, CAA: 257, SOA: 6, PTR: 12 };
+const TYPE_IDS: Record<RRType, number> = { A: 1, AAAA: 28, CNAME: 5, MX: 15, NS: 2, TXT: 16, CAA: 257, SOA: 6, PTR: 12, TLSA: 52 };
 
 export interface DohAnswer {
   name: string;
