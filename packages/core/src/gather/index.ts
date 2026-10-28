@@ -7,7 +7,7 @@ import { gatherHttp } from './stages/http.js';
 import { gatherFiles, extractWordPressRefs, extractScriptUrls } from './stages/files.js';
 import { gatherRdap } from './stages/rdap.js';
 import { gatherTls } from './stages/tls.js';
-import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchSubdomains, fetchWayback, fetchWordPressOrg, fetchWordfence, fetchWordPressLatest, fetchWordPressThemes, fetchRetire, fetchBlocklists, type ExternalConfig } from '../external/index.js';
+import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchSubdomains, fetchWayback, fetchWordPressOrg, fetchWordfence, fetchWordPressLatest, fetchWordPressThemes, fetchRetire, fetchBlocklists, fetchInternetDb, fetchEolTables, eolProductsFor, fetchOsv, fetchTranco, fetchGeo, identifyLibraries, type ExternalConfig } from '../external/index.js';
 import { checkPropagation } from './stages/propagation.js';
 import { isScope, NOT_NEEDED, planFor } from '../scope.js';
 import { SCANNER_VERSION, type BrowserData, type GatheredData, type StageMeta, type StageName } from '../types.js';
@@ -200,7 +200,11 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     const wpItems = wp.detected ? [...wp.pluginSlugs.map((slug) => ({ type: 'plugin' as const, slug })), ...wp.themeSlugs.slice(0, 2).map((slug) => ({ type: 'theme' as const, slug })), { type: 'core' as const, slug: 'wordpress' }] : [];
     const scriptUrls = data.http?.final ? [...new Set([...extractScriptUrls(data.http.final.body, finalUrl), ...(data.files?.scripts.map((f) => f.path) ?? []), ...(data.browser?.requests.filter((r) => r.type === 'script').map((r) => r.url) ?? [])])] : [];
     const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
-    const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfenceVulns, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation] = await Promise.all([
+    const retireP = wants('retire') && data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : Promise.resolve(null);
+    const v4s = (data.ips ?? []).filter((i) => i.version === 4).map((i) => i.ip);
+    const allIps = (data.ips ?? []).map((i) => i.ip);
+    const haystack = `${Object.entries(data.http?.final?.headers ?? {}).map(([k, v]) => `${k}: ${v}`).join('\n')}\n${(data.http?.final?.body ?? '').slice(0, 150_000)}`;
+    const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfenceVulns, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation, internetDb, eolTables, osv, tranco, geo] = await Promise.all([
       soft(wants('psi') && data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null, null),
       soft(wants('safeBrowsing') ? fetchSafeBrowsing(finalUrl, ext) : null, null),
       soft(wants('wayback') ? fetchWayback(target.registrableDomain, ext) : null, null),
@@ -210,9 +214,14 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
       soft(wants('wordpress') && wp.detected ? fetchWordPressLatest(ext) : null, null),
       soft(wants('wordpress') && wp.detected ? fetchWordPressThemes(wp.themeSlugs, ext) : {}, {}),
       soft(wants('subdomains') ? fetchSubdomains(target.registrableDomain, ext) : null, null),
-      soft(wants('retire') && data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : null, null),
+      soft(retireP, null),
       soft(wants('blocklists') ? fetchBlocklists(data.dns ?? null, data.ips ?? [], ext).catch(() => null) : null, null),
-      soft(!wants('propagation') || ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null), null)
+      soft(!wants('propagation') || ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null), null),
+      soft(wants('internetDb') ? fetchInternetDb(allIps.length ? [...v4s, ...allIps.filter((i) => !v4s.includes(i))] : [], ext) : null, null),
+      soft(wants('eol') ? fetchEolTables(eolProductsFor(haystack), ext) : null, null),
+      soft(wants('osv') ? retireP.then((r) => (r ? fetchOsv(identifyLibraries(r, scriptUrls, scriptBodies), ext) : null)) : null, null),
+      soft(wants('tranco') ? fetchTranco(target.registrableDomain, ext) : null, null),
+      soft(wants('geo') ? fetchGeo(v4s[0] ?? allIps[0], ext) : null, null)
     ]);
     // Summary kept for older readers of `wordfence`: plugin advisory counts regardless of version.
     const wordfence: NonNullable<typeof data.external>['wordfence'] = {};
@@ -220,7 +229,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
       if (!k.startsWith('plugin:') || !list.length) continue;
       wordfence[k.slice(7)] = { count: list.length, latestTitle: list[0]?.title ?? null, affectedBelow: list.flatMap((v) => v.patched).sort().at(-1) ?? null };
     }
-    data.external = { psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, wordfenceVulns: wordfenceVulns ?? undefined, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation };
+    data.external = { psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfence, wordfenceVulns: wordfenceVulns ?? undefined, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation, internetDb, eolTables, osv, tranco, geo };
     await done('external', stageMeta('complete', t4));
   } catch (e) {
     await done('external', stageMeta('failed', t4, String((e as Error)?.message ?? e)));

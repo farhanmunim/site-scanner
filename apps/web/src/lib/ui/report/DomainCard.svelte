@@ -27,6 +27,7 @@
       {#if d.nameservers.length || report.dns?.NS.length}<dt>Nameservers</dt><dd>{#each (report.dns?.NS.length ? report.dns.NS : d.nameservers) as ns}<div class="ss-mono">{ns}</div>{/each}{#if report.infra.dnsProvider}<span class="sub">{report.infra.dnsProvider.name}</span>{/if}</dd>{/if}
       {#if report.external.wayback}<dt>First archived</dt><dd>{fmtDate(report.external.wayback)}<span class="sub">Earliest snapshot in the Wayback Machine</span></dd>{/if}
       {#if report.cert?.notAfter}<dt>Certificate</dt><dd>{dot(`Expires ${fmtDate(report.cert.notAfter)}`, report.cert.issuer ? `issued by ${report.cert.issuer}` : null)}</dd>{/if}
+      {#if report.exposure?.rank?.rank}<dt>Popularity</dt><dd>#{report.exposure.rank.rank.toLocaleString('en-GB')}<span class="sub">Tranco top 1 million</span></dd>{/if}
       {#if d.updated}<dt>Record updated</dt><dd>{fmtDate(d.updated)}</dd>{/if}
     </dl>
   {:else}

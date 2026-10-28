@@ -5,7 +5,7 @@ import { STAGE_ORDER } from './types.js';
  * What a scan has to do. A focused tool only needs some stages and some of the external lookups;
  * running the rest wastes time (PageSpeed alone is 15-60 s) and requests against the target.
  */
-export type ExternalCheck = 'psi' | 'safeBrowsing' | 'wayback' | 'greenWeb' | 'subdomains' | 'wordpress' | 'retire' | 'blocklists' | 'propagation';
+export type ExternalCheck = 'psi' | 'safeBrowsing' | 'wayback' | 'greenWeb' | 'subdomains' | 'wordpress' | 'retire' | 'blocklists' | 'propagation' | 'internetDb' | 'eol' | 'osv' | 'tranco' | 'geo';
 
 export interface ScopePlan {
   /** Stages that run. `files` and `browser` pull in `http`. */
@@ -13,23 +13,24 @@ export interface ScopePlan {
   external: ExternalCheck[];
 }
 
-const ALL_EXTERNAL: ExternalCheck[] = ['psi', 'safeBrowsing', 'wayback', 'greenWeb', 'subdomains', 'wordpress', 'retire', 'blocklists', 'propagation'];
+const ALL_EXTERNAL: ExternalCheck[] = ['psi', 'safeBrowsing', 'wayback', 'greenWeb', 'subdomains', 'wordpress', 'retire', 'blocklists', 'propagation', 'internetDb', 'eol', 'osv', 'tranco', 'geo'];
 
 const RAW: Record<string, ScopePlan> = {
   full: { stages: [...STAGE_ORDER], external: ALL_EXTERNAL },
-  domain: { stages: ['dns', 'rdap', 'cert'], external: ['wayback'] },
+  domain: { stages: ['dns', 'rdap', 'cert'], external: ['wayback', 'tranco'] },
+  ports: { stages: ['dns'], external: ['internetDb', 'geo'] },
   email: { stages: ['dns'], external: ['blocklists'] },
   spf: { stages: ['dns'], external: [] },
   blocklist: { stages: ['dns'], external: ['blocklists'] },
-  'website-health': { stages: ['http', 'files', 'cert'], external: ['safeBrowsing', 'retire'] },
+  'website-health': { stages: ['http', 'files', 'cert'], external: ['safeBrowsing', 'retire', 'osv'] },
   ssl: { stages: ['http', 'cert'], external: [] },
   performance: { stages: ['http'], external: ['psi'] },
   'ai-readiness': { stages: ['http', 'files'], external: [] },
-  wordpress: { stages: ['http', 'files'], external: ['wordpress'] },
-  php: { stages: ['http'], external: [] },
-  dns: { stages: ['dns', 'http'], external: ['propagation', 'greenWeb'] },
-  stack: { stages: ['dns', 'http', 'files', 'cert', 'browser'], external: [] },
-  'js-libraries': { stages: ['http', 'files'], external: ['retire'] },
+  wordpress: { stages: ['http', 'files'], external: ['wordpress', 'eol'] },
+  php: { stages: ['http'], external: ['eol'] },
+  dns: { stages: ['dns', 'http'], external: ['propagation', 'greenWeb', 'internetDb', 'geo'] },
+  stack: { stages: ['dns', 'http', 'files', 'cert', 'browser'], external: ['eol'] },
+  'js-libraries': { stages: ['http', 'files'], external: ['retire', 'osv'] },
   subdomains: { stages: [], external: ['subdomains'] },
   privacy: { stages: ['http', 'files', 'browser'], external: [] }
 };

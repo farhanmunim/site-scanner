@@ -315,6 +315,15 @@ export interface PlatformVerdict {
   alternatives: string[];
 }
 
+export interface Exposure {
+  hosts: InternetDbHost[];
+  findings: Finding[];
+  /** The IPs belong to a CDN/WAF edge, so the ports are the edge's and not the site's own server. */
+  sharedEdge: boolean;
+  rank: TrancoRank | null;
+  geo: GeoInfo | null;
+}
+
 export interface InfraSummary {
   cdn: { name: string; evidence: Evidence[] } | null;
   waf: { name: string; evidence: Evidence[] } | null;
@@ -431,6 +440,9 @@ export interface Report {
   cms: CmsDeepDive | null;
   /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
   platform?: PlatformVerdict | null;
+  /** Open ports and known CVEs seen by a passive internet scanner, plus rank and location. */
+  exposure?: Exposure | null;
+  eol?: { items: EolItem[]; findings: Finding[] } | null;
   wellKnown: { securityTxt: boolean; adsTxt: boolean; llmsTxt: boolean };
   /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
   php?: PhpInfo | null;
@@ -622,4 +634,73 @@ export interface ExternalData {
   propagation?: PropagationData | null;
   /** retire.js repository entries trimmed to libraries that appear on this page. */
   retire?: RetireLibrary[] | null;
+  /** Shodan InternetDB: what a passive internet scan already knows about the site's IPs. */
+  internetDb?: InternetDbData | null;
+  /** endoflife.date release tables for the products this page appears to use; matched to detected versions at analysis time. */
+  eolTables?: Record<string, EolCycle[]> | null;
+  /** OSV.dev advisories for identified JavaScript libraries, keyed "name@version". */
+  osv?: Record<string, OsvAdvisory[]> | null;
+  /** Tranco popularity rank for the registrable domain. */
+  tranco?: TrancoRank | null;
+  /** Where the primary IP is (city/region), from ipwho.is. */
+  geo?: GeoInfo | null;
+}
+
+export interface InternetDbHost {
+  ip: string;
+  /** False when InternetDB has never scanned this IP (HTTP 404). */
+  known: boolean;
+  ports: number[];
+  /** CVE ids InternetDB associates with banners it saw. Banner-derived, so they can be false positives. */
+  vulns: string[];
+  cpes: string[];
+  hostnames: string[];
+  tags: string[];
+}
+export interface InternetDbData {
+  checkedAt: string;
+  hosts: InternetDbHost[];
+}
+export interface EolCycle {
+  cycle: string;
+  eol: string | boolean;
+  latest?: string;
+  lts?: string | boolean;
+}
+export interface EolItem {
+  /** Our detected technology name, e.g. "PHP". */
+  technology: string;
+  /** endoflife.date product slug. */
+  product: string;
+  version: string;
+  /** Matched release cycle, e.g. "8.1". */
+  cycle: string;
+  /** End-of-life date, or false when no EOL is announced. */
+  eol: string | false;
+  /** Latest patch release of this cycle. */
+  latest: string | null;
+  lts: boolean;
+  /** true = still supported, false = past EOL. */
+  supported: boolean;
+}
+export interface OsvAdvisory {
+  id: string;
+  aliases: string[];
+  summary: string | null;
+  severity: string | null;
+  fixedIn: string | null;
+}
+export interface TrancoRank {
+  /** Latest rank among the top million sites, or null when not listed. */
+  rank: number | null;
+  /** Best rank in the returned history. */
+  best: number | null;
+  days: number;
+}
+export interface GeoInfo {
+  ip: string;
+  country: string | null;
+  countryCode: string | null;
+  region: string | null;
+  city: string | null;
 }

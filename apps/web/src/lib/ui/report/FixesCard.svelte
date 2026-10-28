@@ -12,6 +12,8 @@
       ['Domain', 'domain', report.domainChecks],
       ['PHP', 'php', report.php?.findings],
       ['Privacy', 'privacy', report.privacy],
+      ['Open ports', 'ports', report.exposure?.findings],
+      ['Support status', 'stack', report.eol?.findings],
       [platformLabel(report) || 'Platform', 'wordpress', report.cms?.flags]
     ];
     const out: { f: Finding; section: string; id: string }[] = [];

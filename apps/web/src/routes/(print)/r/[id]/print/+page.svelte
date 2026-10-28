@@ -31,6 +31,8 @@
     add('Performance', null, p ? `Lighthouse (${p.strategy}): performance ${p.scores.performance ?? '—'}, accessibility ${p.scores.accessibility ?? '—'}, best practices ${p.scores.bestPractices ?? '—'}, SEO ${p.scores.seo ?? '—'}. LCP ${p.lab.lcpMs != null ? (p.lab.lcpMs / 1000).toFixed(1) + ' s' : '—'}, CLS ${p.lab.cls ?? '—'}, TBT ${p.lab.tbtMs != null ? Math.round(p.lab.tbtMs) + ' ms' : '—'}.` : undefined);
     if (r.aiReadiness) add(`AI readiness (${r.aiReadiness.score}/100, grade ${r.aiReadiness.grade})`, r.aiReadiness.items.map((i) => ({ id: i.id, title: i.title, status: i.status, observed: i.observed, detail: i.detail }) as Finding));
     add('PHP', r.php?.findings);
+    add('Support status', r.eol?.findings);
+    if (r.exposure) add('Open ports and exposure', r.exposure.findings, [r.exposure.geo ? `Server in ${[r.exposure.geo.city, r.exposure.geo.country].filter(Boolean).join(', ')}.` : '', r.exposure.rank?.rank ? `Popularity rank #${r.exposure.rank.rank.toLocaleString('en-GB')} (Tranco).` : ''].filter(Boolean).join(' ') || undefined);
     add('Privacy', r.privacy);
     return out;
   });
@@ -45,6 +47,8 @@
       ['Email', r.email],
       ['Domain', r.domainChecks],
       ['PHP', r.php?.findings],
+      ['Ports', r.exposure?.findings],
+      ['Support', r.eol?.findings],
       ['Privacy', r.privacy],
       ['Platform', r.cms?.flags]
     ];

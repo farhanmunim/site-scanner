@@ -1,5 +1,5 @@
 /** The scanner's tools. Each one is a focused view of the same scan: the sections it shows come from the report. */
-export type SectionId = 'fixes' | 'overview' | 'domain' | 'dns' | 'email' | 'spf' | 'blocklist' | 'tls' | 'headers' | 'seo' | 'performance' | 'ai' | 'stack' | 'php' | 'wordpress' | 'libraries' | 'subdomains' | 'privacy';
+export type SectionId = 'fixes' | 'overview' | 'domain' | 'dns' | 'email' | 'spf' | 'blocklist' | 'ports' | 'tls' | 'headers' | 'seo' | 'performance' | 'ai' | 'stack' | 'php' | 'wordpress' | 'libraries' | 'subdomains' | 'privacy';
 
 export interface Tool {
   slug: string;
@@ -49,6 +49,15 @@ export const TOOLS: Tool[] = [
     icon: 'ban',
     sections: ['blocklist'],
     checks: ['Mail server (MX) IPs', 'Web server IPs (skipped behind a CDN)', 'Seven public DNS blocklists', 'Clear reporting of lists that did not answer']
+  },
+  {
+    slug: 'ports',
+    title: 'Open Ports Checker',
+    short: 'Exposed databases and known CVEs, from public internet scans.',
+    description: 'Shows which ports public internet scanners have seen open on a site\'s addresses, flags databases and remote-access services that should not be public, and lists CVEs tied to the software they advertise. Nothing is probed.',
+    icon: 'network',
+    sections: ['ports'],
+    checks: ['Open ports from Shodan InternetDB (passive)', 'Exposed databases, caches and remote desktop', 'CVEs associated with advertised software', 'Server location and popularity rank']
   },
   {
     slug: 'website-health',
@@ -112,7 +121,7 @@ export const TOOLS: Tool[] = [
     short: 'Compare answers from eight public resolvers.',
     description: 'Check that a DNS change has reached resolvers worldwide, and read the full record set, hosting and CDN.',
     icon: 'network',
-    sections: ['dns'],
+    sections: ['dns', 'ports'],
     checks: ['A, AAAA, CNAME, MX, NS and TXT on 8 resolvers', 'Agreement across resolvers, flagged when they differ', 'All DNS records and IP ownership (ASN)', 'CDN, firewall and hosting detection']
   },
   {
@@ -163,6 +172,7 @@ export const SECTION_LABEL: Record<SectionId, string> = {
   email: 'Email',
   spf: 'SPF inspector',
   blocklist: 'Blocklists',
+  ports: 'Open ports',
   tls: 'HTTPS & certificate',
   headers: 'Security headers',
   seo: 'SEO',

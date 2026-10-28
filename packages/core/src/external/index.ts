@@ -5,6 +5,7 @@ import { identifyLibraries, normaliseRepo, type RetireRepoEntry } from './retire
 import type { BlocklistData, BlocklistHit, DnsRecords, ExternalData, IpInfo, PsiMetrics, RetireLibrary, SafeBrowsingData, SubdomainData, WordfenceVuln } from '../types.js';
 
 export * from './retire.js';
+export * from './enrich.js';
 
 /**
  * Optional free enrichment APIs. Every function returns null (never throws) when the key
@@ -25,6 +26,12 @@ export interface ExternalConfig {
   retire?: boolean;
   blocklists?: boolean;
   propagation?: boolean;
+  /** Keyless datasets (all default on): Shodan InternetDB, endoflife.date, OSV.dev, Tranco, ipwho.is. */
+  internetDb?: boolean;
+  eol?: boolean;
+  osv?: boolean;
+  tranco?: boolean;
+  geo?: boolean;
   /** Test hook: true = resolves, false = definitely does not, null = could not tell. */
   resolveName?: (name: string) => Promise<boolean | null>;
   fetchImpl?: typeof fetch;

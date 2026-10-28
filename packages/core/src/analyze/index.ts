@@ -1,6 +1,9 @@
 import type { GatheredData, Report, StageName, TechnologyDetection } from '../types.js';
 import { REPORT_VERSION } from '../types.js';
 import { detectPlatform } from './platform.js';
+import { auditEol, auditExposure, mergeOsv } from './exposure.js';
+import { evaluateEol } from '../external/enrich.js';
+import { identifyLibraries } from '../external/retire.js';
 import { parseHtml, type ParsedHtml } from './html.js';
 import { detectTechnologies, loadFingerprints, type DetectInput } from './detect/index.js';
 import { summariseInfra } from './infra.js';
@@ -27,6 +30,7 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
+export { auditExposure, auditEol, mergeOsv } from './exposure.js';
 export { detectPhp, PHP_EOL, phpBranch } from './php.js';
 export { analyseAiReadiness } from './ai.js';
 export { findExposedSecrets } from './secrets.js';
@@ -108,7 +112,13 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
   const scriptSources = [{ source: 'page', text: rawHtml }, ...(data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, text: f.body! }))];
   const exposedSecrets = final ? findExposedSecrets(scriptSources) : [];
   const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
-  const vulnerableLibraries = data.external?.retire ? findVulnerableLibraries(data.external.retire, [...new Set([...(parsed?.scriptSrc ?? []), ...scriptBodies.map((b) => b.source)])], scriptBodies) : null;
+  const libUrls = [...new Set([...(parsed?.scriptSrc ?? []), ...scriptBodies.map((b) => b.source)])];
+  const retireLibs = data.external?.retire ? findVulnerableLibraries(data.external.retire, libUrls, scriptBodies) : null;
+  const vulnerableLibraries = mergeOsv(retireLibs, data.external?.osv, data.external?.retire ? identifyLibraries(data.external.retire, libUrls, scriptBodies) : []);
+  const eolItems = evaluateEol(technologies, data.external?.eolTables);
+  const eol = data.external?.eolTables ? { items: eolItems, findings: auditEol(eolItems) } : null;
+  const sharedEdge = !!infra.cdn || !!infra.waf || (data.ips ?? []).some((i) => /cloudflare|fastly|akamai|cloudfront|incapsula|imperva|sucuri|stackpath/i.test(i.asnOrg ?? ''));
+  const exposure = auditExposure(data.external?.internetDb, { sharedEdge, rank: data.external?.tranco ?? null, geo: data.external?.geo ?? null });
   const domainChecks = auditDomain(data.rdap ?? null);
 
   if (data.external?.safeBrowsing?.threats.length) {
@@ -163,6 +173,8 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     thirdParties,
     cms,
     platform: detectPlatform(technologies),
+    exposure,
+    eol,
     php,
     aiReadiness,
     vulnerableLibraries,

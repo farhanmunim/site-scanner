@@ -26,6 +26,7 @@
   import StackCard from '$lib/ui/report/StackCard.svelte';
   import PhpCard from '$lib/ui/report/PhpCard.svelte';
   import WordPressCard from '$lib/ui/report/WordPressCard.svelte';
+  import ExposureCard from '$lib/ui/report/ExposureCard.svelte';
   import LibrariesCard from '$lib/ui/report/LibrariesCard.svelte';
   import SubdomainsCard from '$lib/ui/report/SubdomainsCard.svelte';
   import PrivacyCard from '$lib/ui/report/PrivacyCard.svelte';
@@ -47,7 +48,7 @@
   let scopeTool = $derived(data.scan.scope && data.scan.scope !== 'full' ? toolBySlug(data.scan.scope) : null);
   let tool = $derived(scopeTool ?? (printMode ? null : toolBySlug(page.url.searchParams.get('tool'))));
   let stageOrder = $derived(planFor(data.scan.scope).stages);
-  const FULL: SectionId[] = ['fixes', 'domain', 'email', 'spf', 'blocklist', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'subdomains', 'privacy'];
+  const FULL: SectionId[] = ['fixes', 'domain', 'email', 'spf', 'blocklist', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'ports', 'subdomains', 'privacy'];
   let shown = $derived<SectionId[]>(tool ? tool.sections : FULL);
   let has = $derived((id: SectionId) => shown.includes(id));
 
@@ -123,6 +124,7 @@
         case 'blocklist': { const b = report!.blocklists; return b ? { sc: b.listed.length ? String(b.listed.length) : '✓', tone: b.listed.length ? 'bad' : 'good' } : { sc: '', tone: '' }; }
         case 'spf': { const s = report!.dns?.spf; return s ? { sc: `${s.totalLookups}/10`, tone: s.totalLookups > 10 ? 'bad' : s.totalLookups >= 9 ? 'warn' : 'good' } : { sc: '', tone: '' }; }
         case 'libraries': { const n = (report!.vulnerableLibraries?.length ?? 0) + (report!.exposedSecrets?.length ?? 0); return report!.vulnerableLibraries == null ? { sc: '', tone: '' } : { sc: n ? String(n) : '✓', tone: n ? 'bad' : 'good' }; }
+        case 'ports': { const x = report!.exposure; if (!x?.hosts.some((h) => h.known)) return { sc: '', tone: '' }; const r = rollup(x.findings); return { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone }; }
         case 'php': { const p = report!.php; return p?.detected ? { sc: p.version ?? '?', tone: p.supported === false ? 'bad' : p.supported ? 'good' : '' } : { sc: '', tone: '' }; }
         case 'wordpress': { const r = rollup(report!.cms?.flags); return report!.cms ? { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone } : { sc: '', tone: '' }; }
         default: return { sc: '', tone: '' };
@@ -270,6 +272,7 @@
         {#if has('wordpress')}<WordPressCard {report} open={printMode} />{/if}
         {#if has('libraries')}<LibrariesCard {report} />{/if}
         {#if has('dns')}<DnsCard {report} open={printMode} {running} />{/if}
+        {#if has('ports')}<ExposureCard {report} open={printMode} {running} />{/if}
         {#if has('subdomains')}<SubdomainsCard {report} {running} open={printMode} />{/if}
         {#if has('privacy')}<PrivacyCard {report} open={printMode} {failed} note={note('privacy')} />{/if}
 

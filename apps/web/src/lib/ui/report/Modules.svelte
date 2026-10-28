@@ -32,6 +32,13 @@
     // AI
     const ai = report.aiReadiness;
     out.push({ id: 'ai', icon: 'sparkle', title: 'AI readiness', sub: 'Crawlers · llms.txt · structure', big: ai ? String(ai.score) : null, small: ai ? '/ 100' : undefined, tone: toneFromScore(ai?.score), chip: ai ? `Grade ${ai.grade}` : 'Not assessed', bullets: ai ? ai.items.filter((i) => i.status !== 'good').slice(0, 3).map((i) => ({ t: `${i.title}: ${i.observed}`, tone: i.status })) : [] });
+    // Open ports
+    const ex = report.exposure;
+    if (ex?.hosts.some((h) => h.known)) {
+      const eRoll = rollup(ex.findings, 'No data');
+      const ports = new Set(ex.hosts.filter((h) => h.known).flatMap((h) => h.ports)).size;
+      out.push({ id: 'ports', icon: 'network', title: 'Open ports', sub: ex.sharedEdge ? 'Behind a CDN or firewall' : 'Seen by public scanners', big: String(ports), small: 'ports', tone: eRoll.tone, chip: eRoll.label, bullets: top(ex.findings).length ? top(ex.findings) : [{ t: ex.sharedEdge ? 'Ports belong to the CDN edge' : 'Nothing risky exposed', tone: 'good' }] });
+    }
     // Platform
     const pv = report.platform;
     const kindLabel = { builder: 'Website builder', cms: 'CMS', ecommerce: 'Online shop', framework: 'Framework' } as const;

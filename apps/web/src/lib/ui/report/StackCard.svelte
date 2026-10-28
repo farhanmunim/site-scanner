@@ -36,4 +36,14 @@
       </div>
     </details>
   {/if}
+  {#if report.eol?.items.length}
+    <details class="ss-fold" {open}>
+      <summary>Support status ({report.eol.items.length})</summary>
+      <div class="in ss-tbl-wrap"><table class="ss-tbl">
+        <thead><tr><th>Status</th><th>Software</th><th>Release</th><th>End of life</th></tr></thead>
+        <tbody>{#each report.eol.items as e (e.product)}<tr><td><span class="ss-chip {e.supported ? 'good' : 'bad'}">{e.supported ? 'Supported' : 'End of life'}</span></td><td>{e.technology} <span class="ss-mono">{e.version}</span></td><td class="ss-mono">{e.cycle}{e.latest ? ` (latest ${e.latest})` : ''}</td><td class="ss-mono">{e.eol || 'none announced'}</td></tr>{/each}</tbody>
+      </table></div>
+      <p class="ss-note">From endoflife.date.</p>
+    </details>
+  {/if}
 </Card>
