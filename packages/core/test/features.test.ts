@@ -50,6 +50,19 @@ describe('propagation', () => {
   });
 });
 
+describe('propagation sanity check', () => {
+  const resolvers = [1, 2].map((n) => ({ name: `r${n}`, ip: `10.0.0.${n}` }));
+  it('does not trust uniformly empty answers when another path sees records', async () => {
+    const d = await checkPropagation('x.test', { types: ['MX', 'AAAA'], resolvers, query: async () => [], reference: async (_h, t) => (t === 'MX' ? ['10 mx.x.test'] : []) });
+    const mx = d.rows.find((r) => r.type === 'MX')!;
+    expect(mx.answers.every((a) => a.values === null)).toBe(true);
+    expect(mx.note).toMatch(/DNS-over-HTTPS/);
+    const aaaa = d.rows.find((r) => r.type === 'AAAA')!;
+    expect(aaaa.answers.every((a) => a.values?.length === 0)).toBe(true);
+    expect(aaaa.note).toBeUndefined();
+  });
+});
+
 describe('blocklists', () => {
   it('reverses IPv4 for DNSBL', () => {
     expect(dnsblName('1.2.3.4', 'zen.example')).toBe('4.3.2.1.zen.example');

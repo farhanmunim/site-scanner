@@ -1,0 +1,61 @@
+/* =============================================================================
+   Shared primitives — components should reuse these before inventing styles
+   ========================================================================== */
+@layer primitives {
+.eui-eyebrow { font: var(--weight-regular) var(--text-xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: var(--tracking-eyebrow); color: var(--text-muted); }
+.eui-mono { font-family: var(--font-mono); }
+.eui-muted { color: var(--text-secondary); }
+.eui-tag { display: inline-flex; align-items: center; height: 20px; padding: 0 var(--space-2); border-radius: var(--radius-badge); border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-secondary); font: var(--weight-regular) var(--text-2xs)/1 var(--font-mono); }
+.eui-new { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-1-5); border-radius: var(--radius-badge); background: var(--accent); color: var(--on-accent); font: var(--weight-medium) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: .05em; }
+.eui-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 var(--space-1-5); border-radius: var(--radius-badge); border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-muted); font: var(--weight-regular) var(--text-2xs)/1 var(--font-mono); }
+.eui-surface { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); }
+.eui-raised { background: var(--surface-raised); border: 1px solid var(--border); }
+.eui-hairline { border: 1px solid var(--border-subtle); }
+.eui-glass { background: rgba(var(--bg-rgb), .75); backdrop-filter: blur(var(--blur-md)); -webkit-backdrop-filter: blur(var(--blur-md)); border: 1px solid var(--border); }
+.eui-dotgrid { background-image: radial-gradient(circle, var(--dot) 1px, transparent 1px); background-size: 24px 24px; }
+
+/* buttons */
+.eui-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  height: var(--control-h-md); padding: 0 var(--space-4); border-radius: var(--radius-control); border: 1px solid transparent;
+  font-size: var(--text-base); font-weight: var(--weight-medium); white-space: nowrap; user-select: none; -webkit-user-select: none;
+  background: var(--accent); color: var(--on-accent);
+  box-shadow: 0 0 20px -3px rgba(var(--fg-rgb), .15);
+  transition: background-color var(--duration-base) var(--ease-soft), border-color var(--duration-base) var(--ease-soft), color var(--duration-base) var(--ease-soft), transform var(--duration-base) var(--ease-soft), opacity var(--duration-base);
+}
+.eui-btn:hover { opacity: .92; }
+.eui-btn:active { transform: scale(.96); }
+.eui-btn.sm { height: var(--control-h-sm); padding: 0 var(--space-3); font-size: var(--text-sm); gap: var(--space-1-5); }
+.eui-btn.lg { height: var(--control-h-lg); padding: 0 var(--space-6); font-size: var(--text-md); border-radius: var(--radius-control); gap: var(--space-2-5); }
+.eui-btn.pill { border-radius: var(--radius-pill); }
+.eui-btn.secondary { background: var(--surface-raised); color: var(--text-primary); border-color: var(--border); box-shadow: none; }
+.eui-btn.secondary:hover { background: var(--surface-hover); border-color: var(--border-hover); opacity: 1; }
+.eui-btn.outline { background: transparent; color: var(--text-primary); border-color: var(--border); box-shadow: none; }
+.eui-btn.outline:hover { border-color: var(--border-hover); background: var(--accent-subtle); opacity: 1; }
+.eui-btn.ghost { background: transparent; color: var(--text-secondary); box-shadow: none; }
+.eui-btn.ghost:hover { background: var(--accent-subtle); color: var(--text-primary); opacity: 1; }
+.eui-btn:disabled, .eui-btn[aria-disabled="true"] { opacity: .3; cursor: not-allowed; pointer-events: none; }
+.eui-iconbtn { display: inline-grid; place-items: center; width: var(--icon-btn); height: var(--icon-btn); border-radius: var(--radius-control); border: 1px solid var(--border); background: var(--surface-raised); color: var(--text-secondary); transition: all var(--duration-base) var(--ease-soft); }
+.eui-iconbtn:hover { color: var(--text-primary); border-color: var(--border-hover); background: var(--surface-hover); }
+.eui-iconbtn:active { transform: scale(.94); }
+
+/* inputs */
+.eui-input {
+  width: 100%; height: var(--field-h); padding: 0 var(--field-px); border-radius: var(--radius-control); border: 1px solid var(--border);
+  background: var(--surface-raised); color: var(--text-primary); font-size: var(--text-base);
+  transition: border-color var(--duration-base) var(--ease-soft), background-color var(--duration-base) var(--ease-soft), box-shadow var(--duration-base);
+}
+.eui-input::placeholder { color: var(--text-muted); }
+.eui-input:hover { border-color: var(--border-hover); }
+.eui-input:focus { outline: none; border-color: var(--border-hover); box-shadow: 0 0 0 3px var(--accent-subtle); }
+textarea.eui-input { height: auto; padding: var(--space-2-5) var(--space-3); resize: vertical; line-height: 1.5; }
+.eui-label { display: block; font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--text-secondary); margin-bottom: var(--space-1-5); }
+
+.eui-icon { display: inline-block; flex: none; vertical-align: middle; }
+[hidden] { display: none !important; }
+.eui-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+@keyframes eui-pulse-subtle { 0%,100% { opacity: 1 } 50% { opacity: .6 } }
+@keyframes eui-spin { to { transform: rotate(360deg) } }
+@keyframes eui-fade-in { from { opacity: 0 } to { opacity: 1 } }
+}

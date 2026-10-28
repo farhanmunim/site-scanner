@@ -4,7 +4,7 @@ Evidence-backed website intelligence, self-hosted. Enter any public website and 
 technology stack (with the header/markup/script that gave each item away and a confidence
 level), CDN / WAF / hosting / DNS / email provider, registration and certificate details,
 HTTP security configuration mapped to OWASP categories, SPF/DKIM/DMARC, SEO signals,
-Lighthouse performance, WordPress/Shopify deep dives, third-party services and privacy signals.
+Lighthouse performance, WordPress/Shopify deep dives (with Wordfence vulnerability matching), SPF lookup inspector, blocklists, PHP end-of-life, DNS propagation, AI readiness, vulnerable JS libraries, third-party services and privacy signals.
 
 Public users can scan freely; every lookup and result is stored in the owner's own Postgres
 and browsable in a private admin console.
@@ -51,6 +51,8 @@ Application code is private/unlicensed. The fingerprint database is fetched at b
 
 ## Routes
 
-- `/`, `/bot`, `/privacy`, `/r/<id>`: the current design (Devin design system; tokens in `apps/web/src/lib/v2/design.css`).
-- `/archive/v1/…`: the first design, kept for reference. `/admin` still uses its styling.
+- `/`: quick scan. `/tools` and `/tools/<slug>`: focused tools (the same scan, filtered; definitions in `apps/web/src/lib/ui/tools.ts`).
+- `/r/<id>`: the full report. `/r/<id>?tool=<slug>` narrows it to one tool's sections. `/bot`, `/privacy`: info pages.
+- Design: the farhan.app UI library tokens and primitives (vendored in `apps/web/src/lib/ui/css/`, dark by default), app styles in `apps/web/src/lib/ui/ui.css`, report sections in `apps/web/src/lib/ui/report/`.
+- `/archive/v1/…`: the first design, kept for reference. `/admin` still uses its own styling.
 - `/v2/…` redirects to the same path without the prefix.

@@ -525,6 +525,8 @@ export interface PropagationRow {
   answers: { resolver: PropagationResolver; values: string[] | null }[];
   /** Every resolver that answered returned the same set. */
   consistent: boolean;
+  /** Set when the answers cannot be trusted (for example every resolver returned nothing while DNS-over-HTTPS sees records). */
+  note?: string;
 }
 export interface PropagationData {
   checkedAt: string;

@@ -1,0 +1,32 @@
+@layer base {
+*,*::before,*::after { box-sizing: border-box; border-color: var(--border); }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--bg); color: var(--text-primary);
+  font-family: var(--font-sans); font-size: var(--text-md); line-height: 1.5; letter-spacing: var(--tracking-body);
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+h1,h2,h3,h4,h5,h6 { margin: 0; color: var(--text-primary); font-weight: var(--weight-semibold); }
+h1 { letter-spacing: var(--tracking-tight-heading); }
+h2 { letter-spacing: -0.028em; }
+h3 { letter-spacing: var(--tracking-snug); }
+h4,h5,h6 { letter-spacing: -0.015em; }
+p { margin: 0; }
+button, input, textarea, select { font: inherit; letter-spacing: inherit; color: inherit; }
+button { cursor: pointer; }
+::selection { background: rgba(var(--fg-rgb), .18); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
+
+/* focus — restrained, keyboard only */
+:where(button, a, input, textarea, select, [tabindex], [role="button"]):focus { outline: none; }
+:where(button, a, input, textarea, select, [tabindex], [role="button"]):focus-visible {
+  outline: 2px solid var(--focus-ring); outline-offset: 2px;
+}
+/* Reduced motion: stop CSS animation and transitions everywhere. (Important declarations in an earlier layer win, so this beats component styles.) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; transition-delay: 0s !important; }
+}
+}

@@ -2,8 +2,12 @@ import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { requestScan } from '$lib/server/scan-service.js';
 
-/** `/?url=example.com` prefills the form (used by "scan again" links). */
-export const load: PageServerLoad = ({ url }) => ({ prefill: url.searchParams.get('url')?.slice(0, 2048) ?? '' });
+/** `/?url=example.com` prefills the form; `go=1` starts the scan straight away (the nav search box); `tool` keeps a tool's focused view. */
+export const load: PageServerLoad = ({ url }) => ({
+  prefill: url.searchParams.get('url')?.slice(0, 2048) ?? '',
+  autostart: url.searchParams.get('go') === '1',
+  tool: url.searchParams.get('tool')?.slice(0, 40) ?? null
+});
 
 export const actions: Actions = {
   default: async ({ request, locals }) => {

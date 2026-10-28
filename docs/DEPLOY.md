@@ -42,7 +42,7 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
    | `ADMIN_PASSWORD` | a long password (8+ chars, 16+ recommended) |
 
    Recommended, all free: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile),
-   `GOOGLE_API_KEY` (PageSpeed Insights + Safe Browsing). Optional: `OWN_IPS` (your VPS IPs).
+   `GOOGLE_API_KEY` (PageSpeed Insights + Safe Browsing), `WORDFENCE_API_KEY` (free, wordfence.com → Integrations; enables WordPress vulnerability matching). Optional: `OWN_IPS` (your VPS IPs).
 
    Coolify generates `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_SESSION`,
    `SERVICE_PASSWORD_IPSALT` and `SERVICE_URL_WEB` itself — leave them alone.

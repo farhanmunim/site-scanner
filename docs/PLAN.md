@@ -90,7 +90,9 @@ Health (workers, queue, DB size, egress IP reputation links).
 ## 7. Roadmap
 
 - **Done (v1):** everything above.
-- **Done (tool parity pass):** version-aware Wordfence matching (core, themes, plugins) + latest-core check; recursive SPF inspector (10-lookup budget, void lookups, loops); DNSBL checks of mail/web IPs; PHP version + end-of-life; multi-resolver DNS propagation; AI-readiness score; retire.js vulnerable JS libraries; exposed-secret patterns in delivered code; DANE/TLS-RPT; domain expiry/age/lock. Results live on `Report` (`php`, `aiReadiness`, `vulnerableLibraries`, `exposedSecrets`, `domainChecks`, `blocklists`, `propagation`, `cms.vulnerabilities`, `dns.spf`) and have no UI yet.
+- **Done (tool parity pass):** version-aware Wordfence matching (core, themes, plugins) + latest-core check; recursive SPF inspector (10-lookup budget, void lookups, loops); DNSBL checks of mail/web IPs; PHP version + end-of-life; multi-resolver DNS propagation; AI-readiness score; retire.js vulnerable JS libraries; exposed-secret patterns in delivered code; DANE/TLS-RPT; domain expiry/age/lock. Results live on `Report` (`php`, `aiReadiness`, `vulnerableLibraries`, `exposedSecrets`, `domainChecks`, `blocklists`, `propagation`, `cms.vulnerabilities`, `dns.spf`) and are shown in the new UI.
+- **Done (UI redesign):** web-utility look built on the farhan.app UI library tokens; tool pages (`/tools/<slug>`) that show a focused view of the same scan; report with overview cards, section nav, SPF tree and propagation matrix.
+- **Needs a key:** `WORDFENCE_API_KEY` (free, wordfence.com > Integrations) for WordPress vulnerability matching; the v2 feed was removed.
 - **Deliberately not built:** exposed `.git`/`.env`/backup probing, port scanning, IIS probing and CORS probing (active; against the safety rules above); inbox tester (needs a mailbox).
 - **Next:** history/diff between scans of the same domain
   ("what changed"); compare two sites; JSON export polish and a documented public API with keys;
