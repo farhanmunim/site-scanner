@@ -25,6 +25,14 @@
 
 <svelte:window onclick={away} onkeydown={(e) => e.key === 'Escape' && (menu = false)} />
 
+<svelte:head>
+  <link rel="canonical" href={data.siteUrl + (path === '/' ? '/' : path)} />
+  <meta property="og:site_name" content={data.siteName} />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content={data.siteUrl + (path === '/' ? '/' : path)} />
+  <meta name="twitter:card" content="summary" />
+</svelte:head>
+
 <div class="ss">
   <a class="ss-skip" href="#main">Skip to content</a>
   <header class="ss-nav">

@@ -10,6 +10,8 @@
 <svelte:head>
   <title>{t.title} — {data.siteName}</title>
   <meta name="description" content={t.description} />
+  <meta property="og:title" content="{t.title} — {data.siteName}" />
+  <meta property="og:description" content={t.short} />
 </svelte:head>
 
 <div class="ss-wrap">

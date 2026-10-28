@@ -105,7 +105,9 @@ export const actions: Actions = {
     await put(SETTINGS_KEYS.browserEnabled, form.get('browser') === 'on');
     await put(SETTINGS_KEYS.externalEnabled, form.get('external') === 'on');
     for (const [k, min, max] of [[SETTINGS_KEYS.maxScansPerDomainPerHour, 1, 60], [SETTINGS_KEYS.maxScansPerIpPerHour, 1, 500], [SETTINGS_KEYS.cacheWindowMinutes, 0, 1440]] as const) {
-      const n = Number(form.get(k));
+      const raw = form.get(k);
+      if (raw === null || String(raw).trim() === '') continue; // absent field: leave the stored value alone
+      const n = Number(raw);
       if (Number.isFinite(n)) await put(k, Math.min(max, Math.max(min, Math.round(n))));
     }
     return { saved: true };

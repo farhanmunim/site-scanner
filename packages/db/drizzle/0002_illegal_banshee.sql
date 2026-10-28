@@ -1,0 +1,4 @@
+UPDATE "scans" SET "status" = 'failed', "error" = 'Superseded by a newer scan of the same page.', "finished_at" = now() WHERE "status" IN ('queued','running') AND "id" NOT IN (SELECT DISTINCT ON ("url","scope") "id" FROM "scans" WHERE "status" IN ('queued','running') ORDER BY "url","scope","created_at" DESC);--> statement-breakpoint
+CREATE INDEX "lookups_host_idx" ON "lookups" USING btree ("host");--> statement-breakpoint
+CREATE INDEX "scans_status_created_idx" ON "scans" USING btree ("status","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "scans_one_active_per_url_scope" ON "scans" USING btree ("url","scope") WHERE "scans"."status" in ('queued','running');

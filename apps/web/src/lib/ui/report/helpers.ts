@@ -2,6 +2,9 @@ import type { Finding, FindingStatus, Report } from '@site-scanner/core/types';
 
 export type Tone = 'good' | 'warn' | 'bad' | 'info' | '';
 
+/** Only http(s) URLs may become links; anything else (javascript:, data:) is dropped. */
+export const safeHref = (u: string | null | undefined): string | null => (u && /^https?:\/\//i.test(u.trim()) ? u.trim() : null);
+
 export const dot = (...parts: (string | null | undefined | false)[]) => parts.filter(Boolean).join(' · ');
 
 export const confWord = { high: 'Certain', medium: 'Likely', low: 'Possible' } as const;

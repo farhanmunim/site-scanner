@@ -29,8 +29,8 @@ export async function renderPdf(scanId: string): Promise<string> {
   const context = await b.newContext({ viewport: { width: 900, height: 1200 }, deviceScaleFactor: 1 });
   try {
     const page = await context.newPage();
-    const url = `${config.internalWebUrl}/r/${scanId}?print=1`;
-    const res = await page.goto(url, { waitUntil: 'networkidle', timeout: 45_000 });
+    const url = `${config.internalWebUrl}/r/${scanId}/print`;
+    const res = await page.goto(url, { waitUntil: 'load', timeout: 45_000 });
     if (!res || res.status() !== 200) throw new Error(`report page returned ${res?.status() ?? 'no response'}`);
     await page.emulateMedia({ media: 'print' });
     await page.pdf({ path: tmp, format: 'A4', printBackground: true, preferCSSPageSize: false, margin: { top: '12mm', bottom: '14mm', left: '12mm', right: '12mm' }, displayHeaderFooter: true, headerTemplate: '<span></span>', footerTemplate: `<div style="font-size:8px;color:#888;width:100%;text-align:center;font-family:sans-serif">${config.publicSiteUrl.replace(/^https?:\/\//, '')}/r/${scanId} · page <span class="pageNumber"></span> of <span class="totalPages"></span></div>` });

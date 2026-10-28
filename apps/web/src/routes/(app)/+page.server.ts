@@ -24,7 +24,8 @@ export const actions: Actions = {
         userAgent: request.headers.get('user-agent'),
         referrer: request.headers.get('referer'),
         turnstileToken: String(form.get('cf-turnstile-response') ?? '') || null,
-        source: 'web'
+        source: 'web',
+        scope: String(form.get('tool') ?? '') || null
       });
     } catch (e) {
       console.error('[web] scan request failed:', e);

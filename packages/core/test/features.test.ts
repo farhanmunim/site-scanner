@@ -28,7 +28,7 @@ describe('SPF inspector', () => {
     const r = await inspectSpf('a.test', ['v=spf1 include:gone.test include:a.test -all'], async (n) => zone[n] ?? []);
     expect(r!.voidLookups).toBe(1);
     expect(r!.errors.join()).toMatch(/gone.test/);
-    expect(r!.errors.join()).toMatch(/more than once/);
+    expect(r!.errors.join()).toMatch(/includes itself/);
   });
   it('flags multiple root records and returns null without SPF', async () => {
     expect((await inspectSpf('a.test', ['v=spf1 -all', 'v=spf1 +all'], txt))!.recordCount).toBe(2);

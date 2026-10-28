@@ -46,6 +46,8 @@ export const config = {
   screenshotDir: env.SCREENSHOT_DIR ?? '/data/screenshots',
   pdfDir: env.PDF_DIR ?? (env.SCREENSHOT_DIR ?? '/data/screenshots') + '/pdf',
   /** Trust Cloudflare's CF-Connecting-IP header (safe when the site is proxied through Cloudflare). */
+  /** Optional: value of an `X-Origin-Secret` header that your Cloudflare Transform Rule adds; when set, CF-Connecting-IP is trusted only with it. */
+  originSecret: env.ORIGIN_SECRET ?? '',
   behindCloudflare: env.BEHIND_CLOUDFLARE !== 'false',
   maxQueueDepth: Number(env.MAX_QUEUE_DEPTH ?? 20),
   /** Public contact shown on /bot and /privacy. Only ever ABUSE_CONTACT; the admin email is never published. */

@@ -19,11 +19,19 @@ const MAX_HTML = 1_000_000;
 const NAV_TIMEOUT = 25_000;
 const SETTLE_MS = 2500;
 
+const HARD_DEADLINE_MS = 55_000;
 let browser: Browser | null = null;
 let launches = 0;
+let launching: Promise<Browser> | null = null;
 
-async function getBrowser(): Promise<Browser> {
-  if (browser && browser.isConnected() && launches < 50) return browser;
+/** One launch at a time: concurrent first scans share the same Chromium instead of leaking a second. */
+function getBrowser(): Promise<Browser> {
+  if (browser && browser.isConnected() && launches < 50) return Promise.resolve(browser);
+  return (launching ??= launchBrowser().finally(() => (launching = null)));
+}
+
+async function launchBrowser(): Promise<Browser> {
+  // Recycle only when idle-ish: a connected browser past its launch budget is closed here.
   await browser?.close().catch(() => {});
   browser = await chromium.launch({
     headless: true,
@@ -70,7 +78,32 @@ function jsPaths(): string[] {
 }
 let cachedPaths: string[] | null = null;
 
-export async function renderPage(data: GatheredData, opts: { blockedIps: Set<string>; userAgent: string }): Promise<BrowserData | null> {
+type RenderOpts = { blockedIps: Set<string>; userAgent: string; hostDenied: (host: string) => boolean };
+
+/**
+ * Hard wall-clock cap. page.content()/evaluate() have no timeout of their own, so a page that spins
+ * the renderer would otherwise hold a context (and a pegged CPU core) forever. On expiry the whole
+ * browser is killed; the next scan launches a fresh one.
+ */
+export async function renderPage(data: GatheredData, opts: RenderOpts): Promise<BrowserData | null> {
+  const work = renderPageInner(data, opts);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      log.warn({ scanId: data.scan.id }, 'browser stage exceeded its deadline; killing Chromium');
+      void closeBrowser();
+      resolve(null);
+    }, HARD_DEADLINE_MS);
+  });
+  try {
+    return await Promise.race([work, deadline]);
+  } finally {
+    clearTimeout(timer);
+    work.catch(() => {});
+  }
+}
+
+async function renderPageInner(data: GatheredData, opts: RenderOpts): Promise<BrowserData | null> {
   const startUrl = data.http?.final?.url ?? data.target.url;
   const pageSite = parseDomain(new URL(startUrl).hostname).domain;
   const b = await getBrowser();
@@ -102,6 +135,10 @@ export async function renderPage(data: GatheredData, opts: { blockedIps: Set<str
       requestCount++;
       if (requestCount > MAX_REQUESTS) return route.abort('blockedbyclient');
       if (u.protocol !== 'http:' && u.protocol !== 'https:') return route.abort('blockedbyclient');
+      // Passive means passive: the page may not make us send anything but GET/HEAD, only to web ports, never to opted-out hosts.
+      if (req.method() !== 'GET' && req.method() !== 'HEAD') return route.abort('blockedbyclient');
+      const port = u.port ? Number(u.port) : u.protocol === 'https:' ? 443 : 80;
+      if (![80, 443, 8080, 8443].includes(port) || opts.hostDenied(u.hostname)) return route.abort('blockedbyclient');
       // Never let the page fetch anything non-public (our own network, metadata endpoints…).
       if (!(await hostAllowed(u.hostname, hostCache, opts.blockedIps))) return route.abort('blockedbyclient');
       // Never load heavy media; we only need scripts/markup/styles/images for layout.

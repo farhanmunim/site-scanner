@@ -82,7 +82,8 @@
   });
 </script>
 
-<form class="ss-scan" method="POST" onsubmit={submit} novalidate>
+<form class="ss-scan" method="POST" action="/" onsubmit={submit} novalidate>
+  {#if tool}<input type="hidden" name="tool" value={tool} />{/if}
   <div class="ss-scanbox">
     <span class="pre" aria-hidden="true">https://</span>
     <label class="eui-sr" for="url-{tool ?? 'quick'}">Website address</label>

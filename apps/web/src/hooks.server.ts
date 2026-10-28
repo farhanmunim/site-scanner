@@ -1,7 +1,14 @@
-import type { Handle, HandleServerError } from '@sveltejs/kit';
+import type { Handle, HandleServerError, ServerInit } from '@sveltejs/kit';
+import { runMigrations } from '@site-scanner/db';
+import { config } from '$lib/server/config.js';
 import { hasValidSession } from '$lib/server/auth.js';
 import { clientIp } from '$lib/server/scan-service.js';
 import { isAdminRoute, mustRefuseAdminWrite } from '$lib/server/admin-guard.js';
+
+/** Apply pending migrations before the first request, so web never serves against an older schema than it was built for (serialised with the worker by an advisory lock). */
+export const init: ServerInit = async () => {
+  if (config.databaseUrl) await runMigrations(config.databaseUrl);
+};
 
 export const handle: Handle = async ({ event, resolve }) => {
   const { ip, country } = clientIp(event.request, () => {

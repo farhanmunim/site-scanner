@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 import { and, blocklist, desc, domains, eq, gt, inArray, lookups, scans, settings, SETTINGS_KEYS, count } from '@site-scanner/db';
 import { isScope, LIMITS, prepareTarget, ScanRefused } from '@site-scanner/core';
 import { getDb } from './db.js';
@@ -26,6 +27,16 @@ export interface ScanRequest {
 }
 
 export type ScanResult = { ok: true; scanId: string; cached: boolean; notice?: string } | { ok: false; status: number; error: string };
+
+/** The only notices a result page will display; ?notice= is matched against these, never rendered verbatim. */
+export const NOTICES = {
+  inProgress: 'A scan of this site is already in progress; showing it.',
+  restricted: 'This site restricts automated access; showing the most recent result.',
+  recent: 'This site was scanned several times recently; showing the latest result.'
+} as const;
+export function knownNotice(v: string | null): string | null {
+  return v && (Object.values(NOTICES) as string[]).includes(v) ? v : null;
+}
 
 export function hashIp(ip: string): string {
   return createHash('sha256').update(`${config.ipHashSalt}:${ip}`).digest('hex').slice(0, 32);
@@ -66,6 +77,13 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
 
   if (req.source !== 'admin' && (await setting(SETTINGS_KEYS.scanningPaused, false))) return refuse(503, 'Scanning is paused for maintenance. Please try again later.');
 
+  // Cheap front-door limiter, before anything is written: without it every request (even a refused one)
+  // adds a lookups row, so a flood from one address could fill the table.
+  if (req.source !== 'admin') {
+    const burst = await rateLimitHit(`rl:req:${ipHash}`, 60).catch(() => null);
+    if (burst !== null && burst > 60) return { ok: false, status: 429, error: 'Too many requests. Please slow down.' };
+  }
+
   const scope = isScope(req.scope) ? req.scope : 'full';
   // A full scan can answer any focused request; a focused scan only answers the same tool.
   const acceptable = scope === 'full' ? ['full'] : ['full', scope];
@@ -80,7 +98,10 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
 
   if (req.source !== 'admin') {
     const perIp = await setting(SETTINGS_KEYS.maxScansPerIpPerHour, LIMITS.maxScansPerIpPerHour);
-    if ((await rateLimitHit(`rl:ip:${ipHash}`, 3600).catch(() => 0)) > perIp) return refuse(429, 'Too many scans from your network in the last hour. Please try again later.', target.host, target.registrableDomain);
+    // Fail closed: if the limiter store is down we refuse rather than run unmetered.
+    const ipHits = await rateLimitHit(`rl:ip:${ipHash}`, 3600).catch(() => null);
+    if (ipHits === null) return refuse(503, 'The scanner is temporarily unavailable. Please try again shortly.', target.host, target.registrableDomain);
+    if (ipHits > perIp) return refuse(429, 'Too many scans from your network in the last hour. Please try again later.', target.host, target.registrableDomain);
     if (!(await verifyTurnstile(req.turnstileToken, req.ip))) return refuse(400, 'Please complete the human check and try again.', target.host, target.registrableDomain);
   }
 
@@ -97,16 +118,16 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
       await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId: recent.id, cacheHit: true });
       return { ok: true, scanId: recent.id, cached: true };
     }
-    // Dedupe: a scan of this domain is already queued/running.
+    // Dedupe: a scan of this exact URL is already queued/running.
     const [active] = await db
       .select({ id: scans.id })
       .from(scans)
-      .where(and(eq(scans.registrableDomain, target.registrableDomain), inArray(scans.status, ['queued', 'running']), inArray(scans.scope, acceptable)))
+      .where(and(eq(scans.url, target.url), inArray(scans.status, ['queued', 'running']), inArray(scans.scope, acceptable)))
       .orderBy(desc(scans.createdAt))
       .limit(1);
     if (active) {
       await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId: active.id, cacheHit: true });
-      return { ok: true, scanId: active.id, cached: true, notice: 'A scan of this site is already in progress; showing it.' };
+      return { ok: true, scanId: active.id, cached: true, notice: NOTICES.inProgress };
     }
   }
 
@@ -115,17 +136,19 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
   if (req.source !== 'admin' && dom?.cooldownUntil && dom.cooldownUntil > new Date()) {
     if (dom.latestScanId) {
       await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId: dom.latestScanId, cacheHit: true });
-      return { ok: true, scanId: dom.latestScanId, cached: true, notice: 'This site restricts automated access; showing the most recent result.' };
+      return { ok: true, scanId: dom.latestScanId, cached: true, notice: NOTICES.restricted };
     }
     return refuse(429, 'This site restricts automated access. Please try again later.', target.host, target.registrableDomain);
   }
 
   if (req.source !== 'admin') {
     const perDomain = await setting(SETTINGS_KEYS.maxScansPerDomainPerHour, LIMITS.maxScansPerDomainPerHour);
-    if ((await rateLimitHit(`rl:domain:${target.registrableDomain}`, 3600).catch(() => 0)) > perDomain) {
+    const domainHits = await rateLimitHit(`rl:domain:${target.registrableDomain}`, 3600).catch(() => null);
+    if (domainHits === null) return refuse(503, 'The scanner is temporarily unavailable. Please try again shortly.', target.host, target.registrableDomain);
+    if (domainHits > perDomain) {
       if (dom?.latestScanId) {
         await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId: dom.latestScanId, cacheHit: true });
-        return { ok: true, scanId: dom.latestScanId, cached: true, notice: 'This site was scanned several times recently; showing the latest result.' };
+        return { ok: true, scanId: dom.latestScanId, cached: true, notice: NOTICES.recent };
       }
       return refuse(429, 'This site has been scanned many times in the last hour. Please try again later.', target.host, target.registrableDomain);
     }
@@ -134,11 +157,21 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
   const [depthRow] = await db.select({ depth: count() }).from(scans).where(inArray(scans.status, ['queued', 'running']));
   if ((depthRow?.depth ?? 0) >= config.maxQueueDepth) return refuse(503, 'The scanner is busy right now. Please try again in a minute.', target.host, target.registrableDomain);
 
+  // The partial unique index (one active scan per url+scope) makes concurrent identical requests collapse onto one scan.
   const [row] = await db
     .insert(scans)
     .values({ scope, host: target.host, displayHost: target.displayHost, registrableDomain: target.registrableDomain, inputUrl: req.input.slice(0, 2048), url: target.url, requesterIpHash: ipHash, requesterCountry: req.country })
+    .onConflictDoNothing()
     .returning({ id: scans.id });
-  const scanId = row!.id;
+  if (!row) {
+    const [active] = await db.select({ id: scans.id }).from(scans).where(and(eq(scans.url, target.url), inArray(scans.status, ['queued', 'running']), inArray(scans.scope, acceptable))).orderBy(desc(scans.createdAt)).limit(1);
+    if (active) {
+      await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId: active.id, cacheHit: true });
+      return { ok: true, scanId: active.id, cached: true, notice: NOTICES.inProgress };
+    }
+    return refuse(503, 'The scanner is busy right now. Please try again in a minute.', target.host, target.registrableDomain);
+  }
+  const scanId = row.id;
   await logLookup({ host: target.host, registrableDomain: target.registrableDomain, scanId, cacheHit: false });
   try {
     await getQueue().add('scan', { scanId }, { jobId: scanId });
@@ -151,7 +184,11 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
 
 export function clientIp(request: Request, getClientAddress: () => string): { ip: string; country: string | null } {
   const cf = request.headers.get('cf-connecting-ip');
-  const ip = config.behindCloudflare && cf ? cf : getClientAddress();
+  // CF-Connecting-IP is only believable if the request really came through Cloudflare. When the origin is
+  // reachable directly anyone can forge it, so an optional shared secret (set as a header by a Cloudflare
+  // Transform Rule) gates it, and the value must be a real IP address.
+  const secretOk = !config.originSecret || request.headers.get('x-origin-secret') === config.originSecret;
+  const ip = config.behindCloudflare && cf && secretOk && isIP(cf.trim()) ? cf.trim() : getClientAddress();
   const country = request.headers.get('cf-ipcountry');
   return { ip, country: country && country !== 'XX' && country !== 'T1' ? country.slice(0, 2) : null };
 }

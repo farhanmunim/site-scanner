@@ -1,5 +1,6 @@
 import type { CmsDeepDive, ExternalData, FetchedFile, Finding, TechnologyDetection, WordfenceVuln } from '../types.js';
 import { extractWordPressRefs } from '../gather/stages/files.js';
+import { compareVersions } from '../version.js';
 
 /**
  * WordPress deep dive (InspectWP-style): core version, theme, plugins with versions, plus
@@ -12,7 +13,7 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
 
   // Core version: generator meta beats asset ?ver= of wp-includes files.
   let version = /<meta\s+name=["']generator["']\s+content=["']WordPress\s+([\d.]+)/i.exec(html)?.[1] ?? null;
-  if (!version) version = /\/wp-includes\/(?:js|css)\/[^"'?]+\?ver=(\d+\.\d+(?:\.\d+)?)/i.exec(html)?.[1] ?? null;
+  if (!version) version = coreVersionFromAssets(html);
   if (!version) version = wpTech?.version ?? null;
 
   // Theme: slug from the page, name/version from style.css header.
@@ -75,7 +76,7 @@ export function analyseWordPress(html: string, files: { cms: FetchedFile[] } | n
   if (feed) {
     for (const c of components) {
       for (const v of feed[`${c.component}:${c.slug}`] ?? []) {
-        vulnerabilities.push({ component: c.component, slug: c.slug, version: c.version, title: v.title, cve: v.cve, cvss: v.cvss, fixedIn: fixedIn(v), affectsInstalled: c.version ? affectsVersion(v, c.version) : null });
+        vulnerabilities.push({ component: c.component, slug: c.slug, version: c.version, title: v.title, cve: v.cve, cvss: v.cvss, fixedIn: fixedIn(v, c.version), affectsInstalled: c.version ? affectsVersion(v, c.version) : null });
       }
     }
     const hits = vulnerabilities.filter((v) => v.affectsInstalled === true);
@@ -122,8 +123,11 @@ export function affectsVersion(v: WordfenceVuln, version: string): boolean {
 }
 
 /** The first patched release above the vulnerable range, when Wordfence lists one. */
-export function fixedIn(v: WordfenceVuln): string | null {
-  return v.patched.length ? [...v.patched].sort(cmpVer).at(0) ?? null : null;
+export function fixedIn(v: WordfenceVuln, installed?: string | null): string | null {
+  // With several patched branches (1.2.3 and 2.0.1) the right one is the lowest above what is installed.
+  const sorted = [...v.patched].sort(cmpVer);
+  if (installed) return sorted.find((p) => cmpVer(p, installed) > 0) ?? sorted.at(-1) ?? null;
+  return sorted.at(0) ?? null;
 }
 
 /** "2.6.7" yes; "1773435315" (a cache-busting timestamp) or "a1b2c3" no. */
@@ -131,15 +135,7 @@ export function looksLikeVersion(v: string): boolean {
   return /^\d{1,4}(\.\d{1,6}){1,3}[a-z0-9.-]{0,12}$/i.test(v);
 }
 
-export function cmpVer(a: string, b: string): number {
-  const pa = a.split('.').map((x) => parseInt(x, 10) || 0);
-  const pb = b.split('.').map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
+export const cmpVer = compareVersions;
 
 /** Shopify: theme name/id from the Shopify.theme object and app hosts. */
 export function analyseShopify(html: string, techs: TechnologyDetection[]): CmsDeepDive | null {
@@ -155,4 +151,17 @@ export function analyseShopify(html: string, techs: TechnologyDetection[]): CmsD
   }
   const apps = techs.filter((t) => t.categories.some((c) => c.id === 100)).map((t) => ({ slug: t.slug, name: t.name, version: t.version }));
   return { platform: 'shopify', version: null, theme, plugins: apps, flags: [] };
+}
+
+/** Bundled third-party libraries live under wp-includes/js but carry their own version, not WordPress's. */
+const BUNDLED_LIB = /\/(?:jquery|tinymce|plupload|mediaelement|swfupload|thickbox|codemirror|crop|imgareaselect|jcrop|underscore|backbone|masonry|imagesloaded|hoverintent|clipboard|colorpicker|zxcvbn|moment|lodash|react|polyfill)[^/]*(?:\/|\.)/i;
+
+function coreVersionFromAssets(html: string): string | null {
+  const counts = new Map<string, number>();
+  for (const m of html.matchAll(/\/wp-includes\/((?:js|css)\/[^"'?\s]+)\?ver=(\d+\.\d+(?:\.\d+)?)/gi)) {
+    if (BUNDLED_LIB.test('/' + m[1]!)) continue;
+    counts.set(m[2]!, (counts.get(m[2]!) ?? 0) + 1);
+  }
+  // Core assets all share the core version, so the most common value wins.
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 }

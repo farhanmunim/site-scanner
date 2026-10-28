@@ -1,3 +1,4 @@
+import { compareVersions } from '../version.js';
 import type { RetireLibrary, VulnerableLibrary } from '../types.js';
 
 /** retire.js repository entry as published in RetireJS/retire.js (repository/jsrepository.json). */
@@ -26,25 +27,7 @@ export function normaliseRepo(repo: Record<string, RetireRepoEntry>): RetireLibr
   }));
 }
 
-function cmp(a: string, b: string): number {
-  const pa = a.split(/[.\-_]/);
-  const pb = b.split(/[.\-_]/);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const x = pa[i] ?? '0';
-    const y = pb[i] ?? '0';
-    const nx = /^\d+$/.test(x) ? Number(x) : NaN;
-    const ny = /^\d+$/.test(y) ? Number(y) : NaN;
-    if (!Number.isNaN(nx) && !Number.isNaN(ny)) {
-      if (nx !== ny) return nx - ny;
-    } else if (x !== y) {
-      // "1.0.0-beta" < "1.0.0": a missing part beats a prerelease tag.
-      if (pa[i] === undefined) return Number.isNaN(ny) ? 1 : -1;
-      if (pb[i] === undefined) return Number.isNaN(nx) ? -1 : 1;
-      return x < y ? -1 : 1;
-    }
-  }
-  return 0;
-}
+const cmp = compareVersions;
 
 export interface LibraryMatch {
   library: string;
@@ -66,12 +49,13 @@ export function identifyLibraries(libs: RetireLibrary[], urls: string[], bodies:
     const uriRes = lib.uri.map(toRegExp).filter((r): r is RegExp => !!r);
     const nameRes = lib.filename.map(toRegExp).filter((r): r is RegExp => !!r);
     const contentRes = lib.filecontent.map(toRegExp).filter((r): r is RegExp => !!r);
-    for (const url of urls) {
+    for (const rawUrl of urls) {
+      const url = rawUrl.length > 2048 ? rawUrl.slice(0, 2048) : rawUrl;
       for (const r of uriRes) add(lib.name, r.exec(url)?.[1], url);
       const file = url.split(/[?#]/)[0]!.split('/').pop() ?? '';
       for (const r of nameRes) add(lib.name, r.exec(file)?.[1], url);
     }
-    for (const b of bodies) for (const r of contentRes) add(lib.name, r.exec(b.body.slice(0, 200_000))?.[1], b.source);
+    for (const b of bodies) for (const r of contentRes) add(lib.name, r.exec(b.body.slice(0, 30_000))?.[1], b.source);
   }
   return [...found.values()];
 }

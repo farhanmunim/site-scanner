@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Report, TechnologyDetection } from '@site-scanner/core/types';
   import Card from './Card.svelte';
-  import { confWord, initials } from './helpers';
+  import { confWord, initials, safeHref } from './helpers';
   let { report, open = false, failed = false }: { report: Report; open?: boolean; failed?: boolean } = $props();
   const notBuiltWith = /^(Webmail|Hosting|CDN|Miscellaneous|Email|Security|PaaS|IaaS|Reverse proxies|Load balancers|SSL\/TLS certificate authorities|Domain parking|Web servers)$/;
   const typeLabel = (t: TechnologyDetection) => (/ DNS$/.test(t.name) ? 'DNS provider' : t.categories.map((c) => c.name).join(', '));
@@ -27,7 +27,7 @@
           <thead><tr><th>Confidence</th><th>Name</th><th>Type</th>{#if anyVersion}<th>Version</th>{/if}</tr></thead>
           <tbody>
             {#each techs as t (t.slug)}
-              <tr><td><span class="ss-chip {tone[t.confidence]}">{confWord[t.confidence]}</span></td><td>{#if t.website}<a href={t.website} rel="noopener nofollow" target="_blank">{t.name}</a>{:else}{t.name}{/if}{#if t.implied}<span class="ss-muted"> · implied</span>{/if}</td><td class="k">{typeLabel(t)}</td>{#if anyVersion}<td class="ss-mono">{t.version ?? '—'}</td>{/if}</tr>
+              <tr><td><span class="ss-chip {tone[t.confidence]}">{confWord[t.confidence]}</span></td><td>{#if safeHref(t.website)}<a href={safeHref(t.website)} rel="noopener nofollow" target="_blank">{t.name}</a>{:else}{t.name}{/if}{#if t.implied}<span class="ss-muted"> · implied</span>{/if}</td><td class="k">{typeLabel(t)}</td>{#if anyVersion}<td class="ss-mono">{t.version ?? '—'}</td>{/if}</tr>
             {:else}
               <tr><td colspan="4" class="ss-muted">Nothing matches that filter.</td></tr>
             {/each}

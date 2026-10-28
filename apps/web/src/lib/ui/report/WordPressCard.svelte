@@ -5,7 +5,9 @@
   import { dot, platformLabel, rollup } from './helpers';
   let { report, open = false }: { report: Report; open?: boolean } = $props();
   let cms = $derived(report.cms);
-  let name = $derived(platformLabel(report));
+  let pv = $derived(report.platform);
+  let name = $derived(platformLabel(report) || pv?.name || '');
+  const kindLabel = { builder: 'website builder', cms: 'CMS', ecommerce: 'online shop', framework: 'framework' } as const;
   let r = $derived(rollup(cms?.flags, name || 'Not detected'));
   let wp = $derived(cms?.platform === 'wordpress');
   let hits = $derived(cms?.vulnerabilities?.filter((v) => v.affectsInstalled === true) ?? []);
@@ -13,7 +15,7 @@
   let latestNote = $derived(cms?.latestVersion && cms.version ? (cms.latestVersion === cms.version ? 'current' : `latest ${cms.latestVersion}`) : '');
 </script>
 
-<Card id="wordpress" title={name || 'WordPress'} desc={cms ? (wp ? 'Version, theme and plugins visible from the homepage, matched against known vulnerabilities.' : 'Theme and apps visible from the homepage.') : 'WordPress, Shopify and similar platforms get a deeper check.'} chip={r.label} tone={r.tone}>
+<Card id="wordpress" title={cms || !pv ? name || 'Platform' : 'Platform'} desc={cms ? (wp ? 'Version, theme and plugins visible from the homepage, matched against known vulnerabilities.' : 'Theme and apps visible from the homepage.') : 'What the site is built with. WordPress and Shopify sites get a deeper check.'} chip={cms ? r.label : pv ? pv.name : 'Custom or unknown'} tone={cms ? r.tone : ''}>
   {#if cms}
     <div class="ss-tiles">
       <div class="ss-tile"><div class="k">Version</div><div class="v">{cms.version ?? 'Hidden'}</div><div class="t">{latestNote}</div></div>
@@ -46,6 +48,14 @@
       <p class="ss-note">The site runs {name}, but it doesn't reveal its version, theme or {wp ? 'plugins' : 'apps'} from the homepage. That's normal for a hardened or heavily customised setup.</p>
     {/if}
   {:else}
-    <p class="ss-empty">No WordPress, Shopify or similar platform was detected on this site.</p>
+    {#if pv}
+      <div class="ss-tiles">
+        <div class="ss-tile"><div class="k">Built with</div><div class="v" style="font-size: var(--text-base)">{pv.name}</div><div class="t">{kindLabel[pv.kind]}{pv.version ? ` · ${pv.version}` : ''}</div></div>
+        <div class="ss-tile"><div class="k">Confidence</div><div class="v" style="font-size: var(--text-base)">{pv.confidence === 'high' ? 'Certain' : pv.confidence === 'medium' ? 'Likely' : 'Possible'}</div><div class="t">{pv.evidence}</div></div>
+      </div>
+      <p class="ss-note">This is read from the page's markup, headers and scripts. Hosted builders such as {pv.name} do not expose a plugin list, so there are no per-component checks.{#if pv.alternatives.length} Other signals: {pv.alternatives.join(', ')}.{/if}</p>
+    {:else}
+      <p class="ss-empty">No CMS, online shop or website builder was recognised. The site may be hand-coded, use a framework, or hide its stack.</p>
+    {/if}
   {/if}
 </Card>

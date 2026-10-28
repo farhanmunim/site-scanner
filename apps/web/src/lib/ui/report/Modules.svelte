@@ -33,11 +33,13 @@
     const ai = report.aiReadiness;
     out.push({ id: 'ai', icon: 'sparkle', title: 'AI readiness', sub: 'Crawlers · llms.txt · structure', big: ai ? String(ai.score) : null, small: ai ? '/ 100' : undefined, tone: toneFromScore(ai?.score), chip: ai ? `Grade ${ai.grade}` : 'Not assessed', bullets: ai ? ai.items.filter((i) => i.status !== 'good').slice(0, 3).map((i) => ({ t: `${i.title}: ${i.observed}`, tone: i.status })) : [] });
     // Platform
+    const pv = report.platform;
+    const kindLabel = { builder: 'Website builder', cms: 'CMS', ecommerce: 'Online shop', framework: 'Framework' } as const;
     if (report.cms) {
       const cRoll = rollup(report.cms.flags, platformLabel(report));
       out.push({ id: 'wordpress', icon: 'wp', title: platformLabel(report), sub: report.cms.version ? `Version ${report.cms.version}` : 'Version hidden', big: String(report.cms.plugins.length), small: report.cms.platform === 'wordpress' ? 'plugins' : 'apps', tone: cRoll.tone, chip: cRoll.label, bullets: top(report.cms.flags).length ? top(report.cms.flags) : [{ t: 'No warnings', tone: 'good' }] });
     } else {
-      out.push({ id: 'wordpress', icon: 'wp', title: 'WordPress', sub: 'Core · theme · plugins', big: null, tone: '', chip: 'Not WordPress', bullets: [{ t: 'No WordPress or Shopify installation detected', tone: '' }] });
+      out.push({ id: 'wordpress', icon: 'wp', title: 'Platform', sub: pv ? `${pv.name}${pv.version ? ` ${pv.version}` : ''}` : 'What the site is built with', big: null, tone: '', chip: pv ? kindLabel[pv.kind] : 'Custom or unknown', bullets: [pv ? { t: `Built with ${pv.name}${pv.confidence === 'low' ? ' (possible)' : ''}`, tone: '' } : { t: 'No CMS, shop or website builder recognised', tone: '' }] });
     }
     return out;
   });

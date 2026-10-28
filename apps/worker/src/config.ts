@@ -29,13 +29,15 @@ export const config = {
   /** Where the worker reaches the web app to render report pages for PDF export. */
   internalWebUrl: (process.env.INTERNAL_WEB_URL ?? 'http://web:3000').replace(/\/$/, ''),
   screenshotRetentionDays: Number(process.env.SCREENSHOT_RETENTION_DAYS ?? 90),
+  /** Lookups and finished scans older than this are deleted (0 = keep forever). */
+  dataRetentionDays: Number(process.env.DATA_RETENTION_DAYS ?? 365),
   ipRetentionDays: Number(process.env.IP_RETENTION_DAYS ?? 30),
   googleApiKey: process.env.GOOGLE_API_KEY || undefined,
   wordfenceApiKey: process.env.WORDFENCE_API_KEY || undefined,
   psiEnabled: process.env.PSI_ENABLED !== 'false',
   safeBrowsingEnabled: process.env.SAFE_BROWSING_ENABLED !== 'false',
   wordpressApisEnabled: process.env.WORDPRESS_APIS_ENABLED !== 'false',
-  scanTimeoutMs: Number(process.env.SCAN_TIMEOUT_MS ?? 120_000),
+  scanTimeoutMs: Number(process.env.SCAN_TIMEOUT_MS ?? 150_000),
   workerId: process.env.HOSTNAME ? `${process.env.HOSTNAME}-${process.pid}` : `worker-${process.pid}`
 };
 

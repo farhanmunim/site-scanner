@@ -13,3 +13,5 @@ packages/core/src/analyze/detect/data/categories.json
 packages/core/src/analyze/detect/data/SOURCE.json
 .scratch/
 dump.rdb
+dump.rdb
+*.rdb

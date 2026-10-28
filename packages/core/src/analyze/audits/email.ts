@@ -9,7 +9,10 @@ export function auditEmail(dns: DnsRecords, registrable: string, blocklists?: Bl
   const spf = dns.TXT.filter((t) => /^v=spf1\b/i.test(t));
   if (spf.length === 1) {
     const rec = spf[0]!;
-    const all = /([~\-?+]?)all\b/i.exec(rec)?.[1] ?? '';
+    // The `all` term, or (for redirect-only records) the one the redirect resolves to. Matching on whole terms
+    // avoids hits inside domain names such as include:_spf.install.com.
+    const ownAll = rec.split(/\s+/).slice(1).map((t) => /^([+\-~?]?)all$/i.exec(t)).find(Boolean);
+    const all = ownAll ? (ownAll[1] ?? '') : (dns.spf?.allQualifier ?? '');
     const walked = dns.spf?.totalLookups;
     const lookups = walked ?? (rec.match(/\b(include|a|mx|ptr|exists|redirect)[:=]?/gi) ?? []).length;
     const status: Finding['status'] = all === '-' || all === '~' ? 'good' : all === '?' ? 'warn' : 'warn';

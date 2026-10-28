@@ -23,8 +23,6 @@ export function getPdfQueue(): Queue<{ scanId: string }> {
 
 /** Sliding-window-ish counter: INCR with TTL. Returns the count after increment. */
 export async function rateLimitHit(key: string, windowSec: number): Promise<number> {
-  const r = getRedis();
-  const n = await r.incr(key);
-  if (n === 1) await r.expire(key, windowSec);
-  return n;
+  // One atomic script: a crash between INCR and EXPIRE can no longer leave a counter that never expires.
+  return Number(await getRedis().eval("local n=redis.call('INCR',KEYS[1]) if n==1 or redis.call('TTL',KEYS[1])<0 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end return n", 1, key, windowSec));
 }

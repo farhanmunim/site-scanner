@@ -37,7 +37,11 @@ export const GET: RequestHandler = async ({ params, request }) => {
   }
   if (!ready) {
     try {
-      await getPdfQueue().add('pdf', { scanId: id }, { jobId: `pdf-${id}` });
+      const q = getPdfQueue();
+      // A fixed job id makes BullMQ ignore add() while the old job is still stored, so a failed render could never be retried.
+      const old = await q.getJob(`pdf-${id}`);
+      if (old && ((await old.isFailed()) || (await old.isCompleted()))) await old.remove().catch(() => {});
+      await q.add('pdf', { scanId: id }, { jobId: `pdf-${id}` });
     } catch {
       const msg = 'PDF export is temporarily unavailable.';
       return wantsJson ? json({ status: 'unavailable', error: msg }, { status: 503 }) : new Response(msg, { status: 503 });

@@ -90,12 +90,12 @@ export const TOOLS: Tool[] = [
   },
   {
     slug: 'wordpress',
-    title: 'WordPress Health Checker',
-    short: 'Core, theme and plugin versions with known vulnerabilities.',
-    description: 'Reads the WordPress version, theme and plugins visible from the homepage and matches them against the Wordfence vulnerability database.',
+    title: 'Platform Checker',
+    short: 'What a site is built with, and WordPress vulnerabilities.',
+    description: 'Identifies the CMS, shop or website builder behind a site (WordPress, Shopify, Wix, Webflow, Squarespace, Framer and more). For WordPress it also reads the version, theme and plugins and matches them against the Wordfence vulnerability database.',
     icon: 'wp',
     sections: ['wordpress'],
-    checks: ['Core, theme and plugin versions', 'Known vulnerabilities in the installed versions (Wordfence)', 'Out-of-date and abandoned plugins (WordPress.org)', 'XML-RPC, REST API and version exposure']
+    checks: ['CMS, shop or website builder in use', 'WordPress core, theme and plugin versions', 'Known vulnerabilities in the installed versions (Wordfence)', 'Out-of-date and abandoned plugins (WordPress.org)', 'XML-RPC, REST API and version exposure']
   },
   {
     slug: 'php',
@@ -170,7 +170,7 @@ export const SECTION_LABEL: Record<SectionId, string> = {
   ai: 'AI readiness',
   stack: 'Technology',
   php: 'PHP',
-  wordpress: 'WordPress',
+  wordpress: 'Platform',
   libraries: 'Scripts & secrets',
   subdomains: 'Subdomains',
   privacy: 'Privacy'

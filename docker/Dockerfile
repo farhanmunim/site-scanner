@@ -32,8 +32,9 @@ COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/web/build ./apps/web/build
 COPY --from=build /app/apps/web/package.json ./apps/web/
 COPY --from=build /app/apps/web/node_modules ./apps/web/node_modules
-RUN mkdir -p /data/screenshots && chown -R node:node /data /app
-USER node
+# Same numeric uid as the worker's pwuser so both can read/write the shared screenshots volume.
+RUN groupadd -g 1001 app && useradd -u 1001 -g 1001 -m app && mkdir -p /data/screenshots && chown -R app:app /data /app
+USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD node -e "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "apps/web/build"]
@@ -47,7 +48,7 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/apps/worker ./apps/worker
 COPY --from=build /app/scripts ./scripts
-RUN mkdir -p /data/screenshots && chown -R pwuser:pwuser /data /app
+RUN [ "$(id -u pwuser)" = 1001 ] || usermod -u 1001 pwuser; mkdir -p /data/screenshots && chown -R pwuser /data /app
 USER pwuser
 # Run from the worker package so Node resolves `tsx` (and everything else) from its node_modules.
 WORKDIR /app/apps/worker

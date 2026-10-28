@@ -1,5 +1,6 @@
 import type { GatheredData, Report, StageName, TechnologyDetection } from '../types.js';
 import { REPORT_VERSION } from '../types.js';
+import { detectPlatform } from './platform.js';
 import { parseHtml, type ParsedHtml } from './html.js';
 import { detectTechnologies, loadFingerprints, type DetectInput } from './detect/index.js';
 import { summariseInfra } from './infra.js';
@@ -161,6 +162,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     robots,
     thirdParties,
     cms,
+    platform: detectPlatform(technologies),
     php,
     aiReadiness,
     vulnerableLibraries,

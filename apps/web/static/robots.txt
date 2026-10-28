@@ -1,9 +1,0 @@
-User-agent: *
-Allow: /$
-Allow: /bot
-Allow: /privacy
-Disallow: /r/
-Disallow: /archive/
-Disallow: /api/
-Disallow: /admin
-Disallow: /screenshots/

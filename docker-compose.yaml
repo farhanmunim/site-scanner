@@ -25,6 +25,7 @@ services:
       - TURNSTILE_SITE_KEY=${TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY:-}
       - BEHIND_CLOUDFLARE=${BEHIND_CLOUDFLARE:-true}
+      - ORIGIN_SECRET=${ORIGIN_SECRET:-}   # optional: trust CF-Connecting-IP only when X-Origin-Secret matches (see docs/DEPLOY.md)
       - ABUSE_CONTACT=${ABUSE_CONTACT:-}   # optional public contact; ADMIN_EMAIL is never published
       - UMAMI_SCRIPT_URL=${UMAMI_SCRIPT_URL:-}
       - UMAMI_WEBSITE_ID=${UMAMI_WEBSITE_ID:-}
@@ -71,6 +72,8 @@ services:
       - INTERNAL_WEB_URL=http://web:3000
       - SCREENSHOT_RETENTION_DAYS=${SCREENSHOT_RETENTION_DAYS:-90}
       - IP_RETENTION_DAYS=${IP_RETENTION_DAYS:-30}
+      - DATA_RETENTION_DAYS=${DATA_RETENTION_DAYS:-365}
+      - SCAN_TIMEOUT_MS=${SCAN_TIMEOUT_MS:-150000}
       - LOG_LEVEL=${LOG_LEVEL:-info}
     volumes:
       - screenshots:/data/screenshots
@@ -79,6 +82,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Let an in-flight scan finish (or be marked failed) on redeploy instead of being SIGKILLed after 10s.
+    stop_grace_period: 180s
     # Chromium needs a bigger /dev/shm than Docker's 64MB default.
     shm_size: 512m
     security_opt:
@@ -117,7 +122,9 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ['redis-server', '--save', '', '--appendonly', 'no', '--maxmemory', '128mb', '--maxmemory-policy', 'noeviction']
+    command: ['redis-server', '--appendonly', 'yes', '--appendfsync', 'everysec', '--maxmemory', '128mb', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redisdata:/data
     healthcheck:
       test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
@@ -129,5 +136,6 @@ services:
           memory: 160M
 
 volumes:
+  redisdata:
   pgdata:
   screenshots:

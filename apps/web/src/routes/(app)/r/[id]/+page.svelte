@@ -29,7 +29,7 @@
   import LibrariesCard from '$lib/ui/report/LibrariesCard.svelte';
   import SubdomainsCard from '$lib/ui/report/SubdomainsCard.svelte';
   import PrivacyCard from '$lib/ui/report/PrivacyCard.svelte';
-  import { dot, rollup, toneFromScore, TLS_IDS, type Tone } from '$lib/ui/report/helpers';
+  import { dot, rollup, safeHref, toneFromScore, TLS_IDS, type Tone } from '$lib/ui/report/helpers';
 
   let { data } = $props();
   let printMode = $derived(page.url.searchParams.get('print') === '1');
@@ -187,7 +187,7 @@
   <div class="ss-rhead">
     <div style="min-width: 0">
       <span class="eui-eyebrow">{toolLabel ?? 'Website report'} · {fmtDate(data.scan.createdAt, true)}{durationMs ? ` · ${fmtMs(durationMs)} scan` : running ? ' · in progress' : ''}</span>
-      <h1><a href={report?.http?.finalUrl ?? data.scan.url} rel="noopener nofollow" target="_blank">{data.scan.displayHost}</a></h1>
+      <h1><a href={safeHref(report?.http?.finalUrl) ?? data.scan.url} rel="noopener nofollow" target="_blank">{data.scan.displayHost}</a></h1>
       <div class="ss-rmeta">
         {#if report?.http}<span class="ss-chip {httpChip.c}">{httpChip.t}</span>{/if}
         {#if status !== 'complete'}<span class="ss-chip {status === 'failed' ? 'bad' : running ? 'info' : 'warn'}">{statusText[status] ?? status}</span>{/if}
@@ -238,7 +238,7 @@
         </div>
         {#if report.screenshot}
           <div class="no-print">
-            {#if 'url' in report.screenshot}<a class="ss-shot" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} /></a>{:else}<div class="ss-shot"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
+            {#if 'url' in report.screenshot}<a class="ss-shot" href={report.screenshot.url} target="_blank" rel="noopener" title="Open full screenshot"><img src={report.screenshot.url} onerror={(e) => (e.currentTarget as HTMLElement).closest('.ss-shot')?.setAttribute('hidden', '')} alt="Screenshot of {data.scan.displayHost}" width={report.screenshot.width} height={report.screenshot.height} /></a>{:else}<div class="ss-shot"><img src={report.screenshot.dataUrl} alt="Screenshot of {data.scan.displayHost}" /></div>{/if}
           </div>
         {/if}
       </section>

@@ -9,6 +9,8 @@ import { checkIp } from './ip.js';
  */
 export function createSafeDispatcher(opts: { blockedIps?: ReadonlySet<string>; timeoutMs?: number } = {}): Dispatcher {
   return new Agent({
+    // Big CSP/cookie headers are normal; undici's 16 KB default would report them as a network error.
+    maxHeaderSize: 64 * 1024,
     connect: {
       timeout: opts.timeoutMs ?? 10_000,
       // Certificate validity is assessed by the TLS stage and reported as a finding. The

@@ -40,15 +40,21 @@ export function detectPhp(headers: Record<string, string>, cookies: string[], ht
   if (!source && tech) source = 'fingerprint';
   if (!source && /\bPHP\//i.test(hdr)) source = 'header';
   if (!source && cookies.some((c) => /^PHPSESSID=/i.test(c))) source = 'cookie';
-  if (!source && html?.links.some((l) => /\.php(?:$|[?#])/i.test(l.href))) source = 'url';
+  if (!source && html?.links.some((l) => !/^[a-z][a-z0-9+.-]*:|^\/\//i.test(l.href) && /\.php(?:$|[?#])/i.test(l.href))) source = 'url';
   const detected = source !== null;
   const branch = version ? phpBranch(version) : null;
-  const eol = branch ? PHP_EOL[branch] ?? null : null;
+  const [maj, min] = (branch ?? '').split('.').map(Number);
+  // Anything older than 5.6 is long past support even though it is not in the table.
+  const eol = branch ? PHP_EOL[branch] ?? (maj !== undefined && min !== undefined && (maj < 5 || (maj === 5 && min < 6)) ? '2018-12-31' : null) : null;
+  // Distro packages (Debian/Ubuntu/RHEL/Remi/Sury) backport security fixes, so the branch date overstates the risk.
+  const distroBuild = !!version && /(ubuntu|deb\d|el\d|\.rhel|sury|remi|~|\+)/i.test(version);
   const supported = eol ? Date.parse(eol) > now.getTime() : branch && Number(branch.split('.')[0]) >= 9 ? true : null;
 
   const findings: Finding[] = [];
   if (detected) {
-    if (version && supported === false) {
+    if (version && supported === false && distroBuild) {
+      findings.push({ id: 'php-eol', title: 'PHP branch past upstream support', status: 'warn', observed: `PHP ${version} (branch ${branch}) is past upstream end-of-life (${eol}), but this looks like a distribution build.`, detail: 'Distributions often backport security fixes to old branches, so this may still be patched. Confirm with your host, and plan an upgrade to a supported branch.', owasp: 'A06', evidence: [{ source: source === 'header' ? 'header' : 'text', key: 'php', value: `PHP ${version}` }] });
+    } else if (version && supported === false) {
       findings.push({ id: 'php-eol', title: 'PHP version no longer supported', status: 'bad', observed: `PHP ${version} (branch ${branch}) reached end of security support on ${eol}.`, detail: 'Unsupported PHP versions receive no security fixes. Upgrade to a supported branch (php.net/supported-versions.php).', owasp: 'A06', evidence: [{ source: source === 'header' ? 'header' : 'text', key: 'php', value: `PHP ${version}` }] });
     } else if (version && supported === true) {
       findings.push({ id: 'php-version', title: 'PHP version', status: 'good', observed: `PHP ${version}, supported until ${eol ?? 'further notice'}.` });

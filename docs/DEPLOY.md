@@ -46,7 +46,19 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 
    Coolify generates `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_SESSION`,
    `SERVICE_PASSWORD_IPSALT` and `SERVICE_URL_WEB` itself — leave them alone.
-4. Deploy. The worker applies database migrations on start.
+   Optional tuning (all have sensible defaults):
+
+   | Variable | Meaning |
+   |---|---|
+   | `ORIGIN_SECRET` | If the origin is reachable without Cloudflare, anyone can forge `CF-Connecting-IP` and dodge the rate limits. Set this to a random string and add a Cloudflare Transform Rule that sets request header `X-Origin-Secret` to the same value; the app then trusts `CF-Connecting-IP` only when it matches. Better still, firewall the origin to Cloudflare's IP ranges. |
+   | `BEHIND_CLOUDFLARE` | `false` to ignore `CF-Connecting-IP` entirely (not proxied through Cloudflare). |
+   | `DATA_RETENTION_DAYS` | Lookups and finished scans older than this are deleted (default 365, `0` keeps everything). The latest result per domain is kept. |
+   | `IP_RETENTION_DAYS`, `SCREENSHOT_RETENTION_DAYS` | Raw IP addresses are blanked after 30 days; screenshots and PDFs deleted after 90. |
+   | `SCAN_CONCURRENCY`, `SCAN_TIMEOUT_MS`, `MAX_QUEUE_DEPTH` | Parallel scans per worker (2), per-scan time limit (150 s), and queued+running scans before new requests are refused (20). |
+   | `OWN_HOSTS`, `OWN_IPS`, `DENYLIST_EXTRA` | Extra hosts/IPs/suffixes the scanner must never touch. |
+
+4. Deploy. Both the web app and the worker apply database migrations on start, serialised by a
+   Postgres advisory lock, so starting them together is safe.
 5. Open `/health` (expects `{"status":"ok"}`) and `/admin/health` (worker heartbeat present).
 
 ### Changing the domain

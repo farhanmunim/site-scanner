@@ -8,6 +8,8 @@
 <svelte:head>
   <title>{data.siteName} — Scan any website in one shot</title>
   <meta name="description" content="Domain, DNS, email, security, performance, AI readiness and WordPress checks for any website in one scan. Free, no account, nothing is probed." />
+  <meta property="og:title" content="{data.siteName} — Scan any website in one shot" />
+  <meta property="og:description" content="Domain, DNS, email, security, performance and AI readiness checks in one passive scan. Free, no account." />
 </svelte:head>
 
 <section class="ss-hero" id="scan">

@@ -42,7 +42,7 @@ export interface GatherOptions {
   /** Called after each stage finishes, with the data so far (for progressive persistence). */
   onStage?: (stage: StageName, data: GatheredData) => Promise<void> | void;
   /** Provided by the worker when a browser is available. */
-  browser?: (data: GatheredData, opts: { blockedIps: Set<string>; userAgent: string }) => Promise<BrowserData | null>;
+  browser?: (data: GatheredData, opts: { blockedIps: Set<string>; userAgent: string; hostDenied: (host: string) => boolean }) => Promise<BrowserData | null>;
   now?: () => Date;
 }
 
@@ -97,7 +97,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     data.stages[stage] = meta;
     await opts.onStage?.(stage, data);
   };
-  const fetchOpts: SafeFetchOptions = { selfUrl: opts.selfUrl, budget, target: { host: target.host, url: target.url }, blockedIps, fetchImpl: safeFetchImpl, preResolved };
+  const fetchOpts: SafeFetchOptions = { selfUrl: opts.selfUrl, budget, target: { host: target.host, url: target.url }, blockedIps, fetchImpl: safeFetchImpl, preResolved, deny: { extraSuffixes: opts.denySuffixes, blockedDomains: opts.blockedDomains, ownHosts: opts.ownHosts } };
 
   // DNS, RDAP and TLS are independent of the HTTP fetch; run them alongside it.
   const t0 = Date.now();
@@ -177,7 +177,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     await skip('browser');
   } else if (opts.browser && data.http?.final && data.stages.http.status === 'complete') {
     try {
-      const b = await opts.browser(data, { blockedIps, userAgent: `Mozilla/5.0 (compatible; SiteScanBot/1.0; +${opts.selfUrl.replace(/\/$/, '')}/bot)` });
+      const b = await opts.browser(data, { hostDenied: (h) => checkDenylist(h, { extraSuffixes: opts.denySuffixes, blockedDomains: opts.blockedDomains, ownHosts: opts.ownHosts }).denied, blockedIps, userAgent: `Mozilla/5.0 (compatible; SiteScanBot/1.0; +${opts.selfUrl.replace(/\/$/, '')}/bot)` });
       data.browser = b;
       await done('browser', stageMeta(b ? (b.blocked ? 'restricted' : 'complete') : 'failed', t3, b?.blocked ? `${b.blocked.vendor}: ${b.blocked.evidence}` : b ? undefined : 'Browser rendering failed'));
     } catch (e) {
@@ -187,7 +187,9 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     await done('browser', { status: 'skipped', note: opts.browser ? 'Skipped: page unavailable or restricted' : 'Browser stage not enabled' });
   }
 
-  // External enrichment (free APIs; all optional).
+  // External enrichment (free APIs; all optional). Every source gets the same wall-clock allowance: a slow
+  // one yields no data rather than failing a scan whose page, DNS and TLS all succeeded.
+  const soft = <T,>(p: T | Promise<T>, fallback: T): Promise<T> => Promise.race([Promise.resolve(p).catch(() => fallback), new Promise<T>((r) => setTimeout(() => r(fallback), 55_000).unref?.())]);
   const t4 = Date.now();
   const ext = opts.external ?? {};
   if (!run('external')) {
@@ -199,18 +201,18 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     const scriptUrls = data.http?.final ? [...new Set([...extractScriptUrls(data.http.final.body, finalUrl), ...(data.files?.scripts.map((f) => f.path) ?? []), ...(data.browser?.requests.filter((r) => r.type === 'script').map((r) => r.url) ?? [])])] : [];
     const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
     const [psi, safeBrowsing, wayback, greenHosting, wordpressOrg, wordfenceVulns, wordpressLatest, wordpressThemes, subdomains, retire, blocklists, propagation] = await Promise.all([
-      wants('psi') && data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null,
-      wants('safeBrowsing') ? fetchSafeBrowsing(finalUrl, ext) : null,
-      wants('wayback') ? fetchWayback(target.registrableDomain, ext) : null,
-      wants('greenWeb') ? fetchGreenWeb(target.host, ext) : null,
-      wants('wordpress') && wp.detected ? fetchWordPressOrg(wp.pluginSlugs, ext) : {},
-      wants('wordpress') && wpItems.length ? fetchWordfence(wpItems, ext) : Promise.resolve(null),
-      wants('wordpress') && wp.detected ? fetchWordPressLatest(ext) : null,
-      wants('wordpress') && wp.detected ? fetchWordPressThemes(wp.themeSlugs, ext) : {},
-      wants('subdomains') ? fetchSubdomains(target.registrableDomain, ext) : null,
-      wants('retire') && data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : null,
-      wants('blocklists') ? fetchBlocklists(data.dns ?? null, data.ips ?? [], ext).catch(() => null) : null,
-      !wants('propagation') || ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null)
+      soft(wants('psi') && data.stages.http.status === 'complete' ? fetchPsi(finalUrl, 'mobile', ext) : null, null),
+      soft(wants('safeBrowsing') ? fetchSafeBrowsing(finalUrl, ext) : null, null),
+      soft(wants('wayback') ? fetchWayback(target.registrableDomain, ext) : null, null),
+      soft(wants('greenWeb') ? fetchGreenWeb(target.host, ext) : null, null),
+      soft(wants('wordpress') && wp.detected ? fetchWordPressOrg(wp.pluginSlugs, ext) : {}, {}),
+      soft(wants('wordpress') && wpItems.length ? fetchWordfence(wpItems, ext) : Promise.resolve(null), null),
+      soft(wants('wordpress') && wp.detected ? fetchWordPressLatest(ext) : null, null),
+      soft(wants('wordpress') && wp.detected ? fetchWordPressThemes(wp.themeSlugs, ext) : {}, {}),
+      soft(wants('subdomains') ? fetchSubdomains(target.registrableDomain, ext) : null, null),
+      soft(wants('retire') && data.http?.final ? fetchRetire(scriptUrls, scriptBodies, ext).catch(() => null) : null, null),
+      soft(wants('blocklists') ? fetchBlocklists(data.dns ?? null, data.ips ?? [], ext).catch(() => null) : null, null),
+      soft(!wants('propagation') || ext.propagation === false ? null : Promise.all([checkPropagation(target.host, { types: ['A', 'AAAA', 'CNAME'] }), checkPropagation(target.registrableDomain, { types: ['MX', 'NS', 'TXT'] })]).then(([a, b]) => ({ ...a, rows: [...a.rows, ...b.rows] })).catch(() => null), null)
     ]);
     // Summary kept for older readers of `wordfence`: plugin advisory counts regardless of version.
     const wordfence: NonNullable<typeof data.external>['wordfence'] = {};

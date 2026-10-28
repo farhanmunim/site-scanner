@@ -4,11 +4,12 @@ import { hostname } from 'node:os';
 import { readdir, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, blocklist, createDb, domains, eq, gt, isNotNull, lookups, lt, runMigrations, scans, scanTechnologies, settings, SETTINGS_KEYS, sql, workers, apiCache, type Db } from '@site-scanner/db';
-import { analyse, gather, loadFingerprints, prepareTarget, ScanRefused, LIMITS, isRestrictedStatus, SCANNER_VERSION, type GatheredData, type StageName } from '@site-scanner/core';
+import { gather, loadFingerprints, prepareTarget, ScanRefused, LIMITS, isRestrictedStatus, SCANNER_VERSION, type GatheredData, type StageName } from '@site-scanner/core';
 import { config, PDF_QUEUE, SCAN_QUEUE } from './config.js';
 import { log } from './log.js';
 import { closeBrowser, renderPage } from './browser.js';
 import { closePdfBrowser, renderPdf } from './pdf.js';
+import { analyseInThread, stopAnalyseThread } from './analyse-runner.js';
 
 /**
  * Scan worker. Consumes `scan` jobs, runs gather → analyse, writes progress to Postgres
@@ -17,7 +18,7 @@ import { closePdfBrowser, renderPdf } from './pdf.js';
  */
 
 const { db, client } = createDb(config.databaseUrl, { max: 4 });
-await runMigrations(db);
+await runMigrations(config.databaseUrl);
 const { version: fingerprintsVersion, db: fpDb } = loadFingerprints();
 log.info({ technologies: Object.keys(fpDb).length, fingerprintsVersion, browser: config.browserEnabled }, 'worker starting');
 
@@ -46,6 +47,13 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
   const { scanId } = job.data;
   const [row] = await db.select().from(scans).where(eq(scans.id, scanId)).limit(1);
   if (!row) throw new Error(`scan ${scanId} not found`);
+  if (row.status === 'running') {
+    // BullMQ redelivered a job whose worker died mid-scan. Re-running could double-count; fail it now so the
+    // user can retry immediately instead of waiting for housekeeping.
+    log.warn({ scanId }, 'scan was running when its worker stopped; marking failed');
+    await db.update(scans).set({ status: 'failed', error: 'The scanner restarted during this scan. Please run it again.', finishedAt: new Date() }).where(and(eq(scans.id, scanId), eq(scans.status, 'running')));
+    return;
+  }
   if (row.status !== 'queued') {
     log.warn({ scanId, status: row.status }, 'scan not in queued state; skipping');
     return;
@@ -74,20 +82,29 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
   const browserEnabled = config.browserEnabled && (await getSetting(SETTINGS_KEYS.browserEnabled, true));
   const externalEnabled = await getSetting(SETTINGS_KEYS.externalEnabled, true);
 
+  let settled = false;
+  // Stages that change what the report can show. The cheap ones (rdap, cert, dns) ride along with the next write.
+  const PROGRESS_STAGES = new Set<StageName>(['http', 'files', 'browser', 'external']);
   const persist = async (stage: StageName, data: GatheredData) => {
-    // Progressive report: analyse is deterministic and cheap, so re-run it after each stage.
+    if (settled) return; // the scan already timed out and was marked failed: never overwrite that
+    if (!PROGRESS_STAGES.has(stage)) {
+      await db.update(scans).set({ stages: data.stages }).where(eq(scans.id, scanId)).catch(() => {});
+      return;
+    }
     let report;
     try {
-      report = analyse(data, { screenshotUrl: (p) => `/screenshots/${p}` });
+      report = await analyseInThread(data);
     } catch (e) {
       log.error({ scanId, stage, err: (e as Error).message }, 'analyse failed');
       return;
     }
-    await db.update(scans).set({ stages: data.stages, gathered: stripForStorage(data), report, finalUrl: data.http?.final?.url ?? null, screenshotPath: data.browser?.screenshot?.path ?? null }).where(eq(scans.id, scanId));
+    if (settled) return;
+    await db.update(scans).set({ stages: data.stages, gathered: stripForStorage(data), report: clean(report), finalUrl: data.http?.final?.url ?? null, screenshotPath: data.browser?.screenshot?.path ?? null }).where(eq(scans.id, scanId));
     log.info({ scanId, stage, status: data.stages[stage].status, ms: data.stages[stage].durationMs }, 'stage done');
   };
 
-  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Scan exceeded ${config.scanTimeoutMs / 1000}s`)), config.scanTimeoutMs));
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => (timer = setTimeout(() => reject(new Error(`Scan exceeded ${config.scanTimeoutMs / 1000}s`)), config.scanTimeoutMs)));
   let data: GatheredData;
   try {
     data = await Promise.race([
@@ -107,14 +124,28 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
       timeout
     ]);
   } catch (e) {
-    const msg = (e as Error).message;
-    log.error({ scanId, err: msg }, 'scan failed');
+    settled = true;
+    clearTimeout(timer);
+    const msg = publicError(e);
+    log.error({ scanId, err: (e as Error).message }, 'scan failed');
     await db.update(scans).set({ status: 'failed', error: msg, finishedAt: new Date(), durationMs: Date.now() - started }).where(eq(scans.id, scanId));
+    await db.update(workers).set({ currentScanId: null }).where(eq(workers.id, config.workerId)).catch(() => {});
     return;
   }
+  settled = true;
+  clearTimeout(timer);
 
-  const report = analyse(data, { screenshotUrl: (p) => `/screenshots/${p}` });
+  let report: Awaited<ReturnType<typeof analyseInThread>>;
+  try {
+    report = clean(await analyseInThread(data, 40_000));
+  } catch (e) {
+    log.error({ scanId, err: (e as Error).message }, 'final analyse failed');
+    await db.update(scans).set({ status: 'failed', error: publicError(e), finishedAt: new Date(), durationMs: Date.now() - started }).where(eq(scans.id, scanId));
+    await db.update(workers).set({ currentScanId: null }).where(eq(workers.id, config.workerId)).catch(() => {});
+    return;
+  }
   const status = report.scan.quality === 'complete' ? 'complete' : report.scan.quality === 'restricted' ? 'restricted' : report.scan.quality === 'failed' ? 'failed' : 'partial';
+  try {
   await db.transaction(async (tx) => {
     await tx.update(scans).set({ status, stages: data.stages, gathered: stripForStorage(data), report, finalUrl: data.http?.final?.url ?? null, screenshotPath: data.browser?.screenshot?.path ?? null, finishedAt: new Date(), durationMs: Date.now() - started, error: data.http?.error ?? null }).where(eq(scans.id, scanId));
     await tx.delete(scanTechnologies).where(eq(scanTechnologies.scanId, scanId));
@@ -133,12 +164,30 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
     }
     await tx.update(workers).set({ currentScanId: null, lastSeenAt: new Date(), scansDone: sql`${workers.scansDone} + 1` }).where(eq(workers.id, config.workerId));
   });
+  } catch (e) {
+    log.error({ scanId, err: (e as Error).message }, 'could not store the finished scan');
+    await db.update(scans).set({ status: 'failed', error: 'The result could not be stored. Please run the scan again.', finishedAt: new Date(), durationMs: Date.now() - started }).where(eq(scans.id, scanId)).catch(() => {});
+    await db.update(workers).set({ currentScanId: null }).where(eq(workers.id, config.workerId)).catch(() => {});
+    return;
+  }
   log.info({ scanId, host: row.host, status, ms: Date.now() - started, technologies: report.technologies.length }, 'scan finished');
+}
+
+/** Postgres jsonb rejects U+0000; a page or TXT record containing one would otherwise fail the whole scan. */
+function clean<T>(v: T): T {
+  return JSON.parse(JSON.stringify(v).replace(/\\u0000/g, '')) as T;
+}
+
+/** Errors shown publicly on /r/:id: never leak driver or filesystem detail. */
+function publicError(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  if (/^Scan exceeded|^Analysis took too long/.test(m)) return m;
+  return 'The scan could not be completed. Please try again.';
 }
 
 /** Keep stored raw data useful for re-analysis but bounded: cap bodies, drop script contents we no longer need. */
 function stripForStorage(d: GatheredData): GatheredData {
-  const copy: GatheredData = JSON.parse(JSON.stringify(d));
+  const copy: GatheredData = clean(d);
   if (copy.http?.final && copy.http.final.body.length > LIMITS.maxHtmlBytes) copy.http.final.body = copy.http.final.body.slice(0, LIMITS.maxHtmlBytes);
   if (copy.browser && copy.browser.renderedHtml.length > LIMITS.maxHtmlBytes) copy.browser.renderedHtml = copy.browser.renderedHtml.slice(0, LIMITS.maxHtmlBytes);
   if (copy.files) for (const f of copy.files.scripts) if (f.body && f.body.length > 20_000) f.body = f.body.slice(0, 20_000);
@@ -158,30 +207,47 @@ async function heartbeat() {
     .catch((e) => log.warn({ err: e.message }, 'heartbeat failed'));
 }
 
-async function housekeeping() {
+async function step(name: string, fn: () => Promise<unknown>) {
   try {
-    // Redact raw requester IPs after the retention window (hash + country stay).
-    const cutoff = new Date(Date.now() - config.ipRetentionDays * 86_400_000);
-    await db.update(lookups).set({ ip: null }).where(and(isNotNull(lookups.ip), lt(lookups.createdAt, cutoff)));
-    // Expire cache rows.
-    await db.delete(apiCache).where(lt(apiCache.expiresAt, new Date()));
-    // Expire screenshots.
-    const maxAge = config.screenshotRetentionDays * 86_400_000;
-    for (const dir of [config.screenshotDir, config.pdfDir]) {
-    const files = await readdir(dir).catch(() => [] as string[]);
-    for (const f of files) {
-      const p = join(dir, f);
-      const s = await stat(p).catch(() => null);
-      if (s?.isFile() && Date.now() - s.mtimeMs > maxAge) await unlink(p).catch(() => {});
-    }
-    }
-    // Forget dead workers.
-    await db.delete(workers).where(lt(workers.lastSeenAt, new Date(Date.now() - 10 * 60_000)));
-    // Requeue scans stuck in "running" for too long (worker crashed mid-scan).
-    await db.update(scans).set({ status: 'failed', error: 'Worker stopped before the scan finished.', finishedAt: new Date() }).where(and(eq(scans.status, 'running'), lt(scans.startedAt, new Date(Date.now() - config.scanTimeoutMs * 2))));
+    await fn();
   } catch (e) {
-    log.warn({ err: (e as Error).message }, 'housekeeping failed');
+    log.warn({ step: name, err: (e as Error).message }, 'housekeeping step failed');
   }
+}
+
+async function housekeeping() {
+  const day = 86_400_000;
+  // Each step is isolated: one bad setting must not stop stuck-scan recovery.
+  await step('recover-stuck', async () => {
+    await db.update(scans).set({ status: 'failed', error: 'Worker stopped before the scan finished.', finishedAt: new Date() }).where(and(eq(scans.status, 'running'), lt(scans.startedAt, new Date(Date.now() - config.scanTimeoutMs * 2))));
+    // Queued rows whose job vanished (Redis restart) would otherwise block the same URL forever.
+    await db.update(scans).set({ status: 'failed', error: 'The scan was never started. Please run it again.', finishedAt: new Date() }).where(and(eq(scans.status, 'queued'), lt(scans.createdAt, new Date(Date.now() - 10 * 60_000))));
+  });
+  await step('redact-ips', async () => {
+    const days = Number.isFinite(config.ipRetentionDays) ? config.ipRetentionDays : 30;
+    await db.update(lookups).set({ ip: null }).where(and(isNotNull(lookups.ip), lt(lookups.createdAt, new Date(Date.now() - days * day))));
+  });
+  await step('retention', async () => {
+    const days = Number.isFinite(config.dataRetentionDays) ? config.dataRetentionDays : 365;
+    if (days <= 0) return;
+    const cutoff = new Date(Date.now() - days * day);
+    await db.delete(lookups).where(lt(lookups.createdAt, cutoff));
+    // Old finished scans go too, except the one a domain still points at as its latest result.
+    await db.execute(sql`delete from scans s where s.created_at < ${cutoff.toISOString()}::timestamptz and s.status in ('complete','partial','restricted','failed') and not exists (select 1 from domains d where d.latest_scan_id = s.id)`);
+  });
+  await step('api-cache', () => db.delete(apiCache).where(lt(apiCache.expiresAt, new Date())));
+  await step('files', async () => {
+    const maxAge = (Number.isFinite(config.screenshotRetentionDays) ? config.screenshotRetentionDays : 90) * day;
+    for (const dir of [config.screenshotDir, config.pdfDir]) {
+      const files = await readdir(dir).catch(() => [] as string[]);
+      for (const f of files) {
+        const p = join(dir, f);
+        const s = await stat(p).catch(() => null);
+        if (s?.isFile() && Date.now() - s.mtimeMs > maxAge) await unlink(p).catch(() => {});
+      }
+    }
+  });
+  await step('workers', () => db.delete(workers).where(lt(workers.lastSeenAt, new Date(Date.now() - 10 * 60_000))));
 }
 
 const worker = new Worker<{ scanId: string }>(SCAN_QUEUE, processScan, {
@@ -211,6 +277,7 @@ async function shutdown(signal: string) {
   await worker.close();
   await pdfWorker.close();
   await closeBrowser();
+  await stopAnalyseThread();
   await closePdfBrowser();
   await db.delete(workers).where(eq(workers.id, config.workerId)).catch(() => {});
   await client.end({ timeout: 5 });

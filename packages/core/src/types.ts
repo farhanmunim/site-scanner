@@ -303,6 +303,18 @@ export interface SiteProfile {
   signals: string[];
 }
 
+/** The single "what is this site built with?" answer. */
+export interface PlatformVerdict {
+  name: string;
+  kind: 'builder' | 'cms' | 'ecommerce' | 'framework';
+  version: string | null;
+  confidence: Confidence;
+  website: string | null;
+  /** The strongest piece of evidence, e.g. "meta generator: Framer". */
+  evidence: string;
+  alternatives: string[];
+}
+
 export interface InfraSummary {
   cdn: { name: string; evidence: Evidence[] } | null;
   waf: { name: string; evidence: Evidence[] } | null;
@@ -417,6 +429,8 @@ export interface Report {
   robots: RobotsSummary | null;
   thirdParties: { domain: string; technology: string | null; category: string | null; count: number }[];
   cms: CmsDeepDive | null;
+  /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
+  platform?: PlatformVerdict | null;
   wellKnown: { securityTxt: boolean; adsTxt: boolean; llmsTxt: boolean };
   /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
   php?: PhpInfo | null;
