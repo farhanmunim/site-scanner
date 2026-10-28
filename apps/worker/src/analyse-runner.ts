@@ -11,7 +11,8 @@ import { log } from './log.js';
  */
 let child: ChildProcess | null = null;
 let seq = 0;
-const pending = new Map<number, { resolve: (r: Report) => void; reject: (e: Error) => void }>();
+/** Requests belong to the process they were sent to: a killed process must only fail its own, never a later one's. */
+const pending = new Map<number, { owner: ChildProcess; resolve: (r: Report) => void; reject: (e: Error) => void }>();
 
 function spawn(): ChildProcess {
   const c = fork(fileURLToPath(new URL('./analyse-thread.ts', import.meta.url)), [], { execArgv: ['--import', 'tsx'], serialization: 'advanced', stdio: ['ignore', 'inherit', 'inherit', 'ipc'], execPath: process.execPath });
@@ -23,8 +24,11 @@ function spawn(): ChildProcess {
     else p.reject(new Error(m.error ?? 'analyse failed'));
   });
   const fail = (e: Error) => {
-    for (const p of pending.values()) p.reject(e);
-    pending.clear();
+    for (const [id, p] of pending) {
+      if (p.owner !== c) continue;
+      pending.delete(id);
+      p.reject(e);
+    }
     if (child === c) child = null;
   };
   c.on('error', fail);
@@ -48,6 +52,7 @@ export function analyseInThread(data: GatheredData, timeoutMs = 25_000): Promise
         reject(new Error('Analysis took too long and was stopped'));
       }, timeoutMs);
       pending.set(id, {
+        owner: c,
         resolve: (r) => (clearTimeout(timer), resolve(r)),
         reject: (e) => (clearTimeout(timer), reject(e))
       });

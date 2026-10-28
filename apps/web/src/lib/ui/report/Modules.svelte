@@ -52,6 +52,7 @@
   });
 </script>
 
+<h2 class="eui-sr">Overview by area</h2>
 <div class="ss-modules">
   {#each mods as m (m.id)}
     <a class="ss-mod" href="#s-{m.id}">

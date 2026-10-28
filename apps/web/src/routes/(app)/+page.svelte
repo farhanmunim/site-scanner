@@ -46,9 +46,9 @@
 <section class="ss-wrap ss-sec" id="how">
   <div class="ss-sec-head"><div><span class="eui-eyebrow">How it works</span><h2>Read like a browser would</h2><p>It never logs in, guesses hidden paths or sends attack payloads.</p></div></div>
   <ol class="ss-steps">
-    <li><h4>Enter an address</h4><p>Any public website. Private and internal addresses are refused.</p></li>
-    <li><h4>We read the public response</h4><p>The page, standard files like robots.txt, public DNS, registration data and certificate logs: about 25 requests at most.</p></li>
-    <li><h4>Get a report you can share</h4><p>A scored summary, what to fix first, and every detail behind it. Export a PDF or send the link.</p></li>
+    <li><h3>Enter an address</h3><p>Any public website. Private and internal addresses are refused.</p></li>
+    <li><h3>We read the public response</h3><p>The page, standard files like robots.txt, public DNS, registration data and certificate logs: about 25 requests at most.</p></li>
+    <li><h3>Get a report you can share</h3><p>A scored summary, what to fix first, and every detail behind it. Export a PDF or send the link.</p></li>
   </ol>
 </section>
 

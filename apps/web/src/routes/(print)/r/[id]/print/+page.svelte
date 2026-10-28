@@ -19,7 +19,7 @@
       const list = sorted(rows);
       if (list.length || note) out.push({ title, rows: list, note });
     };
-    if (r.social) add('Page and social previews', null, [r.social.title ? `Title: ${r.social.title}` : '', r.social.description ? `Description: ${r.social.description.slice(0, 200)}` : '', r.social.profiles.length ? `Profiles: ${r.social.profiles.map((p) => p.network).join(', ')}.` : '', ...r.social.notes].filter(Boolean).join(' · ') || undefined);
+    if (r.social) add('Page and social previews', null, [r.social.title ? `Title: “${r.social.title}”.` : '', r.social.description ? `Description: “${r.social.description.slice(0, 200)}”.` : '', r.social.profiles.length ? `Profiles: ${r.social.profiles.map((p) => p.network).join(', ')}.` : '', ...r.social.notes].filter(Boolean).join(' ') || undefined);
     add('Domain registration', r.domainChecks);
     const spf = r.dns?.spf;
     add('Email security', r.email, spf ? `SPF follows ${spf.totalLookups} DNS lookup${spf.totalLookups === 1 ? '' : 's'} (limit 10).` : undefined);

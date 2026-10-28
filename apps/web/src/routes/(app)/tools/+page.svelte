@@ -12,6 +12,7 @@
     <h1>Website and domain tools</h1>
     <p>Each tool runs the same passive scan and shows only the part you need. The full report is one click away.</p>
   </div>
+  <h2 class="eui-sr">All tools</h2>
   <div class="ss-grid" style="padding-bottom: var(--space-16)">
     {#each TOOLS as t (t.slug)}
       <a class="ss-tool" class:feat={t.featured} href="/tools/{t.slug}">

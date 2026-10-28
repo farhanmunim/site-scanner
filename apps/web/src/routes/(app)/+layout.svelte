@@ -82,8 +82,8 @@
           <a class="ss-logo" href="/"><span class="ss-logo-mark"><Mark /></span>{data.siteName}</a>
           <p style="margin-top: 12px; line-height: 1.6">Web utility scans in plain language. Free, no account, and nothing is probed.</p>
         </div>
-        <div><h4>Tools</h4><ul>{#each TOOLS.slice(0, 5) as t (t.slug)}<li><a href="/tools/{t.slug}">{t.title}</a></li>{/each}<li><a href="/tools">All tools</a></li></ul></div>
-        <div><h4>About</h4><ul><li><a href="/bot">How it works</a></li><li><a href="/bot#opt-out">Opt out</a></li><li><a href="/privacy">Privacy</a></li></ul></div>
+        <div><p class="fh">Tools</p><ul>{#each TOOLS.slice(0, 5) as t (t.slug)}<li><a href="/tools/{t.slug}">{t.title}</a></li>{/each}<li><a href="/tools">All tools</a></li></ul></div>
+        <div><p class="fh">About</p><ul><li><a href="/bot">How it works</a></li><li><a href="/bot#opt-out">Opt out</a></li><li><a href="/privacy">Privacy</a></li></ul></div>
       </div>
       <div class="ss-foot-legal"><span>{data.siteName}</span><a href="https://farhan.app/" rel="noopener">Built by Farhan</a></div>
     </div>
