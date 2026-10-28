@@ -160,3 +160,53 @@ describe('threat intelligence', () => {
     expect(unavailable[0]!.status).toBe('unknown');
   });
 });
+
+import { QUOTAS, quotaIdForKey, quotaKeys, takeQuota, type QuotaStore } from '../src/external/quota.js';
+import { cached } from '../src/external/cache.js';
+
+const counters = () => {
+  const m = new Map<string, number>();
+  const store: QuotaStore = { hit: async (k) => (m.set(k, (m.get(k) ?? 0) + 1), m.get(k)!) };
+  return { m, store };
+};
+
+describe('spending limits', () => {
+  it('has a rule for every cache prefix and limits below the provider allowance', () => {
+    for (const k of ['psi2:x', 'gsb:x', 'wporg:x', 'wptheme:x', 'wp-latest', 'retire:repo', 'wayback:x', 'green:x', 'tranco:x', 'geo:x', 'crux:x', 'idb:x', 'eol2:x', 'osv:x', 'rep:vt:x', 'rep:abuse:x', 'rep:otx:x', 'rep:urlhaus:x']) {
+      const id = quotaIdForKey(k);
+      expect(id, k).toBeTruthy();
+      expect(QUOTAS.find((q) => q.id === id), k).toBeTruthy();
+    }
+    expect(QUOTAS.find((q) => q.id === 'virustotal')).toMatchObject({ perMinute: 3, perDay: 400 }); // free tier is 4/min, 500/day
+    expect(QUOTAS.find((q) => q.id === 'hackertarget')!.perDay).toBeLessThan(50);
+  });
+  it('stops at the per-minute limit, then the daily limit, and counts what it refused', async () => {
+    const { m, store } = counters();
+    const now = new Date('2026-10-28T10:00:30Z');
+    const results = [];
+    for (let i = 0; i < 5; i++) results.push(await takeQuota(store, 'virustotal', now));
+    expect(results).toEqual([true, true, true, false, false]);
+    expect(m.get(quotaKeys('virustotal', now).skipped)).toBe(2);
+    // next minute: allowed again until the day total (400) is spent
+    let allowed = 3;
+    for (let min = 1; min < 200; min++) for (let i = 0; i < 3; i++) if (await takeQuota(store, 'virustotal', new Date(now.getTime() + min * 60_000))) allowed++;
+    expect(allowed).toBe(400);
+  });
+  it('is unlimited without a store and fails closed when the store is down', async () => {
+    expect(await takeQuota(undefined, 'virustotal')).toBe(true);
+    expect(await takeQuota({ hit: async () => { throw new Error('down'); } }, 'virustotal')).toBe(false);
+  });
+  it('cache hits are free and a refusal is not cached', async () => {
+    const { store } = counters();
+    const mem2 = new Map<string, unknown>();
+    const cfg = { quota: store, cache: { get: async (k: string) => mem2.get(k) as never, set: async (k: string, v: unknown) => void mem2.set(k, v) } };
+    let calls = 0;
+    const fn = async () => (calls++, { ok: true });
+    for (let i = 0; i < 10; i++) await cached(cfg, 'rep:vt:same.test', 60, fn);
+    expect(calls).toBe(1);
+    const results = [];
+    for (let i = 0; i < 6; i++) results.push(await cached(cfg, `rep:vt:d${i}.test`, 60, fn));
+    expect(results.filter((r) => r).length).toBe(2); // 1 used above + 2 more fit in this minute's 3
+    expect(mem2.has('rep:vt:d5.test')).toBe(false);
+  });
+});

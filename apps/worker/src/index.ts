@@ -29,6 +29,13 @@ async function getSetting<T>(key: string, fallback: T): Promise<T> {
   return (row[0]?.value as T | undefined) ?? fallback;
 }
 
+/** Shared spending counters for the free APIs (see core external/quota.ts): one atomic INCR + EXPIRE, visible to every worker and to the admin page. */
+const quota = {
+  async hit(key: string, ttlSec: number): Promise<number> {
+    return Number(await connection.eval("local n=redis.call('INCR',KEYS[1]) if n==1 or redis.call('TTL',KEYS[1])<0 then redis.call('EXPIRE',KEYS[1],ARGV[1]) end return n", 1, key, ttlSec));
+  }
+};
+
 /** Cache adapter for external APIs, backed by Postgres. */
 const cache = {
   async get<T>(key: string): Promise<T | null | undefined> {
@@ -117,7 +124,7 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
         blockedDomains: blocked,
         fingerprintsVersion,
         scope: row.scope,
-        external: externalEnabled ? { googleApiKey: config.googleApiKey, wordfenceApiKey: config.wordfenceApiKey, virustotalKey: config.virustotalKey, abuseipdbKey: config.abuseipdbKey, otxKey: config.otxKey, urlhausKey: config.urlhausKey, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false, internetDb: false, eol: false, osv: false, tranco: false, geo: false, crux: false, reputation: false },
+        external: externalEnabled ? { googleApiKey: config.googleApiKey, wordfenceApiKey: config.wordfenceApiKey, virustotalKey: config.virustotalKey, abuseipdbKey: config.abuseipdbKey, otxKey: config.otxKey, urlhausKey: config.urlhausKey, quota, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { quota, psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false, internetDb: false, eol: false, osv: false, tranco: false, geo: false, crux: false, reputation: false },
         onStage: (stage, d) => persist(stage, d),
         browser: browserEnabled ? renderPage : undefined
       }),

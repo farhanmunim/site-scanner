@@ -53,3 +53,16 @@
     </dl>
   </section>
 </div>
+
+<section class="ad-card" style="margin-top: var(--space-5)">
+  <header><div><h2>Free API budgets</h2><p>Today (UTC). Over budget means the source is skipped for the rest of the day, never queued.</p></div><span class="ss-chip">{data.globalToday} new scans today</span></header>
+  <div class="ad-tbl-wrap"><table class="ad-tbl">
+    <thead><tr><th>Service</th><th>Used today</th><th>Our limit</th><th>Skipped</th><th class="hide-sm">Provider allowance</th></tr></thead>
+    <tbody>
+      {#each data.budgets as b (b.id)}
+        {@const pct = b.limit ? Math.round((b.used / b.limit) * 100) : 0}
+        <tr><td>{b.label}</td><td><span class="ss-chip {pct >= 100 ? 'bad' : pct >= 80 ? 'warn' : b.used ? 'good' : ''}">{b.used}</span></td><td class="ad-mono">{b.limit}</td><td class="ad-mono">{b.skipped || '—'}</td><td class="hide-sm ad-muted">{b.provider}</td></tr>
+      {/each}
+    </tbody>
+  </table></div>
+</section>

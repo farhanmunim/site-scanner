@@ -1,5 +1,6 @@
 import type { IpInfo, ReputationData } from '../types.js';
 import type { ExternalConfig } from './index.js';
+import { cached } from './cache.js';
 
 /**
  * Threat-intelligence lookups: VirusTotal, AbuseIPDB, AlienVault OTX and URLhaus. Each is optional and needs
@@ -8,16 +9,6 @@ import type { ExternalConfig } from './index.js';
  */
 
 const CDN_ASN = /cloudflare|fastly|akamai|cloudfront|incapsula|imperva|sucuri|stackpath/i;
-
-async function cached<T>(cfg: ExternalConfig, key: string, ttlSec: number, fn: () => Promise<T | null>): Promise<T | null> {
-  if (cfg.cache) {
-    const hit = await cfg.cache.get<T>(key).catch(() => undefined);
-    if (hit !== undefined) return hit;
-  }
-  const v = await fn().catch(() => null);
-  if (cfg.cache && v !== null) await cfg.cache.set(key, v, ttlSec).catch(() => {});
-  return v;
-}
 
 /** After a 429 stop asking this source for a while, across scans and workers (shared cache). */
 async function paused(cfg: ExternalConfig, id: string): Promise<boolean> {

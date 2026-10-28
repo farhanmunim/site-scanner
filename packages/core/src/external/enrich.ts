@@ -1,21 +1,12 @@
 import type { CruxHistory, CruxPeriod, EolCycle, EolItem, ExternalData, GeoInfo, InternetDbData, InternetDbHost, OsvAdvisory, TrancoRank } from '../types.js';
 import type { LibraryMatch } from './retire.js';
 import type { ExternalConfig } from './index.js';
+import { cached } from './cache.js';
 
 /**
  * Keyless enrichment: public datasets that need no account. Same contract as the rest of
  * external/: never throw, return null when the source is unavailable, and cache.
  */
-
-async function cached<T>(cfg: ExternalConfig, key: string, ttlSec: number, fn: () => Promise<T | null>): Promise<T | null> {
-  if (cfg.cache) {
-    const hit = await cfg.cache.get<T>(key).catch(() => undefined);
-    if (hit !== undefined) return hit;
-  }
-  const v = await fn().catch(() => null);
-  if (cfg.cache && v !== null) await cfg.cache.set(key, v, ttlSec).catch(() => {});
-  return v;
-}
 
 const JSON_ACCEPT = { accept: 'application/json' };
 

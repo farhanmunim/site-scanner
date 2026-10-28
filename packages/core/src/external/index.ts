@@ -1,12 +1,15 @@
 import { promises as dnsPromises } from 'node:dns';
 import { parse as parseDomain } from 'tldts';
 import { dohQuery } from '../gather/doh.js';
+import { cached } from './cache.js';
+import { takeQuota, type QuotaStore } from './quota.js';
 import { identifyLibraries, normaliseRepo, type RetireRepoEntry } from './retire.js';
 import type { BlocklistData, BlocklistHit, DnsRecords, ExternalData, IpInfo, PsiMetrics, RetireLibrary, SafeBrowsingData, SubdomainData, WordfenceVuln } from '../types.js';
 
 export * from './retire.js';
 export * from './enrich.js';
 export * from './reputation.js';
+export * from './quota.js';
 
 /**
  * Optional free enrichment APIs. Every function returns null (never throws) when the key
@@ -44,18 +47,10 @@ export interface ExternalConfig {
   /** Test hook: true = resolves, false = definitely does not, null = could not tell. */
   resolveName?: (name: string) => Promise<boolean | null>;
   fetchImpl?: typeof fetch;
+  /** Shared spending counters (Redis in production); see quota.ts. Unset = no limits (tests). */
+  quota?: QuotaStore;
   /** Cache: get/set JSON by key with TTL seconds. */
   cache?: { get<T>(key: string): Promise<T | null | undefined>; set(key: string, value: unknown, ttlSec: number): Promise<void> };
-}
-
-async function cached<T>(cfg: ExternalConfig, key: string, ttlSec: number, fn: () => Promise<T | null>): Promise<T | null> {
-  if (cfg.cache) {
-    const hit = await cfg.cache.get<T>(key).catch(() => undefined);
-    if (hit !== undefined) return hit;
-  }
-  const v = await fn().catch(() => null);
-  if (cfg.cache && v !== null) await cfg.cache.set(key, v, ttlSec).catch(() => {});
-  return v;
 }
 
 function num(v: unknown): number | null {
@@ -274,6 +269,7 @@ async function wordfenceIndex(cfg: ExternalConfig): Promise<Map<string, Wordfenc
   if (wordfenceMemo && wordfenceMemo.key === key && Date.now() - wordfenceMemo.at < WF_FEED_TTL_MS) return wordfenceMemo.pending;
   if (Date.now() < wordfenceFailedUntil) return null;
   if (cfg.cache && (await cfg.cache.get<boolean>(WF_COOLDOWN_KEY).catch(() => undefined))) return null;
+  if (!(await takeQuota(cfg.quota, 'wordfence'))) return null;
   const f = cfg.fetchImpl ?? fetch;
   const pending = (async () => {
     try {
@@ -559,6 +555,8 @@ export async function fetchSubdomains(registrableDomain: string, cfg: ExternalCo
   return cached(cfg, `subdomains3:${registrableDomain}`, 24 * 3600, async () => {
     const f = cfg.fetchImpl ?? fetch;
     for (const src of SUBDOMAIN_SOURCES) {
+      // Each public source has its own limit (HackerTarget allows about 50 a day); an exhausted one is skipped.
+      if (!(await takeQuota(cfg.quota, { 'ct-log': 'crtsh', certspotter: 'certspotter', hackertarget: 'hackertarget' }[src.id]))) continue;
       const raw = await src.fetch(registrableDomain, f).catch(() => null);
       if (!raw) continue;
       const { names, total } = collectSubdomains(raw, registrableDomain);

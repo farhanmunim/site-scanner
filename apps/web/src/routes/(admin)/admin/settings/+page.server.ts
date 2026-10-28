@@ -10,6 +10,7 @@ const DEFAULTS: Record<string, unknown> = {
   [SETTINGS_KEYS.scanningPaused]: false,
   [SETTINGS_KEYS.maxScansPerDomainPerHour]: LIMITS.maxScansPerDomainPerHour,
   [SETTINGS_KEYS.maxScansPerIpPerHour]: LIMITS.maxScansPerIpPerHour,
+  [SETTINGS_KEYS.maxScansPerDay]: LIMITS.maxScansPerDay,
   [SETTINGS_KEYS.cacheWindowMinutes]: LIMITS.cacheWindowMs / 60000,
   [SETTINGS_KEYS.browserEnabled]: true,
   [SETTINGS_KEYS.externalEnabled]: true
@@ -104,7 +105,7 @@ export const actions: Actions = {
     await put(SETTINGS_KEYS.scanningPaused, form.get('paused') === 'on');
     await put(SETTINGS_KEYS.browserEnabled, form.get('browser') === 'on');
     await put(SETTINGS_KEYS.externalEnabled, form.get('external') === 'on');
-    for (const [k, min, max] of [[SETTINGS_KEYS.maxScansPerDomainPerHour, 1, 60], [SETTINGS_KEYS.maxScansPerIpPerHour, 1, 500], [SETTINGS_KEYS.cacheWindowMinutes, 0, 1440]] as const) {
+    for (const [k, min, max] of [[SETTINGS_KEYS.maxScansPerDomainPerHour, 1, 60], [SETTINGS_KEYS.maxScansPerIpPerHour, 1, 500], [SETTINGS_KEYS.maxScansPerDay, 10, 50000], [SETTINGS_KEYS.cacheWindowMinutes, 0, 1440]] as const) {
       const raw = form.get(k);
       if (raw === null || String(raw).trim() === '') continue; // absent field: leave the stored value alone
       const n = Number(raw);

@@ -3,6 +3,7 @@ import { count, sql, scans, workers, lookups } from '@site-scanner/db';
 import { getDb } from '$lib/server/db.js';
 import { getQueue, getRedis } from '$lib/server/redis.js';
 import { config } from '$lib/server/config.js';
+import { QUOTAS, quotaKeys } from '@site-scanner/core';
 
 export const load: PageServerLoad = async () => {
   const db = getDb();
@@ -24,6 +25,17 @@ export const load: PageServerLoad = async () => {
   } catch {
     /* shown as down */
   }
+  // Today's spend per outside service, as counted by the workers (core external/quota.ts).
+  const budgets: { id: string; label: string; provider: string; used: number; limit: number; skipped: number }[] = [];
+  try {
+    const r = getRedis();
+    const keys = QUOTAS.map((q) => quotaKeys(q.id));
+    const vals = await r.mget(...keys.flatMap((k) => [k.day, k.skipped]));
+    QUOTAS.forEach((q, i) => budgets.push({ id: q.id, label: q.label, provider: q.provider, used: Number(vals[i * 2] ?? 0), limit: q.perDay, skipped: Number(vals[i * 2 + 1] ?? 0) }));
+  } catch {
+    /* Redis down: the table is simply omitted */
+  }
+  const globalToday = await getRedis().get(`rl:global:${new Date().toISOString().slice(0, 10)}`).then((v) => Number(v ?? 0)).catch(() => 0);
   const [oldestIp] = await db.select({ t: sql<string>`min(${lookups.createdAt})` }).from(lookups).where(sql`${lookups.ip} is not null`);
-  return { workers: ws, dbSize: dbSizeRows[0]?.size ?? '?', queuedScans: queuedScans!.n, tables: tableRows, egress, redis, oldestIp: oldestIp?.t ?? null, ownIpsConfigured: config.ownHosts.length > 0 };
+  return { budgets, globalToday, workers: ws, dbSize: dbSizeRows[0]?.size ?? '?', queuedScans: queuedScans!.n, tables: tableRows, egress, redis, oldestIp: oldestIp?.t ?? null, ownIpsConfigured: config.ownHosts.length > 0 };
 };

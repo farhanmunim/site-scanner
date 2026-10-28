@@ -20,6 +20,7 @@
       <header><div><h2>Limits</h2><p>Protects the sites we scan and this server</p></div></header>
       <div class="ad-row"><label for="d">Fresh scans per domain, per hour</label><div><input id="d" type="number" class="eui-input" name={data.keys.maxScansPerDomainPerHour} value={v[data.keys.maxScansPerDomainPerHour]} min="1" max="60" /><span class="help">Across all visitors. Further requests get the cached result.</span></div></div>
       <div class="ad-row"><label for="i">Scans per visitor, per hour</label><div><input id="i" type="number" class="eui-input" name={data.keys.maxScansPerIpPerHour} value={v[data.keys.maxScansPerIpPerHour]} min="1" max="500" /><span class="help">Per IP address.</span></div></div>
+      <div class="ad-row"><label for="g">New scans per day, everyone</label><div><input id="g" type="number" class="eui-input" name={data.keys.maxScansPerDay} value={v[data.keys.maxScansPerDay]} min="10" max="50000" /><span class="help">The backstop that keeps the free APIs inside their allowances. Cached results do not count. Resets at midnight UTC.</span></div></div>
       <div class="ad-row"><label for="c">Reuse a result for (minutes)</label><div><input id="c" type="number" class="eui-input" name={data.keys.cacheWindowMinutes} value={v[data.keys.cacheWindowMinutes]} min="0" max="1440" /><span class="help">A repeat lookup inside this window returns the stored report.</span></div></div>
     </section>
 

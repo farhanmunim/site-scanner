@@ -154,6 +154,14 @@ export async function requestScan(req: ScanRequest): Promise<ScanResult> {
     }
   }
 
+  // Global daily backstop for the free APIs. Only new scans count: cache hits, dedupes and refusals returned above.
+  if (req.source !== 'admin') {
+    const cap = await setting(SETTINGS_KEYS.maxScansPerDay, LIMITS.maxScansPerDay);
+    const today = await rateLimitHit(`rl:global:${new Date().toISOString().slice(0, 10)}`, 2 * 86400).catch(() => null);
+    if (today === null) return refuse(503, 'The scanner is temporarily unavailable. Please try again shortly.', target.host, target.registrableDomain);
+    if (today > cap) return refuse(503, 'The scanner has reached its daily allowance of new scans. Recent results are still available, and it resets at midnight UTC.', target.host, target.registrableDomain);
+  }
+
   const [depthRow] = await db.select({ depth: count() }).from(scans).where(inArray(scans.status, ['queued', 'running']));
   if ((depthRow?.depth ?? 0) >= config.maxQueueDepth) return refuse(503, 'The scanner is busy right now. Please try again in a minute.', target.host, target.registrableDomain);
 

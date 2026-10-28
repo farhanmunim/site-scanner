@@ -50,6 +50,7 @@ export const SETTINGS_KEYS = {
   scanningPaused: 'scanning_paused',
   maxScansPerDomainPerHour: 'max_scans_per_domain_per_hour',
   maxScansPerIpPerHour: 'max_scans_per_ip_per_hour',
+  maxScansPerDay: 'max_scans_per_day',
   cacheWindowMinutes: 'cache_window_minutes',
   browserEnabled: 'browser_enabled',
   externalEnabled: 'external_enabled'

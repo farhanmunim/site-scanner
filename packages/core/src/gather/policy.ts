@@ -30,6 +30,8 @@ export const LIMITS = {
   maxScansPerDomainPerHour: 6,
   /** Scans allowed per client IP per hour. */
   maxScansPerIpPerHour: 20,
+  /** All visitors together, per UTC day: the backstop that keeps the free APIs inside their allowances. */
+  maxScansPerDay: 1500,
   /** Cool-down applied to a domain after a 403/429/challenge. */
   restrictedCooldownMs: 60 * 60 * 1000
 } as const;
