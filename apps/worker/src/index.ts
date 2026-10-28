@@ -117,7 +117,7 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
         blockedDomains: blocked,
         fingerprintsVersion,
         scope: row.scope,
-        external: externalEnabled ? { googleApiKey: config.googleApiKey, wordfenceApiKey: config.wordfenceApiKey, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false, internetDb: false, eol: false, osv: false, tranco: false, geo: false, crux: false },
+        external: externalEnabled ? { googleApiKey: config.googleApiKey, wordfenceApiKey: config.wordfenceApiKey, virustotalKey: config.virustotalKey, abuseipdbKey: config.abuseipdbKey, otxKey: config.otxKey, urlhausKey: config.urlhausKey, psi: config.psiEnabled, safeBrowsing: config.safeBrowsingEnabled, wordpress: config.wordpressApisEnabled, cache } : { psi: false, safeBrowsing: false, wordpress: false, wayback: false, greenWeb: false, subdomains: false, retire: false, blocklists: false, propagation: false, internetDb: false, eol: false, osv: false, tranco: false, geo: false, crux: false, reputation: false },
         onStage: (stage, d) => persist(stage, d),
         browser: browserEnabled ? renderPage : undefined
       }),

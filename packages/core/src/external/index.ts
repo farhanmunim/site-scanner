@@ -6,6 +6,7 @@ import type { BlocklistData, BlocklistHit, DnsRecords, ExternalData, IpInfo, Psi
 
 export * from './retire.js';
 export * from './enrich.js';
+export * from './reputation.js';
 
 /**
  * Optional free enrichment APIs. Every function returns null (never throws) when the key
@@ -34,6 +35,12 @@ export interface ExternalConfig {
   geo?: boolean;
   /** Chrome UX Report history (needs googleApiKey with the CrUX API enabled). */
   crux?: boolean;
+  /** Free keys for the threat-intelligence sources; each source is skipped without its key. */
+  virustotalKey?: string;
+  abuseipdbKey?: string;
+  otxKey?: string;
+  urlhausKey?: string;
+  reputation?: boolean;
   /** Test hook: true = resolves, false = definitely does not, null = could not tell. */
   resolveName?: (name: string) => Promise<boolean | null>;
   fetchImpl?: typeof fetch;

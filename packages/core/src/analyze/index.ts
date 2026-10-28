@@ -1,7 +1,7 @@
 import type { GatheredData, Report, StageName, TechnologyDetection } from '../types.js';
 import { REPORT_VERSION } from '../types.js';
 import { detectPlatform } from './platform.js';
-import { auditEol, auditExposure, mergeOsv } from './exposure.js';
+import { auditEol, auditExposure, auditReputation, mergeOsv } from './exposure.js';
 import { evaluateEol } from '../external/enrich.js';
 import { identifyLibraries } from '../external/retire.js';
 import { parseHtml, type ParsedHtml } from './html.js';
@@ -30,7 +30,7 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
-export { auditExposure, auditEol, mergeOsv } from './exposure.js';
+export { auditExposure, auditEol, auditReputation, mergeOsv } from './exposure.js';
 export { detectPhp, PHP_EOL, phpBranch } from './php.js';
 export { analyseAiReadiness } from './ai.js';
 export { findExposedSecrets } from './secrets.js';
@@ -176,6 +176,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     exposure,
     eol,
     fieldHistory: data.external?.crux ?? null,
+    reputation: data.external?.reputation ? { data: data.external.reputation, findings: auditReputation(data.external.reputation) } : null,
     php,
     aiReadiness,
     vulnerableLibraries,

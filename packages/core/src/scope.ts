@@ -5,7 +5,7 @@ import { STAGE_ORDER } from './types.js';
  * What a scan has to do. A focused tool only needs some stages and some of the external lookups;
  * running the rest wastes time (PageSpeed alone is 15-60 s) and requests against the target.
  */
-export type ExternalCheck = 'psi' | 'safeBrowsing' | 'wayback' | 'greenWeb' | 'subdomains' | 'wordpress' | 'retire' | 'blocklists' | 'propagation' | 'internetDb' | 'eol' | 'osv' | 'tranco' | 'geo' | 'crux';
+export type ExternalCheck = 'psi' | 'safeBrowsing' | 'wayback' | 'greenWeb' | 'subdomains' | 'wordpress' | 'retire' | 'blocklists' | 'propagation' | 'internetDb' | 'eol' | 'osv' | 'tranco' | 'geo' | 'crux' | 'reputation';
 
 export interface ScopePlan {
   /** Stages that run. `files` and `browser` pull in `http`. */
@@ -13,12 +13,13 @@ export interface ScopePlan {
   external: ExternalCheck[];
 }
 
-const ALL_EXTERNAL: ExternalCheck[] = ['psi', 'safeBrowsing', 'wayback', 'greenWeb', 'subdomains', 'wordpress', 'retire', 'blocklists', 'propagation', 'internetDb', 'eol', 'osv', 'tranco', 'geo', 'crux'];
+const ALL_EXTERNAL: ExternalCheck[] = ['psi', 'safeBrowsing', 'wayback', 'greenWeb', 'subdomains', 'wordpress', 'retire', 'blocklists', 'propagation', 'internetDb', 'eol', 'osv', 'tranco', 'geo', 'crux', 'reputation'];
 
 const RAW: Record<string, ScopePlan> = {
   full: { stages: [...STAGE_ORDER], external: ALL_EXTERNAL },
   domain: { stages: ['dns', 'rdap', 'cert'], external: ['wayback', 'tranco'] },
   ports: { stages: ['dns'], external: ['internetDb', 'geo'] },
+  reputation: { stages: ['dns'], external: ['reputation', 'blocklists'] },
   email: { stages: ['dns'], external: ['blocklists'] },
   spf: { stages: ['dns'], external: [] },
   blocklist: { stages: ['dns'], external: ['blocklists'] },

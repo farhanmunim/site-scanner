@@ -1,5 +1,5 @@
 /** The scanner's tools. Each one is a focused view of the same scan: the sections it shows come from the report. */
-export type SectionId = 'fixes' | 'overview' | 'domain' | 'dns' | 'email' | 'spf' | 'blocklist' | 'ports' | 'tls' | 'headers' | 'seo' | 'performance' | 'ai' | 'stack' | 'php' | 'wordpress' | 'libraries' | 'subdomains' | 'privacy';
+export type SectionId = 'fixes' | 'overview' | 'domain' | 'dns' | 'email' | 'spf' | 'blocklist' | 'ports' | 'reputation' | 'tls' | 'headers' | 'seo' | 'performance' | 'ai' | 'stack' | 'php' | 'wordpress' | 'libraries' | 'subdomains' | 'privacy';
 
 export interface Tool {
   slug: string;
@@ -49,6 +49,15 @@ export const TOOLS: Tool[] = [
     icon: 'ban',
     sections: ['blocklist'],
     checks: ['Mail server (MX) IPs', 'Web server IPs (skipped behind a CDN)', 'Seven public DNS blocklists', 'Clear reporting of lists that did not answer']
+  },
+  {
+    slug: 'reputation',
+    title: 'Domain Reputation Checker',
+    short: 'Is this domain or its server flagged as malicious or abusive?',
+    description: 'Asks VirusTotal, URLhaus, AbuseIPDB and AlienVault OTX what they know about a domain and its server, and checks the mail and web IPs against spam blocklists. Only the domain and IP are sent.',
+    icon: 'shield',
+    sections: ['reputation', 'blocklist'],
+    checks: ['VirusTotal: how many security engines flag the domain', 'URLhaus: malware URLs on the domain', 'AbuseIPDB: abuse reports against the server IP', 'AlienVault OTX: community threat reports', 'Spam blocklists for mail and web IPs']
   },
   {
     slug: 'ports',
@@ -173,6 +182,7 @@ export const SECTION_LABEL: Record<SectionId, string> = {
   spf: 'SPF inspector',
   blocklist: 'Blocklists',
   ports: 'Open ports',
+  reputation: 'Reputation',
   tls: 'HTTPS & certificate',
   headers: 'Security headers',
   seo: 'SEO',

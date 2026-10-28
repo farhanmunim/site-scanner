@@ -95,3 +95,68 @@ describe('Chrome UX Report history', () => {
     expect(await fetchCrux('https://b.test/', { googleApiKey: 'K', fetchImpl: (async () => new Response('', { status: 404 })) as typeof fetch })).toBeNull();
   });
 });
+
+import { fetchAbuseIpdb, fetchOtx, fetchReputation, fetchUrlhaus, fetchVirusTotal } from '../src/external/reputation.js';
+import { auditReputation } from '../src/analyze/exposure.js';
+import type { IpInfo } from '../src/types.js';
+
+const mem = () => {
+  const m = new Map<string, unknown>();
+  return { get: async (k: string) => m.get(k) as never, set: async (k: string, v: unknown) => void m.set(k, v) };
+};
+const ip = (addr: string, org: string): IpInfo => ({ ip: addr, version: 4, asn: 1, asnOrg: org, country: 'US', prefix: null, reverseDns: null });
+
+describe('threat intelligence', () => {
+  it('does nothing without keys', async () => {
+    expect(await fetchReputation('a.test', [], {})).toBeNull();
+    expect(await fetchVirusTotal('a.test', {})).toBeNull();
+  });
+  it('VirusTotal: sends the key, parses stats, caches, and pauses after a 429', async () => {
+    let calls = 0;
+    let header: string | undefined;
+    const f = (async (_u: string, init: RequestInit) => ((calls++, (header = (init.headers as Record<string, string>)['x-apikey'])), json({ data: { attributes: { last_analysis_stats: { malicious: 3, suspicious: 1, harmless: 60, undetected: 20 }, reputation: -5, categories: { a: 'phishing', b: 'phishing' } } } }))) as unknown as typeof fetch;
+    const cache = mem();
+    const v = await fetchVirusTotal('bad.test', { virustotalKey: 'K', fetchImpl: f, cache });
+    expect(v).toMatchObject({ malicious: 3, engines: 84, reputation: -5, categories: ['phishing'] });
+    expect(header).toBe('K');
+    await fetchVirusTotal('bad.test', { virustotalKey: 'K', fetchImpl: f, cache });
+    expect(calls).toBe(1);
+    const limited = (async () => new Response('', { status: 429 })) as unknown as typeof fetch;
+    const c2 = mem();
+    expect(await fetchVirusTotal('x.test', { virustotalKey: 'K', fetchImpl: limited, cache: c2 })).toBeNull();
+    let again = 0;
+    await fetchVirusTotal('y.test', { virustotalKey: 'K', fetchImpl: (async () => (again++, json({}))) as unknown as typeof fetch, cache: c2 });
+    expect(again).toBe(0); // paused
+  });
+  it('AbuseIPDB skips CDN addresses and parses the score', async () => {
+    const f = stub({ 'abuseipdb.com': () => json({ data: { abuseConfidenceScore: 80, totalReports: 12, lastReportedAt: '2026-10-01', usageType: 'Data Center', isp: 'Host Co' } }) });
+    expect(await fetchAbuseIpdb([ip('1.1.1.1', 'Cloudflare, Inc.')], { abuseipdbKey: 'K', fetchImpl: f })).toEqual([]);
+    const r = await fetchAbuseIpdb([ip('9.9.9.9', 'Host Co')], { abuseipdbKey: 'K', fetchImpl: f });
+    expect(r![0]).toMatchObject({ ip: '9.9.9.9', score: 80, reports: 12 });
+  });
+  it('OTX and URLhaus parse and send their auth headers', async () => {
+    let otxHdr = '';
+    let hausHdr = '';
+    let hausBody = '';
+    const f = (async (u: string, init: RequestInit) => {
+      const h = init.headers as Record<string, string>;
+      if (u.includes('otx')) return (otxHdr = h['X-OTX-API-KEY']!), json({ pulse_info: { count: 7, pulses: [{ name: 'Phishing kit' }] } });
+      return (hausHdr = h['Auth-Key']!), (hausBody = String(init.body)), json({ query_status: 'ok', urls_online: '2', url_count: '9', blacklists: { spamhaus_dbl: 'listed', surbl: 'not listed' } });
+    }) as unknown as typeof fetch;
+    expect(await fetchOtx('a.test', { otxKey: 'O', fetchImpl: f })).toEqual({ pulses: 7, names: ['Phishing kit'] });
+    expect(otxHdr).toBe('O');
+    expect(await fetchUrlhaus('a.test', { urlhausKey: 'U', fetchImpl: f })).toEqual({ listed: true, urlsOnline: 2, urlCount: 9, blacklists: ['spamhaus_dbl: listed'] });
+    expect(hausHdr).toBe('U');
+    expect(hausBody).toBe('host=a.test');
+    const none = (async () => json({ query_status: 'no_results' })) as unknown as typeof fetch;
+    expect((await fetchUrlhaus('clean.test', { urlhausKey: 'U', fetchImpl: none }))!.listed).toBe(false);
+  });
+  it('turns the answers into measured findings', () => {
+    const f = auditReputation({ checkedAt: '', asked: ['virustotal', 'urlhaus', 'otx', 'abuseipdb'], virustotal: { malicious: 1, suspicious: 0, harmless: 70, undetected: 10, engines: 81, reputation: 0, categories: [] }, urlhaus: { listed: true, urlsOnline: 0, urlCount: 3, blacklists: [] }, otx: { pulses: 12, names: ['x'] }, abuseipdb: [{ ip: '9.9.9.9', score: 5, reports: 1, lastReportedAt: null, usageType: null, isp: null }] });
+    expect(Object.fromEntries(f.map((x) => [x.id, x.status]))).toEqual({ 'rep-urlhaus': 'warn', 'rep-virustotal': 'warn', 'rep-abuseipdb': 'good', 'rep-otx': 'warn' });
+    const bad = auditReputation({ checkedAt: '', asked: ['virustotal', 'urlhaus'], virustotal: { malicious: 5, suspicious: 0, harmless: 60, undetected: 10, engines: 75, reputation: -9, categories: [] }, urlhaus: { listed: true, urlsOnline: 2, urlCount: 4, blacklists: [] } });
+    expect(bad.map((x) => x.status)).toEqual(['bad', 'bad']);
+    const unavailable = auditReputation({ checkedAt: '', asked: ['virustotal'], virustotal: null });
+    expect(unavailable[0]!.status).toBe('unknown');
+  });
+});

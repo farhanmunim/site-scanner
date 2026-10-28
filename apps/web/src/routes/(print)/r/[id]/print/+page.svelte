@@ -24,6 +24,7 @@
     add('Email security', r.email, spf ? `SPF follows ${spf.totalLookups} DNS lookup${spf.totalLookups === 1 ? '' : 's'} (limit 10).` : undefined);
     const bl = r.blocklists;
     add('Blocklists', null, bl ? (bl.listed.length ? `Listed on: ${bl.listed.map((h) => `${h.list} (${h.subject})`).join(', ')}.` : `Not listed on ${bl.lists.length} public blocklists (${bl.checked.length} addresses checked).`) : undefined);
+    add('Reputation', r.reputation?.findings);
     add('Security headers', r.security.filter((f) => !TLS_IDS.has(f.id)));
     add('HTTPS and certificate', r.security.filter((f) => TLS_IDS.has(f.id)));
     add('SEO', r.seo?.findings);
@@ -47,6 +48,7 @@
       ['Email', r.email],
       ['Domain', r.domainChecks],
       ['PHP', r.php?.findings],
+      ['Reputation', r.reputation?.findings],
       ['Ports', r.exposure?.findings],
       ['Support', r.eol?.findings],
       ['Privacy', r.privacy],

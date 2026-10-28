@@ -1,4 +1,4 @@
-import type { EolItem, Exposure, Finding, GeoInfo, InternetDbData, TrancoRank, VulnerableLibrary, OsvAdvisory } from '../types.js';
+import type { EolItem, Exposure, ReputationData, Finding, GeoInfo, InternetDbData, TrancoRank, VulnerableLibrary, OsvAdvisory } from '../types.js';
 import type { LibraryMatch } from '../external/retire.js';
 
 /** Services that should not answer on the public internet: databases, caches, remote desktop, container APIs. */
@@ -94,4 +94,46 @@ export function mergeOsv(libs: VulnerableLibrary[] | null, osv: Record<string, O
   }
   const withVulns = out.filter((l) => l.vulns.length);
   return libs === null && !withVulns.length ? null : withVulns;
+}
+
+/**
+ * Verdicts from the threat-intelligence sources. These are other organisations' opinions, so wording stays
+ * "flagged by" and a single detection from one engine is a warning, never a failure.
+ */
+export function auditReputation(r: ReputationData): Finding[] {
+  const out: Finding[] = [];
+  if (r.asked.includes('urlhaus')) {
+    const u = r.urlhaus;
+    if (!u) out.push({ id: 'rep-urlhaus', title: 'URLhaus (malware URLs)', status: 'unknown', observed: 'Could not be checked right now.' });
+    else if (u.listed && u.urlsOnline > 0) out.push({ id: 'rep-urlhaus', title: 'URLhaus (malware URLs)', status: 'bad', observed: `${u.urlsOnline} malware-distribution URL${u.urlsOnline === 1 ? '' : 's'} on this domain currently online (${u.urlCount} on record).`, detail: 'URLhaus is run by abuse.ch and tracks URLs serving malware. This usually means the site, or part of it, has been compromised.', owasp: 'A06' });
+    else if (u.listed) out.push({ id: 'rep-urlhaus', title: 'URLhaus (malware URLs)', status: 'warn', observed: `${u.urlCount} malware URL${u.urlCount === 1 ? '' : 's'} recorded in the past, none online now.`, detail: 'Past listings often mean a previous compromise that was cleaned up. Worth confirming the site is clean.' });
+    else out.push({ id: 'rep-urlhaus', title: 'URLhaus (malware URLs)', status: 'good', observed: 'No malware URLs recorded for this domain.' });
+  }
+  if (r.asked.includes('virustotal')) {
+    const v = r.virustotal;
+    if (!v) out.push({ id: 'rep-virustotal', title: 'VirusTotal', status: 'unknown', observed: 'Could not be checked right now (the free tier allows few lookups a minute).' });
+    else if (v.malicious >= 3) out.push({ id: 'rep-virustotal', title: 'VirusTotal', status: 'bad', observed: `${v.malicious} of ${v.engines} security engines flag this domain as malicious${v.suspicious ? `, ${v.suspicious} as suspicious` : ''}.`, detail: 'Several independent engines agree. Browsers and mail filters that use these lists may block the site.', owasp: 'A06' });
+    else if (v.malicious + v.suspicious > 0) out.push({ id: 'rep-virustotal', title: 'VirusTotal', status: 'warn', observed: `${v.malicious + v.suspicious} of ${v.engines} engines flag this domain (${v.malicious} malicious, ${v.suspicious} suspicious).`, detail: 'One or two detections are often false positives, but check the VirusTotal page for which engines and why.' });
+    else out.push({ id: 'rep-virustotal', title: 'VirusTotal', status: 'good', observed: `0 of ${v.engines} security engines flag this domain.${v.categories.length ? ` Categorised as ${v.categories.slice(0, 3).join(', ')}.` : ''}` });
+  }
+  if (r.asked.includes('abuseipdb')) {
+    const a = r.abuseipdb;
+    if (a === null || a === undefined) out.push({ id: 'rep-abuseipdb', title: 'AbuseIPDB', status: 'unknown', observed: 'Could not be checked right now.' });
+    else if (!a.length) out.push({ id: 'rep-abuseipdb', title: 'AbuseIPDB', status: 'info', observed: 'The site is behind a CDN, so its own server address is not exposed to check.' });
+    else {
+      const worst = [...a].sort((x, y) => y.score - x.score)[0]!;
+      const line = `${worst.ip}: abuse confidence ${worst.score}%, ${worst.reports} report${worst.reports === 1 ? '' : 's'} in 90 days${worst.isp ? ` (${worst.isp})` : ''}.`;
+      if (worst.score >= 75) out.push({ id: 'rep-abuseipdb', title: 'AbuseIPDB', status: 'bad', observed: line, detail: 'The server address is widely reported for abuse (attacks, spam, scanning). On shared hosting this can reflect a neighbour rather than the site itself.', owasp: 'A06' });
+      else if (worst.score >= 25) out.push({ id: 'rep-abuseipdb', title: 'AbuseIPDB', status: 'warn', observed: line, detail: 'Some abuse reports against the server address. On shared hosting this may be another customer.' });
+      else out.push({ id: 'rep-abuseipdb', title: 'AbuseIPDB', status: 'good', observed: line });
+    }
+  }
+  if (r.asked.includes('otx')) {
+    const o = r.otx;
+    if (!o) out.push({ id: 'rep-otx', title: 'AlienVault OTX', status: 'unknown', observed: 'Could not be checked right now.' });
+    else if (o.pulses >= 5) out.push({ id: 'rep-otx', title: 'AlienVault OTX', status: 'warn', observed: `Appears in ${o.pulses} threat-intelligence collections${o.names.length ? `, for example “${o.names[0]}”` : ''}.`, detail: 'Pulses are community-written lists of suspicious indicators. Large popular domains appear in many of them harmlessly, so read the context before drawing conclusions.' });
+    else if (o.pulses > 0) out.push({ id: 'rep-otx', title: 'AlienVault OTX', status: 'info', observed: `Mentioned in ${o.pulses} threat-intelligence collection${o.pulses === 1 ? '' : 's'}${o.names.length ? `: “${o.names[0]}”` : ''}.` });
+    else out.push({ id: 'rep-otx', title: 'AlienVault OTX', status: 'good', observed: 'Not mentioned in any community threat reports.' });
+  }
+  return out;
 }

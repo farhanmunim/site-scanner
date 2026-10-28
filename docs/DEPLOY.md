@@ -46,6 +46,17 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 
    Coolify generates `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_SESSION`,
    `SERVICE_PASSWORD_IPSALT` and `SERVICE_URL_WEB` itself — leave them alone.
+   Reputation sources (each optional, each free; a source without its key is simply skipped):
+
+   | Variable | Where to get it |
+   |---|---|
+   | `VIRUSTOTAL_API_KEY` | virustotal.com → profile menu → **API key** (free tier: 4 lookups a minute, 500 a day) |
+   | `ABUSEIPDB_API_KEY` | abuseipdb.com → **Account → API** → Create key (free tier: 1,000 checks a day) |
+   | `OTX_API_KEY` | otx.alienvault.com → profile menu → **Settings → OTX Key** |
+   | `URLHAUS_AUTH_KEY` | auth.abuse.ch → sign in → **Auth-Key** (one key also works for the other abuse.ch services) |
+
+   Set them on the **worker** service in Coolify, then redeploy.
+
    Optional tuning (all have sensible defaults):
 
    | Variable | Meaning |

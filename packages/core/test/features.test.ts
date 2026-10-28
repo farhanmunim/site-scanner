@@ -221,7 +221,7 @@ describe('scan scopes', () => {
     expect(isScope('nope')).toBe(false);
     expect(isScope('__proto__')).toBe(false);
     expect(planFor('nope').stages).toEqual(planFor('full').stages);
-    expect(planFor(null).external).toHaveLength(15);
+    expect(planFor(null).external).toHaveLength(16);
   });
   it('runs only what a tool needs, and pulls in dependencies', () => {
     expect(planFor('spf')).toEqual({ stages: ['dns'], external: [] });

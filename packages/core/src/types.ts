@@ -445,6 +445,8 @@ export interface Report {
   eol?: { items: EolItem[]; findings: Finding[] } | null;
   /** Real-user Core Web Vitals over time (Chrome UX Report). */
   fieldHistory?: CruxHistory | null;
+  /** Threat-intelligence verdicts (VirusTotal, AbuseIPDB, AlienVault OTX, URLhaus). */
+  reputation?: { data: ReputationData; findings: Finding[] } | null;
   wellKnown: { securityTxt: boolean; adsTxt: boolean; llmsTxt: boolean };
   /** Added after reportVersion 2; absent on older stored reports until re-analysed. */
   php?: PhpInfo | null;
@@ -648,6 +650,18 @@ export interface ExternalData {
   geo?: GeoInfo | null;
   /** Chrome UX Report history: weekly real-user p75 values for the origin (phones). Needs the Google key with the CrUX API enabled. */
   crux?: CruxHistory | null;
+  /** Threat-intelligence lookups. Each source needs its own free key; absent keys mean absent sources. */
+  reputation?: ReputationData | null;
+}
+
+export interface ReputationData {
+  checkedAt: string;
+  virustotal?: { malicious: number; suspicious: number; harmless: number; undetected: number; engines: number; reputation: number | null; categories: string[] } | null;
+  abuseipdb?: { ip: string; score: number; reports: number; lastReportedAt: string | null; usageType: string | null; isp: string | null }[] | null;
+  otx?: { pulses: number; names: string[] } | null;
+  urlhaus?: { listed: boolean; urlsOnline: number; urlCount: number; blacklists: string[] } | null;
+  /** Sources that were configured and asked. A source in here with a null result was unavailable (rate limit, error). */
+  asked: ('virustotal' | 'abuseipdb' | 'otx' | 'urlhaus')[];
 }
 
 export interface CruxPeriod {
