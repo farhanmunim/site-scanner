@@ -12,6 +12,12 @@ try {
   /* keep empty */
 }
 
+/** Blank or non-numeric values fall back to the default (an empty variable must never read as 0). */
+function num(v: string | undefined, fallback: number): number {
+  const n = v === undefined || v.trim() === '' ? NaN : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export const config = {
   databaseUrl: process.env.DATABASE_URL ?? '',
   redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6379',
@@ -21,17 +27,17 @@ export const config = {
   /** Public IPs of the VPS: never contacted by the scanner (hairpin protection). */
   ownIps: (process.env.OWN_IPS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
   denySuffixes: (process.env.DENYLIST_EXTRA ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-  scanConcurrency: Number(process.env.SCAN_CONCURRENCY ?? 2),
+  scanConcurrency: num(process.env.SCAN_CONCURRENCY, 2),
   browserEnabled: process.env.BROWSER_ENABLED !== 'false',
-  browserConcurrency: Number(process.env.BROWSER_CONCURRENCY ?? 1),
+  browserConcurrency: num(process.env.BROWSER_CONCURRENCY, 1),
   screenshotDir: process.env.SCREENSHOT_DIR ?? '/data/screenshots',
   pdfDir: process.env.PDF_DIR ?? (process.env.SCREENSHOT_DIR ?? '/data/screenshots') + '/pdf',
   /** Where the worker reaches the web app to render report pages for PDF export. */
   internalWebUrl: (process.env.INTERNAL_WEB_URL ?? 'http://web:3000').replace(/\/$/, ''),
-  screenshotRetentionDays: Number(process.env.SCREENSHOT_RETENTION_DAYS ?? 90),
+  screenshotRetentionDays: num(process.env.SCREENSHOT_RETENTION_DAYS, 90),
   /** Lookups and finished scans older than this are deleted (0 = keep forever). */
-  dataRetentionDays: Number(process.env.DATA_RETENTION_DAYS ?? 365),
-  ipRetentionDays: Number(process.env.IP_RETENTION_DAYS ?? 30),
+  dataRetentionDays: num(process.env.DATA_RETENTION_DAYS, 365),
+  ipRetentionDays: num(process.env.IP_RETENTION_DAYS, 30),
   googleApiKey: process.env.GOOGLE_API_KEY || undefined,
   wordfenceApiKey: process.env.WORDFENCE_API_KEY || undefined,
   virustotalKey: process.env.VIRUSTOTAL_API_KEY || undefined,
@@ -41,7 +47,7 @@ export const config = {
   psiEnabled: process.env.PSI_ENABLED !== 'false',
   safeBrowsingEnabled: process.env.SAFE_BROWSING_ENABLED !== 'false',
   wordpressApisEnabled: process.env.WORDPRESS_APIS_ENABLED !== 'false',
-  scanTimeoutMs: Number(process.env.SCAN_TIMEOUT_MS ?? 150_000),
+  scanTimeoutMs: num(process.env.SCAN_TIMEOUT_MS, 150_000),
   workerId: process.env.HOSTNAME ? `${process.env.HOSTNAME}-${process.pid}` : `worker-${process.pid}`
 };
 
