@@ -1,6 +1,7 @@
 import type { GatheredData, Report, StageName, TechnologyDetection } from '../types.js';
 import { REPORT_VERSION } from '../types.js';
 import { detectPlatform } from './platform.js';
+import { extractSocial } from './social.js';
 import { auditEol, auditExposure, auditReputation, mergeOsv } from './exposure.js';
 import { evaluateEol } from '../external/enrich.js';
 import { identifyLibraries } from '../external/retire.js';
@@ -30,6 +31,7 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
+export { extractSocial } from './social.js';
 export { auditExposure, auditEol, auditReputation, mergeOsv } from './exposure.js';
 export { detectPhp, PHP_EOL, phpBranch } from './php.js';
 export { analyseAiReadiness } from './ai.js';
@@ -163,7 +165,9 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
           compression,
           http3: /h3/.test(final?.headers['alt-svc'] ?? ''),
           cacheHeaders,
-          challenge: http.challenge
+          challenge: http.challenge,
+          timingMs: final?.timingMs ?? null,
+          htmlBytes: final ? (final.contentLength ?? new TextEncoder().encode(final.body).length) : null
         }
       : null,
     security,
@@ -173,6 +177,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     thirdParties,
     cms,
     platform: detectPlatform(technologies),
+    social: parsed && final ? extractSocial(parsed, final.url, data.files?.media, opts.screenshotUrl) : null,
     exposure,
     eol,
     fieldHistory: data.external?.crux ?? null,

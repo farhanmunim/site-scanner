@@ -19,6 +19,7 @@
       const list = sorted(rows);
       if (list.length || note) out.push({ title, rows: list, note });
     };
+    if (r.social) add('Page and social previews', null, [r.social.title ? `Title: ${r.social.title}` : '', r.social.description ? `Description: ${r.social.description.slice(0, 200)}` : '', r.social.profiles.length ? `Profiles: ${r.social.profiles.map((p) => p.network).join(', ')}.` : '', ...r.social.notes].filter(Boolean).join(' · ') || undefined);
     add('Domain registration', r.domainChecks);
     const spf = r.dns?.spf;
     add('Email security', r.email, spf ? `SPF follows ${spf.totalLookups} DNS lookup${spf.totalLookups === 1 ? '' : 's'} (limit 10).` : undefined);
@@ -81,7 +82,7 @@
 <main class="doc">
   <header class="head">
     <div class="brand">Site scan report</div>
-    <h1>{host}</h1>
+    <h1>{#if report?.social?.favicon.dataUrl}<img class="fav" src={report.social.favicon.dataUrl} alt="" />{/if}{host}</h1>
     <p class="meta">{data.scan.url} · scanned {when(data.scan.createdAt)}{data.scan.durationMs ? ` · ${(data.scan.durationMs / 1000).toFixed(0)} s` : ''}</p>
   </header>
 
@@ -189,6 +190,7 @@
   .head { border-bottom: 2px solid #111; padding-bottom: 6px; margin-bottom: 10px; }
   .brand { text-transform: uppercase; letter-spacing: 0.12em; font-size: 9px; color: #555; }
   h1 { font-size: 24px; margin: 2px 0; font-weight: 700; word-break: break-all; }
+  .fav { width: 22px; height: 22px; object-fit: contain; vertical-align: -3px; margin-right: 8px; }
   .meta { margin: 0; color: #555; font-size: 9.5px; word-break: break-all; }
   h2 { font-size: 12.5px; margin: 14px 0 4px; padding-bottom: 2px; border-bottom: 1px solid #bbb; break-after: avoid; }
   .scorebox { border: 1px solid #111; padding: 8px 10px; margin: 8px 0; break-inside: avoid; }

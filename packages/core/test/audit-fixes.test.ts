@@ -116,8 +116,59 @@ describe('platform verdict', () => {
     expect(v?.name).toBe('Framer Sites');
     expect(v?.kind).toBe('builder');
   });
+  it('never calls a headless content backend the platform', () => {
+    expect(detectPlatform([tech({ name: 'Contentful', saas: true, categories: [{ id: 1, name: 'CMS' }] })])).toBeNull();
+    expect(detectPlatform([tech({ name: 'Contentful', saas: true }), tech({ name: 'Wix', saas: true })])?.name).toBe('Wix');
+  });
   it('falls back to a framework and ignores libraries', () => {
     expect(detectPlatform([tech({ name: 'jQuery', categories: [{ id: 59, name: 'JS libs' }] })])).toBeNull();
     expect(detectPlatform([tech({ name: 'Next.js', categories: [{ id: 18, name: 'Web frameworks' }] })])?.kind).toBe('framework');
+  });
+});
+
+import { extractMediaUrls, sniffImage } from '../src/gather/stages/files.js';
+import { findProfiles, extractSocial } from '../src/analyze/social.js';
+import { parseHtml } from '../src/analyze/index.js';
+describe('favicon, share cards and profiles', () => {
+  const html = `<html><head><title>Acme – Widgets</title><meta name="description" content="We make widgets."><link rel="shortcut icon" href="/f.ico"><link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="apple-touch-icon" sizes="180x180" href="/apple.png"><meta property="og:image" content="/img/share.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:title" content="Acme"><meta name="twitter:card" content="summary_large_image"></head><body><a href="https://twitter.com/intent/tweet?url=x">Tweet</a><a href="https://twitter.com/acme">X</a><a href="https://www.facebook.com/sharer/sharer.php?u=x">share</a><a href="https://www.linkedin.com/company/acme/">in</a></body></html>`;
+  it('picks the SVG icon and resolves the share image', () => {
+    expect(extractMediaUrls(html, 'https://acme.test/')).toEqual({ favicon: 'https://acme.test/icon.svg', favicons: ['https://acme.test/icon.svg', 'https://acme.test/f.ico', 'https://acme.test/apple.png'], ogImage: 'https://acme.test/img/share.jpg' });
+    expect(extractMediaUrls('<html></html>', 'https://acme.test/x/y')).toEqual({ favicon: 'https://acme.test/favicon.ico', favicons: ['https://acme.test/favicon.ico'], ogImage: null });
+    expect(extractMediaUrls('<meta name="twitter:image" content="https://cdn.test/t.png">', 'https://a.test/').ogImage).toBe('https://cdn.test/t.png');
+  });
+  it('prefers a 32px icon over a 192px one that may exceed the size cap', () => {
+    const wp = `<link rel="icon" href="https://s.w.org/favicon.ico?2" sizes="32x32" /><link rel="icon" href="https://s.w.org/images/wmark.png" sizes="192x192" /><link rel="apple-touch-icon" href="https://s.w.org/images/wmark.png" />`;
+    expect(extractMediaUrls(wp, 'https://wordpress.org/').favicons.slice(0, 2)).toEqual(['https://s.w.org/favicon.ico?2', 'https://s.w.org/images/wmark.png']);
+  });
+  it('identifies images by content, not by label', () => {
+    expect(sniffImage(Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0, 0]))?.mime).toBe('image/png');
+    expect(sniffImage(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>'))).toEqual({ mime: 'image/svg+xml', raster: false });
+    expect(sniffImage(new TextEncoder().encode('<html><script>alert(1)</script>'))).toBeNull();
+  });
+  it('finds the site\'s own profiles but not share buttons', () => {
+    const p = parseHtml(html, 'https://acme.test/');
+    expect(findProfiles(p.links, 'acme.test')).toEqual([{ network: 'X (Twitter)', url: 'https://twitter.com/acme' }, { network: 'LinkedIn', url: 'https://www.linkedin.com/company/acme/' }]);
+  });
+  it('builds previews and plain-language gaps', () => {
+    const p = parseHtml(html, 'https://acme.test/');
+    const s = extractSocial(p, 'https://acme.test/', { favicon: { url: 'https://acme.test/icon.svg', contentType: 'image/svg+xml', size: 10, base64: 'PHN2Zz4=' }, ogImage: { url: 'https://acme.test/img/share.jpg', contentType: 'image/jpeg', size: 5, path: 'id-og.jpg' } }, (f) => `/screenshots/${f}`);
+    expect(s.title).toBe('Acme – Widgets');
+    expect(s.favicon.dataUrl).toBe('data:image/svg+xml;base64,PHN2Zz4=');
+    expect(s.og.imageUrl).toBe('/screenshots/id-og.jpg');
+    expect(s.og.imageSize).toEqual([1200, 630]);
+    expect(s.notes.join(' ')).toMatch(/og:description/);
+    const bare = extractSocial(parseHtml('<html><title>x</title></html>', 'https://b.test/'), 'https://b.test/', undefined);
+    expect(bare.notes.join(' ')).toMatch(/No Open Graph tags/);
+    expect(bare.notes.join(' ')).toMatch(/No favicon/);
+  });
+});
+
+import { stripNul } from '../src/sanitize.js';
+describe('NUL stripping', () => {
+  it('removes real NUL characters but keeps the literal text \\u0000 in scripts', () => {
+    const literal = 'var s = "\\u0000";'; // the six characters backslash-u-0-0-0-0 inside a string
+    const out = stripNul({ a: `x${String.fromCharCode(0)}y`, [`k${String.fromCharCode(0)}`]: ['p\u0000q', literal], n: 5, z: null });
+    expect(out).toEqual({ a: 'xy', k: ['pq', literal], n: 5, z: null });
+    expect(JSON.parse(JSON.stringify(out)).k[1]).toBe(literal);
   });
 });

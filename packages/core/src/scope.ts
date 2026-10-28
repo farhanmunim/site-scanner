@@ -18,6 +18,7 @@ const ALL_EXTERNAL: ExternalCheck[] = ['psi', 'safeBrowsing', 'wayback', 'greenW
 const RAW: Record<string, ScopePlan> = {
   full: { stages: [...STAGE_ORDER], external: ALL_EXTERNAL },
   domain: { stages: ['dns', 'rdap', 'cert'], external: ['wayback', 'tranco'] },
+  preview: { stages: ['http', 'files'], external: [] },
   ports: { stages: ['dns'], external: ['internetDb', 'geo'] },
   reputation: { stages: ['dns'], external: ['reputation', 'blocklists'] },
   email: { stages: ['dns'], external: ['blocklists'] },

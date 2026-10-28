@@ -8,6 +8,12 @@ const FRAMEWORK = new Set([12, 18]);
 /** Frameworks that are libraries rather than a way a site is "built with" (animation, state, UI kits). */
 const NOT_A_PLATFORM = /^(jquery|react|vue\.js|angular|svelte|alpine\.js|lodash|bootstrap|tailwind css|core-js|webpack|framer motion|gsap|swiper)/i;
 
+/**
+ * Headless content backends supply content to a site built some other way; seeing one (often just an image host in a
+ * meta tag) says nothing about what the site itself is built with, so they never become the verdict.
+ */
+const HEADLESS = /^(contentful|sanity|prismic|storyblok|strapi|datocms|hygraph|graphcms|directus|cosmic|butter ?cms|kontent|agility cms|payload|tinacms|builder\.io|netlify cms|decap cms|contentstack|dato)/i;
+
 function kindOf(t: TechnologyDetection): PlatformVerdict['kind'] | null {
   const ids = t.categories.map((c) => c.id);
   if (ids.some((i) => BUILDER.has(i)) || (t.saas && ids.some((i) => CMS.has(i)))) return 'builder';
@@ -25,7 +31,7 @@ const RANK: Record<PlatformVerdict['kind'], number> = { builder: 4, ecommerce: 3
  */
 export function detectPlatform(techs: TechnologyDetection[]): PlatformVerdict | null {
   const cands = techs
-    .filter((t) => !t.implied && t.score >= 50)
+    .filter((t) => !t.implied && t.score >= 50 && !HEADLESS.test(t.name))
     .map((t) => ({ t, kind: kindOf(t) }))
     .filter((c): c is { t: TechnologyDetection; kind: PlatformVerdict['kind'] } => c.kind !== null)
     .sort((a, b) => RANK[b.kind] - RANK[a.kind] || b.t.score - a.t.score);

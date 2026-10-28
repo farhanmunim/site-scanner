@@ -16,6 +16,8 @@ export interface SafeFetchOptions {
   timeoutMs?: number;
   method?: 'GET' | 'HEAD';
   accept?: string;
+  /** Read the body as bytes (images); `body` stays empty and `bytes` is set. */
+  binary?: boolean;
   /** Skip the DoH pre-check when the caller already resolved + validated the host. */
   preResolved?: Map<string, boolean>;
   /** Denylist inputs re-applied to every URL fetched (redirect hops and third-party scripts included). */
@@ -33,6 +35,8 @@ export class FetchDenied extends Error {
 }
 
 export interface SafeResponse {
+  /** Set instead of `body` when the request asked for binary. */
+  bytes?: Uint8Array;
   status: number;
   headers: Record<string, string>;
   cookies: string[];
@@ -70,6 +74,29 @@ function headersToRecord(h: Headers): { headers: Record<string, string>; cookies
     headers[k] = headers[k] ? headers[k] + ', ' + value : value;
   });
   return { headers, cookies };
+}
+
+async function readCappedBytes(res: Response, maxBytes: number): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+  if (!res.body) return { bytes: new Uint8Array(0), truncated: false };
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (total + value.length > maxBytes) {
+      truncated = true;
+      await reader.cancel().catch(() => {});
+      break;
+    }
+    chunks.push(value);
+    total += value.length;
+  }
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) (out.set(c, o), (o += c.length));
+  return { bytes: out, truncated };
 }
 
 async function readCapped(res: Response, maxBytes: number): Promise<{ body: string; truncated: boolean }> {
@@ -164,6 +191,10 @@ export async function safeFetch(url: string, opts: SafeFetchOptions): Promise<Sa
     ...({ cf: { cacheTtl: 0, cacheEverything: false } } as object)
   });
   const { headers, cookies } = headersToRecord(res.headers);
+  if (opts.binary) {
+    const { bytes, truncated } = await readCappedBytes(res, opts.maxBytes ?? LIMITS.maxFileBytes);
+    return { status: res.status, headers, cookies, body: '', bytes, truncated, url, timingMs: Date.now() - started };
+  }
   const { body, truncated } = opts.method === 'HEAD' ? { body: '', truncated: false } : await readCapped(res, opts.maxBytes ?? LIMITS.maxFileBytes);
   return { status: res.status, headers, cookies, body, truncated, url, timingMs: Date.now() - started };
 }

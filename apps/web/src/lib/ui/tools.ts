@@ -1,5 +1,5 @@
 /** The scanner's tools. Each one is a focused view of the same scan: the sections it shows come from the report. */
-export type SectionId = 'fixes' | 'overview' | 'domain' | 'dns' | 'email' | 'spf' | 'blocklist' | 'ports' | 'reputation' | 'tls' | 'headers' | 'seo' | 'performance' | 'ai' | 'stack' | 'php' | 'wordpress' | 'libraries' | 'subdomains' | 'privacy';
+export type SectionId = 'fixes' | 'overview' | 'domain' | 'dns' | 'email' | 'spf' | 'blocklist' | 'ports' | 'reputation' | 'page' | 'tls' | 'headers' | 'seo' | 'performance' | 'ai' | 'stack' | 'php' | 'wordpress' | 'libraries' | 'subdomains' | 'privacy';
 
 export interface Tool {
   slug: string;
@@ -49,6 +49,15 @@ export const TOOLS: Tool[] = [
     icon: 'ban',
     sections: ['blocklist'],
     checks: ['Mail server (MX) IPs', 'Web server IPs (skipped behind a CDN)', 'Seven public DNS blocklists', 'Clear reporting of lists that did not answer']
+  },
+  {
+    slug: 'preview',
+    title: 'Link Preview Checker',
+    short: 'See the favicon, Google result and social cards for any page.',
+    description: 'Shows how a page looks in a browser tab, a Google search result and when its link is shared on Facebook, LinkedIn, Slack and X, and what is missing or the wrong size.',
+    icon: 'eye',
+    sections: ['page'],
+    checks: ['Favicon as browsers see it', 'Google title, address and description', 'Open Graph and X card previews with the real share image', 'Missing tags and wrong image sizes']
   },
   {
     slug: 'reputation',
@@ -183,6 +192,7 @@ export const SECTION_LABEL: Record<SectionId, string> = {
   blocklist: 'Blocklists',
   ports: 'Open ports',
   reputation: 'Reputation',
+  page: 'Page overview',
   tls: 'HTTPS & certificate',
   headers: 'Security headers',
   seo: 'SEO',

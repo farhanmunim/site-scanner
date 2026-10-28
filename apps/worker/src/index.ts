@@ -1,10 +1,10 @@
 import { Worker, type Job } from 'bullmq';
 import IORedis from 'ioredis';
 import { hostname } from 'node:os';
-import { readdir, stat, unlink } from 'node:fs/promises';
+import { mkdir, readdir, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { and, blocklist, createDb, domains, eq, gt, isNotNull, lookups, lt, runMigrations, scans, scanTechnologies, settings, SETTINGS_KEYS, sql, workers, apiCache, type Db } from '@site-scanner/db';
-import { gather, loadFingerprints, prepareTarget, ScanRefused, LIMITS, isRestrictedStatus, SCANNER_VERSION, type GatheredData, type StageName } from '@site-scanner/core';
+import { gather, stripNul, loadFingerprints, prepareTarget, ScanRefused, LIMITS, isRestrictedStatus, SCANNER_VERSION, type GatheredData, type StageName } from '@site-scanner/core';
 import { config, PDF_QUEUE, SCAN_QUEUE } from './config.js';
 import { log } from './log.js';
 import { closeBrowser, renderPage } from './browser.js';
@@ -93,6 +93,7 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
   // Stages that change what the report can show. The cheap ones (rdap, cert, dns) ride along with the next write.
   const PROGRESS_STAGES = new Set<StageName>(['http', 'files', 'browser', 'external']);
   const persist = async (stage: StageName, data: GatheredData) => {
+    await storeMedia(scanId, data);
     if (settled) return; // the scan already timed out and was marked failed: never overwrite that
     if (!PROGRESS_STAGES.has(stage)) {
       await db.update(scans).set({ stages: data.stages }).where(eq(scans.id, scanId)).catch(() => {});
@@ -142,6 +143,7 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
   settled = true;
   clearTimeout(timer);
 
+  await storeMedia(scanId, data);
   let report: Awaited<ReturnType<typeof analyseInThread>>;
   try {
     report = clean(await analyseInThread(data, 40_000));
@@ -180,10 +182,30 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
   log.info({ scanId, host: row.host, status, ms: Date.now() - started, technologies: report.technologies.length }, 'scan finished');
 }
 
-/** Postgres jsonb rejects U+0000; a page or TXT record containing one would otherwise fail the whole scan. */
-function clean<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v).replace(/\\u0000/g, '')) as T;
+const OG_EXT: Record<string, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+
+/**
+ * The share image goes to the screenshots volume (served by /screenshots) instead of the database: up to 600 KB per
+ * scan would bloat jsonb. The favicon is tiny and stays inline.
+ */
+async function storeMedia(scanId: string, data: GatheredData): Promise<void> {
+  const og = data.files?.media?.ogImage;
+  if (!og?.base64) return;
+  const ext = OG_EXT[og.contentType];
+  if (ext) {
+    try {
+      await mkdir(config.screenshotDir, { recursive: true });
+      const file = `${scanId}-og.${ext}`;
+      await writeFile(join(config.screenshotDir, file), Buffer.from(og.base64, 'base64'));
+      og.path = file;
+    } catch (e) {
+      log.warn({ scanId, err: (e as Error).message }, 'could not store the share image');
+    }
+  }
+  delete og.base64;
 }
+
+const clean = stripNul;
 
 /** Errors shown publicly on /r/:id: never leak driver or filesystem detail. */
 function publicError(e: unknown): string {

@@ -28,6 +28,7 @@
   import WordPressCard from '$lib/ui/report/WordPressCard.svelte';
   import ExposureCard from '$lib/ui/report/ExposureCard.svelte';
   import ReputationCard from '$lib/ui/report/ReputationCard.svelte';
+  import PageCard from '$lib/ui/report/PageCard.svelte';
   import LibrariesCard from '$lib/ui/report/LibrariesCard.svelte';
   import SubdomainsCard from '$lib/ui/report/SubdomainsCard.svelte';
   import PrivacyCard from '$lib/ui/report/PrivacyCard.svelte';
@@ -49,7 +50,7 @@
   let scopeTool = $derived(data.scan.scope && data.scan.scope !== 'full' ? toolBySlug(data.scan.scope) : null);
   let tool = $derived(scopeTool ?? (printMode ? null : toolBySlug(page.url.searchParams.get('tool'))));
   let stageOrder = $derived(planFor(data.scan.scope).stages);
-  const FULL: SectionId[] = ['fixes', 'domain', 'email', 'spf', 'blocklist', 'reputation', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'ports', 'subdomains', 'privacy'];
+  const FULL: SectionId[] = ['fixes', 'page', 'domain', 'email', 'spf', 'blocklist', 'reputation', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'ports', 'subdomains', 'privacy'];
   // In the full report, skip sections that have nothing to say (no PHP, no recognised platform, no port data).
   // A focused tool always shows its section, so "PHP version checker" can still answer "not detected".
   const worthShowing = (id: SectionId): boolean => {
@@ -136,6 +137,7 @@
         case 'blocklist': { const b = report!.blocklists; return b ? { sc: b.listed.length ? String(b.listed.length) : '✓', tone: b.listed.length ? 'bad' : 'good' } : { sc: '', tone: '' }; }
         case 'spf': { const s = report!.dns?.spf; return s ? { sc: `${s.totalLookups}/10`, tone: s.totalLookups > 10 ? 'bad' : s.totalLookups >= 9 ? 'warn' : 'good' } : { sc: '', tone: '' }; }
         case 'libraries': { const n = (report!.vulnerableLibraries?.length ?? 0) + (report!.exposedSecrets?.length ?? 0); return report!.vulnerableLibraries == null ? { sc: '', tone: '' } : { sc: n ? String(n) : '✓', tone: n ? 'bad' : 'good' }; }
+        case 'page': { const n = report!.social?.notes.length ?? 0; return report!.social ? { sc: n ? String(n) : '✓', tone: n > 2 ? 'warn' : n ? '' : 'good' } : { sc: '', tone: '' }; }
         case 'reputation': { const x = report!.reputation; if (!x) return { sc: '', tone: '' }; const r = rollup(x.findings); return { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone }; }
         case 'ports': { const x = report!.exposure; if (!x?.hosts.some((h) => h.known)) return { sc: '', tone: '' }; const r = rollup(x.findings); return { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone }; }
         case 'php': { const p = report!.php; return p?.detected ? { sc: p.version ?? '?', tone: p.supported === false ? 'bad' : p.supported ? 'good' : '' } : { sc: '', tone: '' }; }
@@ -271,6 +273,7 @@
       {/if}
       <div class="ss-stack">
         {#if has('fixes') && !running && !failed}<FixesCard {report} />{/if}
+        {#if has('page')}<PageCard {report} {running} />{/if}
         {#if has('domain')}<DomainCard {report} open={printMode} />{/if}
         {#if has('email')}<EmailCard {report} open={printMode} note={note('email')} />{/if}
         {#if has('spf')}<SpfCard {report} />{/if}

@@ -141,6 +141,34 @@ export interface FilesStageData {
   scripts: FetchedFile[];
   /** CMS-specific public files (theme style.css, plugin readme.txt, wp-json root). */
   cms: FetchedFile[];
+  /** The site's own favicon and share image, as the page references them. Absent on older scans. */
+  media?: { favicon: MediaFile | null; ogImage: MediaFile | null };
+}
+
+export interface MediaFile {
+  /** Where the page pointed to it. */
+  url: string;
+  contentType: string;
+  size: number;
+  /** Base64 of the bytes. The worker keeps it only for the favicon; the share image is moved to a file (`path`). */
+  base64?: string;
+  /** File name in the screenshots volume once stored. */
+  path?: string;
+}
+
+/** What the site shows in a browser tab, a search result and when its link is shared. */
+export interface SocialPreview {
+  title: string | null;
+  description: string | null;
+  url: string;
+  siteName: string | null;
+  favicon: { dataUrl: string | null; sourceUrl: string | null };
+  og: { title: string | null; description: string | null; type: string | null; url: string | null; siteName: string | null; imageUrl: string | null; imageAlt: string | null; imageSource: string | null; imageSize: [number, number] | null };
+  twitter: { card: string | null; title: string | null; description: string | null; imageUrl: string | null; site: string | null };
+  /** The site's own profiles on social networks, as linked from the page (share buttons excluded). */
+  profiles: { network: string; url: string }[];
+  /** Plain-language gaps, e.g. "No og:image: shared links show a blank card." */
+  notes: string[];
 }
 
 export interface RdapData {
@@ -431,6 +459,9 @@ export interface Report {
     http3: boolean;
     cacheHeaders: Record<string, string>;
     challenge: HttpStageData['challenge'];
+    /** Time to the final response and the size of the HTML document (bytes, as delivered). */
+    timingMs?: number | null;
+    htmlBytes?: number | null;
   } | null;
   security: Finding[];
   email: Finding[];
@@ -445,6 +476,8 @@ export interface Report {
   eol?: { items: EolItem[]; findings: Finding[] } | null;
   /** Real-user Core Web Vitals over time (Chrome UX Report). */
   fieldHistory?: CruxHistory | null;
+  /** Favicon, search-result and social-card previews. */
+  social?: SocialPreview | null;
   /** Threat-intelligence verdicts (VirusTotal, AbuseIPDB, AlienVault OTX, URLhaus). */
   reputation?: { data: ReputationData; findings: Finding[] } | null;
   wellKnown: { securityTxt: boolean; adsTxt: boolean; llmsTxt: boolean };

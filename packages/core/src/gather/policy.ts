@@ -67,7 +67,7 @@ export interface PathPermission {
 export function isPathAllowed(
   candidate: string,
   target: { host: string; url: string },
-  context: { discoveredScripts?: Set<string>; wordpress?: boolean; discoveredCmsFiles?: Set<string> } = {}
+  context: { discoveredScripts?: Set<string>; wordpress?: boolean; discoveredCmsFiles?: Set<string>; discoveredMedia?: Set<string> } = {}
 ): PathPermission {
   let u: URL;
   try {
@@ -80,14 +80,14 @@ export function isPathAllowed(
   const onTargetSite = sameSite(u.hostname, target.host);
   if (!onTargetSite) {
     // Off-site fetches are limited to script files the page itself referenced.
-    if (context.discoveredScripts?.has(candidate)) return { allowed: true };
+    if (context.discoveredScripts?.has(candidate) || context.discoveredMedia?.has(candidate)) return { allowed: true };
     return { allowed: false, reason: 'off-site' };
   }
 
   const path = u.pathname;
   if (candidate === target.url || candidate.split('#')[0] === target.url) return { allowed: true };
   if ((WELL_KNOWN_PATHS as readonly string[]).includes(path) && u.search === '') return { allowed: true };
-  if (context.discoveredScripts?.has(candidate)) return { allowed: true };
+  if (context.discoveredScripts?.has(candidate) || context.discoveredMedia?.has(candidate)) return { allowed: true };
   if (context.discoveredCmsFiles?.has(candidate)) return { allowed: true };
   if (context.wordpress) {
     if ((WORDPRESS_PATHS as readonly string[]).includes(path) && u.search === '') return { allowed: true };

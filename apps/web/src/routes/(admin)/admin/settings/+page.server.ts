@@ -37,7 +37,7 @@ async function removeFiles(keepIds: Set<string> | null): Promise<{ removed: numb
       continue;
     }
     for (const name of names) {
-      const id = name.replace(/\.(jpg|jpeg|png|pdf)$/i, '');
+      const id = name.replace(/\.(jpg|jpeg|png|webp|gif|pdf)$/i, '').replace(/-og$/, '');
       if (!/^[0-9a-f-]{36}$/.test(id)) continue;
       if (keepIds && keepIds.has(id)) continue;
       try {
