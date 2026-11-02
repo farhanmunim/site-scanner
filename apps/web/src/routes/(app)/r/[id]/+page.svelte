@@ -6,33 +6,34 @@
   import { scoreTone } from '@site-scanner/core/analyze/score';
   import { PROFILE_LABELS } from '@site-scanner/core/analyze/profile';
   import { explainFailure } from '@site-scanner/core/analyze/reasons';
-  import { subscribeScan, TERMINAL } from '$lib/scan-events';
-  import { fmtDate, fmtMs } from '$lib/format';
-  import Icon from '$lib/ui/Icon.svelte';
-  import { SECTION_LABEL, toolBySlug, TOOLS, type SectionId } from '$lib/ui/tools';
-  import Ring from '$lib/ui/report/Ring.svelte';
-  import Modules from '$lib/ui/report/Modules.svelte';
-  import FixesCard from '$lib/ui/report/FixesCard.svelte';
-  import DomainCard from '$lib/ui/report/DomainCard.svelte';
-  import DnsCard from '$lib/ui/report/DnsCard.svelte';
-  import EmailCard from '$lib/ui/report/EmailCard.svelte';
-  import SpfCard from '$lib/ui/report/SpfCard.svelte';
-  import BlocklistCard from '$lib/ui/report/BlocklistCard.svelte';
-  import TlsCard from '$lib/ui/report/TlsCard.svelte';
-  import HeadersCard from '$lib/ui/report/HeadersCard.svelte';
-  import SeoCard from '$lib/ui/report/SeoCard.svelte';
-  import PerformanceCard from '$lib/ui/report/PerformanceCard.svelte';
-  import AiCard from '$lib/ui/report/AiCard.svelte';
-  import StackCard from '$lib/ui/report/StackCard.svelte';
-  import PhpCard from '$lib/ui/report/PhpCard.svelte';
-  import WordPressCard from '$lib/ui/report/WordPressCard.svelte';
-  import ExposureCard from '$lib/ui/report/ExposureCard.svelte';
-  import ReputationCard from '$lib/ui/report/ReputationCard.svelte';
-  import PageCard from '$lib/ui/report/PageCard.svelte';
-  import LibrariesCard from '$lib/ui/report/LibrariesCard.svelte';
-  import SubdomainsCard from '$lib/ui/report/SubdomainsCard.svelte';
-  import PrivacyCard from '$lib/ui/report/PrivacyCard.svelte';
-  import { dot, rollup, safeHref, toneFromScore, TLS_IDS, type Tone } from '$lib/ui/report/helpers';
+  import { subscribeScan, TERMINAL } from '$lib/utils/scan-events';
+  import { fmtDate, fmtMs } from '$lib/utils/format';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import { SECTION_LABEL, toolBySlug, TOOLS, type SectionId } from '$lib/data/tools';
+  import Ring from '$lib/components/report/Ring.svelte';
+  import Modules from '$lib/components/report/Modules.svelte';
+  import FixesCard from '$lib/components/report/FixesCard.svelte';
+  import DomainCard from '$lib/components/report/DomainCard.svelte';
+  import DnsCard from '$lib/components/report/DnsCard.svelte';
+  import EmailCard from '$lib/components/report/EmailCard.svelte';
+  import SpfCard from '$lib/components/report/SpfCard.svelte';
+  import BlocklistCard from '$lib/components/report/BlocklistCard.svelte';
+  import TlsCard from '$lib/components/report/TlsCard.svelte';
+  import HeadersCard from '$lib/components/report/HeadersCard.svelte';
+  import SeoCard from '$lib/components/report/SeoCard.svelte';
+  import PerformanceCard from '$lib/components/report/PerformanceCard.svelte';
+  import AiCard from '$lib/components/report/AiCard.svelte';
+  import StackCard from '$lib/components/report/StackCard.svelte';
+  import PhpCard from '$lib/components/report/PhpCard.svelte';
+  import WordPressCard from '$lib/components/report/WordPressCard.svelte';
+  import ExposureCard from '$lib/components/report/ExposureCard.svelte';
+  import ReputationCard from '$lib/components/report/ReputationCard.svelte';
+  import PageCard from '$lib/components/report/PageCard.svelte';
+  import LibrariesCard from '$lib/components/report/LibrariesCard.svelte';
+  import SubdomainsCard from '$lib/components/report/SubdomainsCard.svelte';
+  import PrivacyCard from '$lib/components/report/PrivacyCard.svelte';
+  import { dot, safeHref, type Tone } from '$lib/components/report/helpers';
+  import { FULL_SECTIONS, sidebarValue, worthShowing } from '$lib/components/report/sections';
 
   let { data } = $props();
   let printMode = $derived(page.url.searchParams.get('print') === '1');
@@ -50,19 +51,7 @@
   let scopeTool = $derived(data.scan.scope && data.scan.scope !== 'full' ? toolBySlug(data.scan.scope) : null);
   let tool = $derived(scopeTool ?? (printMode ? null : toolBySlug(page.url.searchParams.get('tool'))));
   let stageOrder = $derived(planFor(data.scan.scope).stages);
-  const FULL: SectionId[] = ['fixes', 'page', 'domain', 'email', 'spf', 'blocklist', 'reputation', 'headers', 'tls', 'seo', 'performance', 'ai', 'stack', 'php', 'wordpress', 'libraries', 'dns', 'ports', 'subdomains', 'privacy'];
-  // In the full report, skip sections that have nothing to say (no PHP, no recognised platform, no port data).
-  // A focused tool always shows its section, so "PHP version checker" can still answer "not detected".
-  const worthShowing = (id: SectionId): boolean => {
-    const r = data.scan.report as Report | null;
-    if (!r) return true;
-    if (id === 'php') return !!r.php?.detected;
-    if (id === 'wordpress') return !!r.cms || !!r.platform;
-    if (id === 'ports') return !!r.exposure;
-    if (id === 'reputation') return !!r.reputation;
-    return true;
-  };
-  let shown = $derived<SectionId[]>(tool ? tool.sections : FULL.filter((id) => running || failed || worthShowing(id)));
+  let shown = $derived<SectionId[]>(tool ? tool.sections : FULL_SECTIONS.filter((id) => running || failed || worthShowing(id, report)));
   let has = $derived((id: SectionId) => shown.includes(id));
 
   let active = $state<string>('');
@@ -122,30 +111,8 @@
   // Sidebar: every shown section, with a score or status where we have one.
   let side = $derived.by(() => {
     if (!report) return [] as { id: SectionId; label: string; sc: string; tone: Tone }[];
-    const sec = (id: string) => scores?.sections.find((s) => s.id === id)?.score ?? null;
-    const val = (id: SectionId): { sc: string; tone: Tone } => {
-      const num = (n: number | null) => (n === null || running ? { sc: '', tone: '' as Tone } : { sc: String(n), tone: toneFromScore(n) });
-      switch (id) {
-        case 'headers': return num(sec('headers'));
-        case 'tls': return num(sec('tls'));
-        case 'seo': return num(sec('seo'));
-        case 'email': return num(sec('email'));
-        case 'performance': return num(sec('performance'));
-        case 'privacy': return num(sec('privacy'));
-        case 'ai': return num(report!.aiReadiness?.score ?? null);
-        case 'domain': { const r = rollup(report!.domainChecks); return { sc: r.tone === 'good' ? '✓' : r.bad + r.warn ? String(r.bad + r.warn) : '', tone: r.tone }; }
-        case 'blocklist': { const b = report!.blocklists; return b ? { sc: b.listed.length ? String(b.listed.length) : '✓', tone: b.listed.length ? 'bad' : 'good' } : { sc: '', tone: '' }; }
-        case 'spf': { const s = report!.dns?.spf; return s ? { sc: `${s.totalLookups}/10`, tone: s.totalLookups > 10 ? 'bad' : s.totalLookups >= 9 ? 'warn' : 'good' } : { sc: '', tone: '' }; }
-        case 'libraries': { const n = (report!.vulnerableLibraries?.length ?? 0) + (report!.exposedSecrets?.length ?? 0); return report!.vulnerableLibraries == null ? { sc: '', tone: '' } : { sc: n ? String(n) : '✓', tone: n ? 'bad' : 'good' }; }
-        case 'page': { const n = report!.social?.notes.length ?? 0; return report!.social ? { sc: n ? String(n) : '✓', tone: n > 2 ? 'warn' : n ? '' : 'good' } : { sc: '', tone: '' }; }
-        case 'reputation': { const x = report!.reputation; if (!x) return { sc: '', tone: '' }; const r = rollup(x.findings); return { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone }; }
-        case 'ports': { const x = report!.exposure; if (!x?.hosts.some((h) => h.known)) return { sc: '', tone: '' }; const r = rollup(x.findings); return { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone }; }
-        case 'php': { const p = report!.php; return p?.detected ? { sc: p.version ?? '?', tone: p.supported === false ? 'bad' : p.supported ? 'good' : '' } : { sc: '', tone: '' }; }
-        case 'wordpress': { const r = rollup(report!.cms?.flags); return report!.cms ? { sc: r.bad + r.warn ? String(r.bad + r.warn) : '✓', tone: r.tone } : { sc: '', tone: '' }; }
-        default: return { sc: '', tone: '' };
-      }
-    };
-    return shown.map((id) => ({ id, label: SECTION_LABEL[id], ...val(id) }));
+    const ctx = { report, scores, running };
+    return shown.map((id) => ({ id, label: SECTION_LABEL[id], ...sidebarValue(id, ctx) }));
   });
 
   let shareLabel = $state('Copy link');

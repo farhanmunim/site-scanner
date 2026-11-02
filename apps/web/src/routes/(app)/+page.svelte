@@ -1,7 +1,7 @@
 <script lang="ts">
-  import ScanForm from '$lib/ui/ScanForm.svelte';
-  import Icon from '$lib/ui/Icon.svelte';
-  import { TOOLS } from '$lib/ui/tools';
+  import ScanForm from '$lib/components/scan/ScanForm.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import { TOOLS } from '$lib/data/tools';
   let { form, data } = $props();
 </script>
 

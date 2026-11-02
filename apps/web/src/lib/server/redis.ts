@@ -1,6 +1,6 @@
 import IORedis from 'ioredis';
 import { Queue } from 'bullmq';
-import { config, SCAN_QUEUE } from './config.js';
+import { config, SCAN_QUEUE } from '$lib/server/config.js';
 
 let redis: IORedis | null = null;
 let queue: Queue<{ scanId: string }> | null = null;

@@ -1,5 +1,5 @@
 import { createDb, type Db } from '@site-scanner/db';
-import { config } from './config.js';
+import { config } from '$lib/server/config.js';
 
 let instance: { db: Db; client: ReturnType<typeof createDb>['client'] } | null = null;
 

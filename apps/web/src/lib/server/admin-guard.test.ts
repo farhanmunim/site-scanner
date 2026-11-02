@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAdminRoute, mustRefuseAdminWrite } from './admin-guard';
+import { isAdminRoute, mustRefuseAdminWrite } from '$lib/server/admin-guard';
 
 const post = (routeId: string | null, pathname: string, isAdmin = false, method = 'POST') => mustRefuseAdminWrite({ routeId, pathname, method, isAdmin });
 

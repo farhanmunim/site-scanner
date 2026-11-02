@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Icon from '$lib/ui/Icon.svelte';
-  import { TOOLS } from '$lib/ui/tools';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import { TOOLS } from '$lib/data/tools';
   let { data } = $props();
 </script>
 

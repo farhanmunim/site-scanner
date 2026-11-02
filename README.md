@@ -44,6 +44,41 @@ Deployment: see [docs/DEPLOY.md](docs/DEPLOY.md).
 - Per-IP and per-domain rate limits, 15-minute cache, dedupe of in-flight scans, queue cap,
   Turnstile, admin kill switch.
 
+## Project layout
+
+```
+apps/web/src
+  routes/            pages and endpoints, one folder per URL
+    (app)/             the public site: home, /tools, /r/:id report
+    (admin)/           the owner console (own layout and stylesheet)
+    (print)/           the plain document the PDF export renders
+    (classic)/         the archived first design under /archive/v1
+    api/               POST /api/scans, scan status and live events
+  lib/
+    components/
+      ui/                shared pieces: Icon, Mark, Orb, ThemeToggle, Turnstile
+      scan/              the scan form and progress dialog
+      report/            one card per report section, plus sections.ts (which sections show, sidebar badges)
+    data/tools.ts      the tool catalogue (titles, sections, what each checks)
+    server/            server-only code: scan service, auth, admin guard, database, Redis
+    styles/
+      base/              design tokens, theme, primitives (layer order in layers.css)
+      site/              the public site's CSS in numbered parts, imported in order by index.css
+      admin.css  print.css  legacy.css
+    utils/             formatting and the live scan-event client
+    legacy/            components used only by the archived design
+apps/worker/src      scan.ts (one job), housekeeping.ts, media.ts, adapters.ts (budgets, cache),
+                     analyse-runner.ts (killable analysis), browser.ts, pdf.ts, runtime.ts, index.ts (startup)
+packages/core/src
+  gather/            the stages that touch the network (dns, http, files, cert, rdap, browser)
+  analyze/           pure functions from gathered data to the report (audits, scoring, detection)
+  external/          one file per outside source; quota.ts holds every spending limit
+  types/             shared data shapes (re-exported from types.ts)
+packages/db          Drizzle schema, migrations, advisory-locked migrator
+```
+
+CSS order matters: the numbered files in `lib/styles/site/` are imported in sequence and later rules override earlier ones, exactly as the single stylesheet they replaced.
+
 ## Licence notes
 
 Application code is private/unlicensed. The fingerprint database is fetched at build time from
@@ -53,6 +88,6 @@ Application code is private/unlicensed. The fingerprint database is fetched at b
 
 - `/`: quick scan. `/tools` and `/tools/<slug>`: focused tools. A tool runs only the stages and lookups it needs (plans in `packages/core/src/scope.ts`; `POST /api/scans` takes `"tool"`), stored as `scans.scope`. A full scan can answer any tool; a focused scan only its own.
 - `/r/<id>`: the full report. `/r/<id>?tool=<slug>` narrows it to one tool's sections. `/bot`, `/privacy`: info pages.
-- Design: the farhan.app UI library tokens and primitives (vendored in `apps/web/src/lib/ui/css/`, dark by default), app styles in `apps/web/src/lib/ui/ui.css`, report sections in `apps/web/src/lib/ui/report/`.
-- `/archive/v1/…`: the first design, kept for reference. `/admin` still uses its own styling.
+- Design: the farhan.app UI library tokens and primitives (vendored in `apps/web/src/lib/styles/base/`, dark by default). See [Project layout](#project-layout).
+- `/archive/v1/…`: the first design, kept for reference (its code lives in `lib/legacy/` and `lib/styles/legacy.css`). `/admin` has its own stylesheet.
 - `/v2/…` redirects to the same path without the prefix.

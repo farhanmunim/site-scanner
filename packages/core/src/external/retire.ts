@@ -1,4 +1,6 @@
 import { compareVersions } from '../version.js';
+import { cached } from './cache.js';
+import type { ExternalConfig } from './config.js';
 import type { RetireLibrary, VulnerableLibrary } from '../types.js';
 
 /** retire.js repository entry as published in RetireJS/retire.js (repository/jsrepository.json). */
@@ -75,4 +77,18 @@ export function findVulnerableLibraries(libs: RetireLibrary[], urls: string[], b
     if (vulns.length) out.push({ name: m.library, version: m.version, source: m.source, vulns });
   }
   return out;
+}
+
+/** retire.js repository, trimmed to the libraries that appear on this page (the full file is ~1 MB). */
+export async function fetchRetire(urls: string[], bodies: { source: string; body: string }[], cfg: ExternalConfig): Promise<RetireLibrary[] | null> {
+  if (cfg.retire === false) return null;
+  const repo = await cached(cfg, 'retire:repo', 24 * 3600, async () => {
+    const f = cfg.fetchImpl ?? fetch;
+    const res = await f('https://raw.githubusercontent.com/RetireJS/retire.js/master/repository/jsrepository.json', { signal: AbortSignal.timeout(20_000) });
+    if (!res.ok) return null;
+    return normaliseRepo((await res.json()) as Record<string, RetireRepoEntry>);
+  });
+  if (!repo) return null;
+  const hit = new Set(identifyLibraries(repo, urls, bodies).map((m) => m.library));
+  return repo.filter((l) => hit.has(l.name));
 }

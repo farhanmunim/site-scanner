@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import Turnstile from '$lib/components/Turnstile.svelte';
-  import ScanModal from '$lib/components/ScanModal.svelte';
+  import Turnstile from '$lib/components/ui/Turnstile.svelte';
+  import ScanModal from '$lib/legacy/ScanModal.svelte';
   let { form, data } = $props();
   let value = $state('');
   let busy = $state(false);

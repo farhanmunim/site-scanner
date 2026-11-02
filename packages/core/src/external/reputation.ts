@@ -1,5 +1,5 @@
 import type { IpInfo, ReputationData } from '../types.js';
-import type { ExternalConfig } from './index.js';
+import type { ExternalConfig } from './config.js';
 import { cached } from './cache.js';
 
 /**

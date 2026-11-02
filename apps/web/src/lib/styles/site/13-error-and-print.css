@@ -1,0 +1,16 @@
+/* Error page, helpers, print rules. Class prefix: ss-. */
+@layer app {
+  .ss-error { padding: var(--space-16) 0; text-align: center; }
+  .ss-error h1 { font-size: var(--text-5xl); font-weight: var(--weight-bold); margin: var(--space-3) 0; }
+  .ss-error p { color: var(--text-secondary); max-width: 480px; margin: 0 auto var(--space-5); }
+  .ss-row { display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+  .ss-row.center { justify-content: center; }
+
+  .no-print {}
+  @media print {
+    .ss-nav, .ss-foot, .ss-side, .no-print { display: none !important; }
+    .ss-layout { display: block; padding-top: 0; }
+    .ss-card, .ss-mod, .ss-verdict { break-inside: avoid; box-shadow: none; }
+    .ss-card > .body { padding: var(--space-4); }
+  }
+}

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
-  import { fmtDate, fmtMs } from '$lib/format';
-  import Icon from '$lib/ui/Icon.svelte';
+  import { fmtDate, fmtMs } from '$lib/utils/format';
+  import Icon from '$lib/components/ui/Icon.svelte';
   let { data, form } = $props();
   const tone = (s: string) => (s === 'complete' ? 'good' : s === 'failed' ? 'bad' : s === 'queued' || s === 'running' ? 'info' : 'warn');
 </script>

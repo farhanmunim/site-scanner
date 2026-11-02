@@ -1,0 +1,32 @@
+/* Hero and the scan form. Class prefix: ss-. */
+@layer app {
+  /* ---------- hero + scan form ---------- */
+  .ss-hero { position: relative; padding: var(--space-16) 0 var(--space-8); text-align: center; overflow: hidden; }
+  .ss-hero::before { content: ""; position: absolute; left: 50%; top: -80px; translate: -50% 0; width: 850px; max-width: 120%; height: 380px; background: linear-gradient(to bottom, rgba(var(--fg-rgb), .15), transparent); filter: blur(130px); opacity: .15; pointer-events: none; }
+  .ss-hero > * { position: relative; }
+  .ss-hero h1 { font-size: clamp(var(--text-4xl), 6vw, 60px); line-height: 1.08; font-weight: var(--weight-bold); max-width: 18ch; margin: var(--space-4-5) auto 0; text-wrap: balance; }
+  .ss-hero p.lede { margin: var(--space-4) auto 0; max-width: 560px; color: var(--text-secondary); font-size: var(--text-md); line-height: 1.65; }
+  .ss-pill { display: inline-flex; align-items: center; gap: var(--space-2); height: 26px; padding: 0 var(--space-3); border-radius: var(--radius-full); border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font: var(--weight-regular) var(--text-xs)/1 var(--font-mono); }
+  .ss-pill i { width: 6px; height: 6px; border-radius: 50%; background: var(--success); animation: eui-pulse-subtle 3s infinite; }
+  .ss-scan { max-width: 640px; margin: var(--space-8) auto 0; text-align: left; }
+  .ss-scanbox { display: flex; gap: var(--space-2); padding: var(--space-1-5); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-xl); box-shadow: var(--shadow-subtle); transition: border-color var(--duration-base), box-shadow var(--duration-base); }
+  .ss-scanbox:focus-within { border-color: var(--border-hover); box-shadow: 0 0 0 3px var(--accent-subtle); }
+  .ss-scanbox .pre { display: grid; place-items: center; padding: 0 0 0 var(--space-3); color: var(--text-subtle); font: var(--weight-regular) var(--text-base)/1 var(--font-mono); }
+  .ss-scanbox input { flex: 1; min-width: 0; height: var(--control-h-lg); border: 0; background: transparent; font-size: var(--text-lg); color: var(--text-primary); outline: none; }
+  .ss-scanbox input::placeholder { color: var(--text-muted); }
+  .ss-scanbox .eui-btn { height: var(--control-h-lg); border-radius: var(--radius-lg); }
+  .ss-try { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1-5); margin-top: var(--space-3); color: var(--text-muted); font-size: var(--text-sm); justify-content: center; }
+  .ss-try button { height: 24px; padding: 0 var(--space-2-5); border-radius: var(--radius-md); border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font: var(--weight-regular) var(--text-xs)/1 var(--font-mono); }
+  .ss-try button:hover { color: var(--text-primary); border-color: var(--border-hover); background: var(--accent-subtle); }
+  .ss-stats { display: flex; justify-content: center; gap: var(--space-8); margin-top: var(--space-8); flex-wrap: wrap; }
+  .ss-stats div { text-align: center; }
+  .ss-stats b { display: block; font-size: var(--text-2xl); font-weight: var(--weight-semibold); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+  .ss-stats span { font: var(--weight-regular) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); }
+  .ss-spin { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(var(--fg-rgb), .25); border-top-color: currentColor; animation: eui-spin .7s linear infinite; display: inline-block; }
+
+  .ss-alert { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); border: 1px solid var(--border); background: var(--surface); font-size: var(--text-base); line-height: 1.5; margin-top: var(--space-3); }
+  .ss-alert .eui-icon { margin-top: 2px; }
+  .ss-alert.err { border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); } .ss-alert.err .eui-icon { color: var(--danger); }
+  .ss-alert.warn { border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); } .ss-alert.warn .eui-icon { color: var(--warning); }
+  .ss-alert.info .eui-icon { color: var(--info); }
+}

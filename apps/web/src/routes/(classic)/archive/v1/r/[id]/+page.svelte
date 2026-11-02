@@ -5,12 +5,12 @@
   import { CWV_THRESHOLDS, cwvVerdict, scoreTone, vitals } from '@site-scanner/core/analyze/score';
   import { PROFILE_LABELS } from '@site-scanner/core/analyze/profile';
   import { explainFailure } from '@site-scanner/core/analyze/reasons';
-  import Badge from '$lib/components/Badge.svelte';
-  import FindingsTable from '$lib/components/FindingsTable.svelte';
-  import FindingsList from '$lib/components/FindingsList.svelte';
-  import ScanLog from '$lib/components/ScanLog.svelte';
-  import { subscribeScan, TERMINAL } from '$lib/scan-events';
-  import { daysUntil, fmtBytes, fmtDate, fmtMs } from '$lib/format';
+  import Badge from '$lib/legacy/Badge.svelte';
+  import FindingsTable from '$lib/legacy/FindingsTable.svelte';
+  import FindingsList from '$lib/legacy/FindingsList.svelte';
+  import ScanLog from '$lib/legacy/ScanLog.svelte';
+  import { subscribeScan, TERMINAL } from '$lib/utils/scan-events';
+  import { daysUntil, fmtBytes, fmtDate, fmtMs } from '$lib/utils/format';
 
   let { data } = $props();
   let printMode = $derived(page.url.searchParams.get('print') === '1');

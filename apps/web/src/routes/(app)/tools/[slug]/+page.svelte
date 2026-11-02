@@ -1,7 +1,7 @@
 <script lang="ts">
-  import ScanForm from '$lib/ui/ScanForm.svelte';
-  import Icon from '$lib/ui/Icon.svelte';
-  import { TOOLS } from '$lib/ui/tools';
+  import ScanForm from '$lib/components/scan/ScanForm.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import { TOOLS } from '$lib/data/tools';
   let { data } = $props();
   let t = $derived(data.tool);
   let others = $derived(TOOLS.filter((x) => x.slug !== t.slug).slice(0, 6));

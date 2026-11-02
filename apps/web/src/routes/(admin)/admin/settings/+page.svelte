@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Icon from '$lib/ui/Icon.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
   let { data, form } = $props();
   const v = data.values as Record<string, unknown>;
 </script>

@@ -1,16 +1,16 @@
 <script lang="ts">
-  import '$lib/ui/css/layers.css';
-  import '$lib/ui/css/fonts.css';
-  import '$lib/ui/css/tokens.css';
-  import '$lib/ui/css/theme.css';
-  import '$lib/ui/css/base.css';
-  import '$lib/ui/css/primitives.css';
-  import '$lib/ui/ui.css';
-  import '$lib/ui/admin.css';
+  import '$lib/styles/base/layers.css';
+  import '$lib/styles/base/fonts.css';
+  import '$lib/styles/base/tokens.css';
+  import '$lib/styles/base/theme.css';
+  import '$lib/styles/base/base.css';
+  import '$lib/styles/base/primitives.css';
+  import '$lib/styles/site/index.css';
+  import '$lib/styles/admin.css';
   import { page } from '$app/state';
-  import Mark from '$lib/ui/Mark.svelte';
-  import Icon from '$lib/ui/Icon.svelte';
-  import ThemeToggle from '$lib/ui/ThemeToggle.svelte';
+  import Mark from '$lib/components/ui/Mark.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte';
   let { children, data } = $props();
   const path = $derived(page.url.pathname.replace(/\/$/, '') || '/');
   const links: [string, string, string][] = [

@@ -1,6 +1,6 @@
 import type { CruxHistory, CruxPeriod, EolCycle, EolItem, ExternalData, GeoInfo, InternetDbData, InternetDbHost, OsvAdvisory, TrancoRank } from '../types.js';
 import type { LibraryMatch } from './retire.js';
-import type { ExternalConfig } from './index.js';
+import type { ExternalConfig } from './config.js';
 import { cached } from './cache.js';
 
 /**

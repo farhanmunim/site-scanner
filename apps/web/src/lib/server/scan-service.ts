@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { isIP } from 'node:net';
 import { and, blocklist, desc, domains, eq, gt, inArray, lookups, scans, settings, SETTINGS_KEYS, count } from '@site-scanner/db';
 import { isScope, LIMITS, prepareTarget, ScanRefused } from '@site-scanner/core';
-import { getDb } from './db.js';
-import { getQueue, rateLimitHit } from './redis.js';
-import { config } from './config.js';
+import { getDb } from '$lib/server/db.js';
+import { getQueue, rateLimitHit } from '$lib/server/redis.js';
+import { config } from '$lib/server/config.js';
 
 /**
  * The single entry point for "scan this site". Enforces, in order: kill switch, URL

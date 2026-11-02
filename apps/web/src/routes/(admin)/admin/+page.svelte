@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ago, fmtMs } from '$lib/format';
+  import { ago, fmtMs } from '$lib/utils/format';
   let { data } = $props();
   const tone = (s: string) => (s === 'complete' ? 'good' : s === 'failed' ? 'bad' : s === 'queued' || s === 'running' ? 'info' : 'warn');
   const maxTech = $derived(Math.max(1, ...data.topTech.map((t: { n: number }) => t.n)));

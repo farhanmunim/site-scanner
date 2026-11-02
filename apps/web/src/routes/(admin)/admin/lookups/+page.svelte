@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { fmtDate } from '$lib/format';
-  import Icon from '$lib/ui/Icon.svelte';
+  import { fmtDate } from '$lib/utils/format';
+  import Icon from '$lib/components/ui/Icon.svelte';
   let { data } = $props();
 </script>
 

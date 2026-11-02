@@ -1,7 +1,7 @@
 <script lang="ts">
-  import '../../app.css';
+  import '$lib/styles/legacy.css';
   import { page } from '$app/state';
-  import ThemeToggle from '$lib/components/ThemeToggle.svelte';
+  import ThemeToggle from '$lib/legacy/ThemeToggle.svelte';
   let { children, data } = $props();
   const base = $derived(page.url.pathname.startsWith('/archive/v1') ? '/archive/v1' : '');
   let onHome = $derived(page.url.pathname === base || page.url.pathname === base + '/');

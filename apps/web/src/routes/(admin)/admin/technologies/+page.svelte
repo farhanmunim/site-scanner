@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fmtDate } from '$lib/format';
+  import { fmtDate } from '$lib/utils/format';
   let { data } = $props();
   const conf = { high: 'good', medium: 'warn', low: '' } as const;
   const confWord = { high: 'Certain', medium: 'Likely', low: 'Possible' } as const;

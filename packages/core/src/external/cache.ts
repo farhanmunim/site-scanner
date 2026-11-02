@@ -1,4 +1,4 @@
-import type { ExternalConfig } from './index.js';
+import type { ExternalConfig } from './config.js';
 import { quotaIdForKey, takeQuota } from './quota.js';
 
 /**

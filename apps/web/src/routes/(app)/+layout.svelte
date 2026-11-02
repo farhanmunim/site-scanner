@@ -1,17 +1,17 @@
 <script lang="ts">
-  import '$lib/ui/css/layers.css';
-  import '$lib/ui/css/fonts.css';
-  import '$lib/ui/css/tokens.css';
-  import '$lib/ui/css/theme.css';
-  import '$lib/ui/css/base.css';
-  import '$lib/ui/css/primitives.css';
-  import '$lib/ui/ui.css';
+  import '$lib/styles/base/layers.css';
+  import '$lib/styles/base/fonts.css';
+  import '$lib/styles/base/tokens.css';
+  import '$lib/styles/base/theme.css';
+  import '$lib/styles/base/base.css';
+  import '$lib/styles/base/primitives.css';
+  import '$lib/styles/site/index.css';
   import { page } from '$app/state';
   import { afterNavigate } from '$app/navigation';
-  import Mark from '$lib/ui/Mark.svelte';
-  import Icon from '$lib/ui/Icon.svelte';
-  import ThemeToggle from '$lib/ui/ThemeToggle.svelte';
-  import { TOOLS } from '$lib/ui/tools';
+  import Mark from '$lib/components/ui/Mark.svelte';
+  import Icon from '$lib/components/ui/Icon.svelte';
+  import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte';
+  import { TOOLS } from '$lib/data/tools';
   let { children, data } = $props();
   const path = $derived(page.url.pathname.replace(/\/$/, '') || '/');
   const current = (href: string) => (path === href ? ('page' as const) : undefined);

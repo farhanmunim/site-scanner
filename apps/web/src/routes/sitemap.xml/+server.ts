@@ -1,6 +1,6 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { config } from '$lib/server/config.js';
-import { TOOLS } from '$lib/ui/tools';
+import { TOOLS } from '$lib/data/tools';
 
 /** Only the public, indexable pages. Reports (/r/…) are private by link and never listed. */
 export const GET: RequestHandler = () => {
