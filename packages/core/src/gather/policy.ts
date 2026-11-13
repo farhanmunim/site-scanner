@@ -31,8 +31,28 @@ export const LIMITS = {
   /** Scans allowed per client IP per hour. */
   maxScansPerIpPerHour: 20,
   /** Cool-down applied to a domain after a 403/429/challenge. */
-  restrictedCooldownMs: 60 * 60 * 1000
+  restrictedCooldownMs: 60 * 60 * 1000,
+  /**
+   * Link checking has its own budget, separate from maxRequestsPerScan: at most this many
+   * requests (HEAD checks, GET fallbacks and sitemap-index children combined) per scan.
+   */
+  maxLinkChecks: 50,
+  /** Link checks in flight at once, and the pause each one takes before its next request. */
+  linkCheckConcurrency: 2,
+  linkCheckDelayMs: 300,
+  linkCheckTimeoutMs: 8_000,
+  /** Wall-clock cap for the whole link stage. */
+  linkStageDeadlineMs: 40_000,
+  /** External link domains checked with a DNS lookup only (no request to the site). */
+  maxExternalDomains: 40
 } as const;
+
+/**
+ * Same-host links we never request even though the page links to them: anything that looks
+ * like it could change state on a GET/HEAD (carts, logouts, unsubscribes, admin screens).
+ * Links with a query string are skipped too (see links stage).
+ */
+export const UNSAFE_LINK_PATH = /\/(log-?out|sign-?out|logoff|unsubscribe|opt-?out|delete|remove|cart|basket|checkout|add-to-cart|wp-admin|wp-login\.php|admin|account\/(?:delete|close)|cdn-cgi)(\/|\.|$)/i;
 
 export const USER_AGENT = (siteUrl: string) =>
   `Mozilla/5.0 (compatible; SiteScannerBot/1.0; +${siteUrl.replace(/\/$/, '')}/bot)`;
@@ -65,7 +85,7 @@ export interface PathPermission {
 export function isPathAllowed(
   candidate: string,
   target: { host: string; url: string },
-  context: { discoveredScripts?: Set<string>; wordpress?: boolean; discoveredCmsFiles?: Set<string> } = {}
+  context: { discoveredScripts?: Set<string>; wordpress?: boolean; discoveredCmsFiles?: Set<string>; discoveredLinks?: Set<string> } = {}
 ): PathPermission {
   let u: URL;
   try {
@@ -87,6 +107,10 @@ export function isPathAllowed(
   if ((WELL_KNOWN_PATHS as readonly string[]).includes(path) && u.search === '') return { allowed: true };
   if (context.discoveredScripts?.has(candidate)) return { allowed: true };
   if (context.discoveredCmsFiles?.has(candidate)) return { allowed: true };
+  // Same-host links the page or its sitemap listed, already filtered by the link stage
+  // (robots.txt, no query string, nothing state-changing). Re-checked here so the policy
+  // never depends on the caller having filtered correctly.
+  if (context.discoveredLinks?.has(candidate) && u.hostname === target.host && u.search === '' && !UNSAFE_LINK_PATH.test(path)) return { allowed: true };
   if (context.wordpress) {
     if ((WORDPRESS_PATHS as readonly string[]).includes(path) && u.search === '') return { allowed: true };
     // theme stylesheet header / plugin readme for slugs the page referenced

@@ -3,7 +3,7 @@
 Evidence-backed website intelligence, self-hosted. Enter any public website and get: the
 technology stack (with the header/markup/script that gave each item away and a confidence
 level), CDN / WAF / hosting / DNS / email provider, registration and certificate details,
-HTTP security configuration mapped to OWASP categories, SPF/DKIM/DMARC, SEO signals,
+HTTP security configuration mapped to OWASP categories, SPF/DKIM/DMARC, SEO signals, broken links,
 Lighthouse performance, WordPress/Shopify deep dives, third-party services and privacy signals.
 
 Public users can scan freely; every lookup and result is stored in the owner's own Postgres
@@ -35,6 +35,11 @@ Deployment: see [docs/DEPLOY.md](docs/DEPLOY.md).
 ## Safety rules (enforced in code, covered by tests)
 
 - GET/HEAD only; a fixed allowlist of paths per scan; ~25 requests per scan; no crawling.
+- Link checks: at most 50 extra `HEAD` requests per scan (sent 2 at a time, with a pause between
+  requests and a 40-second limit), only to links on the scanned host that its page or sitemap lists,
+  honouring robots.txt and skipping query strings and state-changing paths (cart, logout, admin…).
+  External links get a DNS lookup only and are never requested. A 403 stops link checks; a 429 or
+  bot challenge stops them and starts the cool-down.
 - Every address is checked against private/loopback/link-local/CGNAT/metadata ranges and the
   deployment's own IPs before a socket is opened (DNS pinned via undici's connect lookup;
   Chromium requests are route-filtered the same way).

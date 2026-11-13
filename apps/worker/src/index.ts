@@ -127,6 +127,10 @@ async function processScan(job: Job<{ scanId: string }>): Promise<void> {
     const httpStatus = data.http?.final?.status;
     if (data.http?.challenge || (httpStatus && isRestrictedStatus(httpStatus))) {
       await tx.update(domains).set({ cooldownUntil: new Date(Date.now() + LIMITS.restrictedCooldownMs), cooldownReason: data.http?.challenge ? `${data.http.challenge.vendor} challenge` : `HTTP ${httpStatus}` }).where(eq(domains.registrableDomain, row.registrableDomain));
+    } else if (data.links?.restricted) {
+      // 429 or a bot challenge during link checks: same one-hour cool-down as the main page.
+      const r = data.links.restricted;
+      await tx.update(domains).set({ cooldownUntil: new Date(Date.now() + LIMITS.restrictedCooldownMs), cooldownReason: r.vendor ? `${r.vendor} challenge (link check)` : `HTTP ${r.status} (link check)` }).where(eq(domains.registrableDomain, row.registrableDomain));
     }
     await tx.update(workers).set({ currentScanId: null, lastSeenAt: new Date(), scansDone: sql`${workers.scansDone} + 1` }).where(eq(workers.id, config.workerId));
   });

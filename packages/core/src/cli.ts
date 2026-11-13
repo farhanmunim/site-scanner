@@ -72,6 +72,12 @@ function printReport(r: Report, ms: number) {
     for (const f of r.seo.findings) line(`  [${f.status.padEnd(5)}] ${f.title}: ${f.observed.slice(0, 100)}`);
     line();
   }
+  if (r.links) {
+    line('Links');
+    for (const f of r.links.findings) line(`  [${f.status.padEnd(5)}] ${f.title}: ${f.observed.slice(0, 140)}`);
+    for (const b of [...r.links.broken, ...r.links.unreachable]) line(`      · ${b.status ?? b.error}  ${b.url}  (${b.sources.join(', ')})`);
+    line();
+  }
   if (r.cms) {
     line(`CMS deep dive: ${r.cms.platform} ${r.cms.version ?? ''}`);
     if (r.cms.theme) line(`  Theme      ${r.cms.theme.name ?? r.cms.theme.slug} ${r.cms.theme.version ?? ''}`);
