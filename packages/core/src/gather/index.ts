@@ -7,7 +7,6 @@ import { gatherHttp } from './stages/http.js';
 import { gatherFiles, extractWordPressRefs } from './stages/files.js';
 import { gatherRdap } from './stages/rdap.js';
 import { gatherTls } from './stages/tls.js';
-import { gatherLinks } from './stages/links.js';
 import { fetchGreenWeb, fetchPsi, fetchSafeBrowsing, fetchWayback, fetchWordPressOrg, fetchWordfence, type ExternalConfig } from '../external/index.js';
 import { SCANNER_VERSION, type BrowserData, type GatheredData, type StageMeta, type StageName } from '../types.js';
 
@@ -23,7 +22,6 @@ export { gatherFiles, extractScriptUrls, extractWordPressRefs } from './stages/f
 export { gatherRdap } from './stages/rdap.js';
 export { gatherTls, type TlsInfo } from './stages/tls.js';
 export { gatherCert } from './stages/cert.js';
-export { gatherLinks, extractLinks, parseSitemap, robotsRulesFor, robotsAllows, sampleEvenly } from './stages/links.js';
 
 export interface GatherOptions {
   scanId: string;
@@ -86,7 +84,7 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
   const data: GatheredData = {
     target: { input: target.input, url: target.url, host: target.host, displayHost: target.displayHost, registrableDomain: target.registrableDomain, isSubdomain: target.isSubdomain },
     scan: { id: opts.scanId, createdAt: new Date().toISOString(), scannerVersion: SCANNER_VERSION, fingerprintsVersion: opts.fingerprintsVersion ?? null },
-    stages: { dns: { status: 'pending' }, http: { status: 'pending' }, files: { status: 'pending' }, rdap: { status: 'pending' }, cert: { status: 'pending' }, browser: { status: 'pending' }, links: { status: 'pending' }, external: { status: 'pending' } }
+    stages: { dns: { status: 'pending' }, http: { status: 'pending' }, files: { status: 'pending' }, rdap: { status: 'pending' }, cert: { status: 'pending' }, browser: { status: 'pending' }, external: { status: 'pending' } }
   };
   const done = async (stage: StageName, meta: StageMeta) => {
     data.stages[stage] = meta;
@@ -165,27 +163,6 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     await done('browser', { status: 'skipped', note: opts.browser ? 'Skipped: page unavailable or restricted' : 'Browser stage not enabled' });
   }
 
-  // Link checks: after the browser so the target never sees both at once; alongside the
-  // external APIs, which do not touch the target. Separate, small budget (LIMITS.maxLinkChecks).
-  const t5 = Date.now();
-  const linksP = (async () => {
-    const final = data.http?.final;
-    if (!final || data.stages.http.status !== 'complete' || data.stages.files.status !== 'complete' || data.browser?.blocked) {
-      await done('links', { status: 'skipped', note: data.browser?.blocked ? 'Skipped: the site restricts automated access' : 'Skipped: page unavailable or restricted' });
-      return;
-    }
-    try {
-      data.links = await gatherLinks(
-        { finalUrl: final.url, html: final.body, renderedHtml: data.browser?.renderedHtml ?? null, robots: data.files?.robots ?? null, sitemap: data.files?.sitemap ?? null },
-        { fetch: fetchOpts }
-      );
-      const l = data.links;
-      await done('links', stageMeta(l.restricted ? 'restricted' : 'complete', t5, l.stoppedReason ?? undefined));
-    } catch (e) {
-      await done('links', stageMeta('failed', t5, String((e as Error)?.message ?? e)));
-    }
-  })();
-
   // External enrichment (free APIs; all optional).
   const t4 = Date.now();
   const ext = opts.external ?? {};
@@ -206,7 +183,6 @@ export async function gather(target: NormalisedTarget, opts: GatherOptions): Pro
     await done('external', stageMeta('failed', t4, String((e as Error)?.message ?? e)));
   }
 
-  await linksP;
   await dispatcher.close().catch(() => {});
   return data;
 }

@@ -53,7 +53,6 @@
     ['security', 'Security'],
     ['email', 'Email'],
     ['seo', 'SEO'],
-    ['links', 'Links'],
     ['performance', 'Performance'],
     ['privacy', 'Privacy & third parties'],
     ['cms', 'CMS']
@@ -123,7 +122,6 @@
           <div class="stat"><span class="value">{report.thirdParties.length}</span><span class="label">third-party domains</span></div>
           {#if report.security.length}{@const c = counts(report.security)}<div class="stat"><span class="value">{c.bad + c.warn}</span><span class="label">security items to review</span></div>{/if}
           {#if report.seo}{@const c = counts(report.seo.findings)}<div class="stat"><span class="value">{c.bad + c.warn}</span><span class="label">SEO items to review</span></div>{/if}
-          {#if report.links?.coverage}<div class="stat"><span class="value">{report.links.broken.length + report.links.deadHosts.length}</span><span class="label">broken links</span></div>{/if}
           {#if report.performance?.scores.performance !== null && report.performance}<div class="stat"><span class="value">{report.performance.scores.performance}</span><span class="label">Lighthouse performance</span></div>{/if}
         </div>
         <dl class="kv" style="margin-top: 14px">
@@ -294,43 +292,6 @@
         </div>
       {/if}
     {:else}<div class="card"><p class="muted">No page to assess.</p></div>{/if}
-  </section>
-
-  <section class="report-section" id="links">
-    <h2>Links</h2>
-    {#if report.links}
-      {@const l = report.links}
-      {#if l.coverage}
-        <p class="muted small">
-          {#if l.coverage.complete}Checked all {l.coverage.checked} links on this page{#if l.coverage.sitemapUrls} and in the sitemap{/if}.
-          {:else}Checked {l.coverage.checked} of {l.coverage.candidates} links (a spread across the page{#if l.coverage.sitemapUrls} and sitemap{/if}; at most 50 per scan).{/if}
-          Only links on this site are requested; external links are checked with a DNS lookup only.
-        </p>
-      {/if}
-      <div class="card">{#each l.findings as f (f.id)}<Finding finding={f} />{/each}</div>
-      {#if l.broken.length || l.unreachable.length}
-        <div class="card">
-          <h3>Broken and unreachable links ({l.broken.length + l.unreachable.length})</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Link</th><th>Result</th><th>Found in</th></tr></thead>
-              <tbody>{#each [...l.broken, ...l.unreachable] as b (b.url)}<tr><td class="mono small">{b.url}</td><td><span class="pill {b.status === null ? 'warn' : 'bad'}">{b.status === null ? (b.error ?? 'No response') : `HTTP ${b.status}`}</span></td><td class="small">{b.sources.join(', ')}</td></tr>{/each}</tbody>
-            </table>
-          </div>
-        </div>
-      {/if}
-      {#if l.brokenResources.length}
-        <div class="card">
-          <h3>Resources that failed to load ({l.brokenResources.length})</h3>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>URL</th><th>Status</th><th>Type</th><th>Party</th></tr></thead>
-              <tbody>{#each l.brokenResources as r}<tr><td class="mono small">{r.url}</td><td><span class="pill {r.thirdParty ? 'warn' : 'bad'}">HTTP {r.status}</span></td><td class="small">{r.type}</td><td class="small">{r.thirdParty ? 'third' : 'first'}</td></tr>{/each}</tbody>
-            </table>
-          </div>
-        </div>
-      {/if}
-    {:else}<div class="card"><p class="muted">No page to check.</p></div>{/if}
   </section>
 
   <section class="report-section" id="performance">

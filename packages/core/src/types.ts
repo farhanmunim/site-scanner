@@ -6,8 +6,8 @@ export const REPORT_VERSION = 1;
 
 export type Confidence = 'high' | 'medium' | 'low';
 
-export type StageName = 'dns' | 'http' | 'files' | 'rdap' | 'cert' | 'browser' | 'links' | 'external';
-export const STAGE_ORDER: StageName[] = ['dns', 'http', 'files', 'rdap', 'cert', 'browser', 'links', 'external'];
+export type StageName = 'dns' | 'http' | 'files' | 'rdap' | 'cert' | 'browser' | 'external';
+export const STAGE_ORDER: StageName[] = ['dns', 'http', 'files', 'rdap', 'cert', 'browser', 'external'];
 
 /** Outcome of a single gather stage. "restricted" = target blocked us; never retried. */
 export type StageStatus = 'pending' | 'complete' | 'restricted' | 'failed' | 'skipped';
@@ -109,49 +109,6 @@ export interface FilesStageData {
   cms: FetchedFile[];
 }
 
-export type LinkSource = 'page' | 'sitemap';
-
-export interface LinkCheck {
-  url: string;
-  /** Final HTTP status (after a GET fallback if HEAD was refused); null when unreachable. */
-  status: number | null;
-  method: 'HEAD' | 'GET';
-  /** Redirect target when the link answered 3xx (not followed). */
-  location?: string;
-  /** Network / DNS error when status is null. */
-  error?: string;
-  sources: LinkSource[];
-}
-
-export interface LinksStageData {
-  /** Unique same-host links found on the page (raw + rendered HTML). */
-  pageLinks: number;
-  /** Unique same-host URLs listed in the sitemap(s). */
-  sitemapUrls: number;
-  /** Sitemap files read (the /sitemap.xml already fetched + index children). */
-  sitemapsRead: string[];
-  /** Links eligible for checking after the filters below. */
-  candidates: number;
-  skipped: { robots: number; query: number; unsafe: number };
-  checked: LinkCheck[];
-  /** Every eligible link was checked (no sampling, no early stop). */
-  complete: boolean;
-  /** Why checking stopped early (budget, deadline, site restricted us). */
-  stoppedReason: string | null;
-  /** The site answered 429 or a bot challenge: treated like any other restriction. */
-  restricted: { status: number; vendor: string | null } | null;
-  external: {
-    /** Unique external hosts linked from the page. */
-    hosts: number;
-    /** Hosts looked up in DNS (capped). No request is sent to these sites. */
-    checked: number;
-    /** Hosts whose domain does not exist (NXDOMAIN), with the links that point at them. */
-    deadHosts: { host: string; links: string[] }[];
-  };
-  /** http:// links on an https:// page (first 20) and the total count. */
-  insecureLinks: { total: number; sample: string[] };
-}
-
 export interface RdapData {
   registrar: string | null;
   created: string | null;
@@ -195,7 +152,6 @@ export interface GatheredData {
   rdap?: RdapData | null;
   cert?: CertInfo | null;
   browser?: BrowserData | null;
-  links?: LinksStageData | null;
   external?: ExternalData;
 }
 
@@ -294,24 +250,6 @@ export interface SeoSummary {
   findings: Finding[];
 }
 
-export interface LinksSummary {
-  findings: Finding[];
-  coverage: {
-    checked: number;
-    candidates: number;
-    complete: boolean;
-    pageLinks: number;
-    sitemapUrls: number;
-    skipped: LinksStageData['skipped'];
-    stoppedReason: string | null;
-  } | null;
-  broken: LinkCheck[];
-  unreachable: LinkCheck[];
-  brokenResources: { url: string; status: number; type: string; thirdParty: boolean }[];
-  deadHosts: LinksStageData['external']['deadHosts'];
-  external: { hosts: number; checked: number } | null;
-}
-
 export interface RobotsSummary {
   present: boolean;
   sitemaps: string[];
@@ -355,7 +293,6 @@ export interface Report {
   security: Finding[];
   email: Finding[];
   seo: SeoSummary | null;
-  links: LinksSummary | null;
   robots: RobotsSummary | null;
   thirdParties: { domain: string; technology: string | null; category: string | null; count: number }[];
   cms: CmsDeepDive | null;

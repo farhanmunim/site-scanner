@@ -9,7 +9,6 @@ import { analyseRobots, analyseSeo } from './audits/seo.js';
 import { summariseThirdParties } from './thirdparties.js';
 import { analyseShopify, analyseWordPress } from './wordpress.js';
 import { auditPrivacy } from './privacy.js';
-import { analyseLinks } from './links.js';
 import type { TlsInfo } from '../gather/stages/tls.js';
 
 export { parseHtml } from './html.js';
@@ -21,7 +20,6 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
-export { analyseLinks } from './links.js';
 
 /**
  * Turn gathered data into the canonical Report. Pure and deterministic given the input
@@ -124,7 +122,6 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     security,
     email,
     seo,
-    links: final ? analyseLinks(data.links, browser) : null,
     robots,
     thirdParties,
     cms,
@@ -139,5 +136,5 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
 }
 
 export function stageLabel(s: StageName): string {
-  return { dns: 'Checking DNS', http: 'Fetching the page', files: 'Reading robots, sitemap and scripts', rdap: 'Looking up domain registration', cert: 'Inspecting TLS certificate', browser: 'Rendering in a browser', links: 'Checking links', external: 'Running performance and safety checks' }[s];
+  return { dns: 'Checking DNS', http: 'Fetching the page', files: 'Reading robots, sitemap and scripts', rdap: 'Looking up domain registration', cert: 'Inspecting TLS certificate', browser: 'Rendering in a browser', external: 'Running performance and safety checks' }[s];
 }
