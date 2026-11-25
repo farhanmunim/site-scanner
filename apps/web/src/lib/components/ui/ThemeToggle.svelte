@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Icon from '$lib/components/ui/Icon.svelte';
-  let dark = $state(true);
-  const effective = () => document.documentElement.getAttribute('data-theme') !== 'light';
+  let dark = $state(false);
+  const effective = () => document.documentElement.getAttribute('data-theme') === 'dark';
   onMount(() => (dark = effective()));
   function toggle() {
     const next = effective() ? 'light' : 'dark';

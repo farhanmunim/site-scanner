@@ -32,6 +32,7 @@
   import LibrariesCard from '$lib/components/report/LibrariesCard.svelte';
   import SubdomainsCard from '$lib/components/report/SubdomainsCard.svelte';
   import PrivacyCard from '$lib/components/report/PrivacyCard.svelte';
+  import KeyFactsCard from '$lib/components/report/KeyFactsCard.svelte';
   import { dot, safeHref, type Tone } from '$lib/components/report/helpers';
   import { FULL_SECTIONS, sidebarValue, worthShowing } from '$lib/components/report/sections';
 
@@ -214,6 +215,7 @@
 
   {#if report}
     {#if !tool}
+      <div style="margin-top: var(--space-4)"><KeyFactsCard {report} {running} /></div>
       <section class="ss-verdict" class:has-shot={!!report.screenshot} style="margin-top: var(--space-4)">
         <Ring value={overall} {tone} grade={overall !== null ? (scores?.grade ?? null) : null} />
         <div>

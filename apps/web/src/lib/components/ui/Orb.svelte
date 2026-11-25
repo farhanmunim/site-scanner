@@ -39,7 +39,7 @@
     io.observe(canvas!);
 
     function draw() {
-      const dark = document.documentElement.getAttribute('data-theme') !== 'light';
+      const dark = document.documentElement.getAttribute('data-theme') === 'dark';
       const W = (a: number) => (dark ? `rgba(255,255,255,${a})` : `rgba(20,20,28,${a})`);
       const cfg = STATES[motion] ?? STATES.working!;
       c.clearRect(0, 0, size, size);
