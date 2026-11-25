@@ -14,9 +14,7 @@ export const handle: Handle = async ({ event, resolve }) => {
   event.locals.country = country;
   event.locals.admin = hasValidSession(event.cookies);
 
-  // Light unless the visitor chose dark with the header toggle (no OS-preference switching).
-  const theme = event.cookies.get('theme') === 'dark' ? 'dark' : 'light';
-  const response = await resolve(event, { transformPageChunk: ({ html }) => html.replace('%theme%', theme) });
+  const response = await resolve(event);
   // Our own house in order: the headers we grade other sites on.
   response.headers.set('x-content-type-options', 'nosniff');
   response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');

@@ -118,30 +118,24 @@
   <section class="report-section" id="overview">
     <div class="grid">
       <div class="card" style="grid-column: span 2">
-        <h3>Key facts</h3>
-        <dl class="kv">
-          <dt>Registrar</dt><dd>{#if report.domain}{report.domain.registrar ?? 'Redacted / not provided'}{#if report.domain.expires}<span class="muted small">{' · '}expires {fmtDate(report.domain.expires)}</span>{#if daysUntil(report.domain.expires) !== null}{@const d = daysUntil(report.domain.expires)} <span class="pill {d! < 30 ? 'bad' : d! < 90 ? 'warn' : 'neutral'}">{d} days</span>{/if}{/if}{:else if stages.rdap?.status === 'pending' && running}<span class="muted">Looking up…</span>{:else}<span class="muted">Not available</span>{/if}</dd>
-          <dt>Hosting</dt><dd>{#if report.infra.hosting}{report.infra.hosting.name} <span class="pill {report.infra.hosting.confidence}">{report.infra.hosting.confidence}</span>{:else if report.infra.cdn}Not publicly detectable (behind {report.infra.cdn.name}){:else}Unknown{/if}</dd>
-          <dt>CDN / WAF</dt><dd>{report.infra.cdn?.name ?? 'None observed'}{#if report.infra.waf && report.infra.waf.name !== report.infra.cdn?.name}{' · ' + report.infra.waf.name}{/if}</dd>
-          <dt>DNS / Email</dt><dd>{report.infra.dnsProvider?.name ?? '—'} · {report.infra.emailProvider?.name ?? 'no email'}</dd>
-          {#if report.cms}<dt>Platform</dt><dd>{report.cms.platform === 'wordpress' ? 'WordPress' : 'Shopify'}{#if report.cms.version} {report.cms.version}{/if}{#if report.cms.theme} · theme {report.cms.theme.name ?? report.cms.theme.slug}{/if}</dd>{/if}
-          <dt>Technology</dt>
-          <dd>
-            {#if report.technologies.some((t) => !t.implied)}
-              <div class="chips">{#each report.technologies.filter((t) => !t.implied).slice(0, 18) as t}<a class="pill neutral" href="#tech-{t.slug}">{t.name}{#if t.version} {t.version}{/if}</a>{/each}</div>
-              {#if report.technologies.filter((t) => !t.implied).length > 18}<a class="small" href="#technology">+{report.technologies.filter((t) => !t.implied).length - 18} more</a>{/if}
-            {:else}<span class="muted">None detected{running ? ' yet' : ''}</span>{/if}
-          </dd>
-          <dt>Final URL</dt><dd class="mono">{report.http?.finalUrl ?? '—'} {#if report.http?.status}<span class="pill {report.http.status < 400 ? 'good' : 'bad'}">HTTP {report.http.status}</span>{/if}</dd>
-          {#if report.external.wayback}<dt>Online since</dt><dd>at least {fmtDate(report.external.wayback)} (Wayback Machine)</dd>{/if}
-        </dl>
-        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: 16px">
+        <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(120px, 1fr))">
           <div class="stat"><span class="value">{report.technologies.length}</span><span class="label">technologies</span></div>
           <div class="stat"><span class="value">{report.thirdParties.length}</span><span class="label">third-party domains</span></div>
           {#if report.security.length}{@const c = counts(report.security)}<div class="stat"><span class="value">{c.bad + c.warn}</span><span class="label">security items to review</span></div>{/if}
           {#if report.seo}{@const c = counts(report.seo.findings)}<div class="stat"><span class="value">{c.bad + c.warn}</span><span class="label">SEO items to review</span></div>{/if}
           {#if report.links?.coverage}<div class="stat"><span class="value">{report.links.broken.length + report.links.deadHosts.length}</span><span class="label">broken links</span></div>{/if}
           {#if report.performance?.scores.performance !== null && report.performance}<div class="stat"><span class="value">{report.performance.scores.performance}</span><span class="label">Lighthouse performance</span></div>{/if}
+        </div>
+        <dl class="kv" style="margin-top: 14px">
+          <dt>Final URL</dt><dd class="mono">{report.http?.finalUrl ?? '—'} {#if report.http?.status}<span class="pill {report.http.status < 400 ? 'good' : 'bad'}">HTTP {report.http.status}</span>{/if}</dd>
+          {#if report.cms}<dt>Platform</dt><dd>{report.cms.platform === 'wordpress' ? 'WordPress' : 'Shopify'}{#if report.cms.version} {report.cms.version}{/if}{#if report.cms.theme} · theme {report.cms.theme.name ?? report.cms.theme.slug}{/if}</dd>{/if}
+          <dt>CDN / WAF</dt><dd>{report.infra.cdn?.name ?? 'None observed'}{#if report.infra.waf && report.infra.waf.name !== report.infra.cdn?.name} · {report.infra.waf.name}{/if}</dd>
+          <dt>Hosting</dt><dd>{#if report.infra.hosting}{report.infra.hosting.name} <span class="pill {report.infra.hosting.confidence}">{report.infra.hosting.confidence}</span>{:else if report.infra.cdn}Not publicly detectable (behind {report.infra.cdn.name}){:else}Unknown{/if}</dd>
+          <dt>DNS / Email</dt><dd>{report.infra.dnsProvider?.name ?? '—'} · {report.infra.emailProvider?.name ?? 'no email'}</dd>
+          {#if report.external.wayback}<dt>Online since</dt><dd>at least {fmtDate(report.external.wayback)} (Wayback Machine)</dd>{/if}
+        </dl>
+        <div class="chips" style="margin-top: 12px">
+          {#each report.technologies.filter((t) => !t.implied).slice(0, 18) as t}<a class="pill neutral" href="#tech-{t.slug}">{t.name}</a>{/each}
         </div>
       </div>
       <div class="card">
