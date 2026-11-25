@@ -1,0 +1,13 @@
+/* SPF include tree. Class prefix: ss-. */
+@layer app {
+  /* SPF tree */
+  .ss-spf { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+  .ss-tree, .ss-tree ul { list-style: none; margin: 0; padding: 0; }
+  .ss-tree ul { margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--border); }
+  .ss-tree li { padding: var(--space-1-5) 0; }
+  .ss-tree .nd { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); font-size: var(--text-base); }
+  .ss-tree .dm { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+  .ss-tree .via { font: var(--weight-regular) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); }
+  .ss-tree .rec { font: var(--weight-regular) var(--text-xs)/1.5 var(--font-mono); color: var(--text-muted); overflow-wrap: anywhere; margin-top: 2px; }
+  .ss-tree .err { color: var(--danger); font-size: var(--text-sm); }
+}

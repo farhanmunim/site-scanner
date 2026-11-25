@@ -8,7 +8,11 @@
     ".": "./src/index.ts",
     "./gather": "./src/gather/index.ts",
     "./analyze": "./src/analyze/index.ts",
-    "./types": "./src/types.ts"
+    "./analyze/score": "./src/analyze/score.ts",
+    "./analyze/profile": "./src/analyze/profile.ts",
+    "./analyze/reasons": "./src/analyze/reasons.ts",
+    "./types": "./src/types.ts",
+    "./scope": "./src/scope.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
@@ -19,7 +23,7 @@
     "ipaddr.js": "2.5.0",
     "tldts": "7.4.15",
     "linkedom": "0.18.13",
-    "undici": "8.11.2"
+    "undici": "8.12.3"
   },
   "devDependencies": {
     "@types/node": "22.20.4",

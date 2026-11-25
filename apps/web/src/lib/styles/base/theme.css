@@ -1,0 +1,87 @@
+/* =============================================================================
+   TOKENS · tier 2 — theme (colour). Dark is the default, light is
+   [data-theme="light"]. Components use ONLY these for colour, so they work in
+   both themes and re-skin from one place.
+   ========================================================================== */
+@layer tokens {
+  :root, [data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #151515;
+    --surface: #202020;
+    --surface-raised: #242424;
+    --surface-hover: #262626;
+    --border: #363636;
+    --border-hover: #484848;
+    --border-subtle: #2C2C2C;
+
+    --text-primary: #F5F5F5;
+    --text-secondary: #A3A3A3;
+    --text-muted: #949494;
+    --text-subtle: #8A8A8A;
+
+    --accent: #F5F5F5;
+    --on-accent: #151515;
+    --accent-subtle: rgba(255,255,255,.06);
+    --accent-glow: rgba(255,255,255,.08);
+    --accent-ring: rgba(255,255,255,.20);
+    --indicator-active: #3B82F6;
+    --focus-ring: rgba(56,189,248,.5);
+
+    --fg-rgb: 245,245,245;     /* use as rgba(var(--fg-rgb), .1) */
+    --bg-rgb: 21,21,21;        /* use as rgba(var(--bg-rgb), .8) */
+    --overlay: rgba(0,0,0,.70);
+
+    /* semantic status colors — used sparingly (dots, small icons) */
+    --success: #4ADE80;
+    --warning: #FBBF24;
+    --danger: #F87171;
+    --info: #60A5FA;
+
+    --shadow-subtle: 0 1px 2px 0 rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.03);
+    --shadow-elevated: 0 12px 30px -10px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.06);
+    --shadow-glow: 0 0 20px -5px rgba(255,255,255,.15);
+    --shadow-modal: 0 20px 50px rgba(0,0,0,.8);
+    --shadow-dock: 0 12px 32px rgba(0,0,0,.6);
+    --dot: rgba(255,255,255,.05);
+    --shadow-rgb: 0,0,0;          /* use as rgba(var(--shadow-rgb), .25) */
+  }
+  [data-theme="light"] {
+    color-scheme: light;
+    --bg: #FAFAFA;
+    --surface: #FFFFFF;
+    --surface-raised: #F1F1F2;
+    --surface-hover: #F4F4F5;
+    --border: #E4E4E7;
+    --border-hover: #D4D4D8;
+    --border-subtle: #EDEDEF;
+
+    --text-primary: #0A0A0A;
+    --text-secondary: #52525B;
+    --text-muted: #66666E;
+    --text-subtle: #6B6B73;
+
+    --accent: #0A0A0A;
+    --on-accent: #FFFFFF;
+    --accent-subtle: rgba(10,10,10,.05);
+    --accent-glow: rgba(10,10,10,.06);
+    --accent-ring: rgba(10,10,10,.15);
+    --focus-ring: rgba(14,165,233,.5);
+
+    --fg-rgb: 10,10,10;
+    --bg-rgb: 250,250,250;
+    --overlay: rgba(10,10,10,.45);
+
+    --success: #16A34A;
+    --warning: #D97706;
+    --danger: #DC2626;
+    --info: #2563EB;
+
+    --shadow-subtle: 0 1px 2px 0 rgba(15,15,20,.06), 0 0 0 1px rgba(15,15,20,.04);
+    --shadow-elevated: 0 10px 25px -8px rgba(15,15,20,.12), 0 0 0 1px rgba(15,15,20,.05);
+    --shadow-glow: 0 0 15px -3px rgba(15,15,20,.08);
+    --shadow-modal: 0 20px 50px rgba(15,15,20,.22);
+    --shadow-dock: 0 12px 32px rgba(15,15,20,.16);
+    --dot: rgba(10,10,10,.07);
+    --shadow-rgb: 15,15,20;
+  }
+}

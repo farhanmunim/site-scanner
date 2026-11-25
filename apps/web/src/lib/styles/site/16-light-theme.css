@@ -1,0 +1,6 @@
+/* Light-theme text colour adjustments. Class prefix: ss-. */
+@layer app {
+  /* The tokens' light greens and ambers are fine as fills but too pale as small text on a light page (about 3:1).
+     Darker shades for the whole light theme keep text at 4.5:1 or better. */
+  [data-theme="light"] .ss { --success: #15803d; --warning: #b45309; }
+}

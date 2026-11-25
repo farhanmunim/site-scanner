@@ -26,7 +26,11 @@ const BLOCKED_V4: [string, number][] = [
 ];
 
 const BLOCKED_V6: [string, number][] = [
-  ['::', 128], // unspecified
+  ['::', 96], // unspecified, loopback and IPv4-compatible (::a.b.c.d)
+  ['::ffff:0:0:0', 96], // SIIT (::ffff:0:a.b.c.d)
+  ['3fff::', 20], // documentation
+  ['5f00::', 16], // SRv6 SIDs
+  ['2001:20::', 28], // ORCHIDv2
   ['::1', 128], // loopback
   ['::ffff:0:0', 96], // IPv4-mapped (checked via v4 rules too)
   ['64:ff9b::', 96], // NAT64

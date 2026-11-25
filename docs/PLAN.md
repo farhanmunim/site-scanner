@@ -1,4 +1,4 @@
-# Site Scanner — Product & Architecture Plan
+# Site Scan — Product & Architecture Plan
 
 **Status:** v1 built (Phase 1 + browser stage + free enrichment). This document is the condensed,
 revised version of the original 180-section master plan. It keeps the principles, cuts the
@@ -33,7 +33,7 @@ detectable" are first-class answers; CDN ≠ origin; no single made-up "website 
 security.txt, ads.txt, llms.txt, favicon, scripts the page references, and for WordPress the
 theme `style.css` / plugin `readme.txt` / `/wp-json/` it references); ~25 requests per scan; 5
 redirects; 512 KB HTML / 256 KB per file; no retries on 401/403/429/challenge and a one-hour
-domain cool-down; never bypass bot protection; honest `SiteScannerBot/1.0 (+/bot)` UA with an
+domain cool-down; never bypass bot protection; honest `SiteScanBot/1.0 (+/bot)` UA with an
 opt-out form; denylist for `.gov/.mil/.nhs.uk/...`; external APIs cached and rate-respecting.
 
 **Towards our own infrastructure** — every address is checked against private, loopback,
@@ -90,7 +90,11 @@ Health (workers, queue, DB size, egress IP reputation links).
 ## 7. Roadmap
 
 - **Done (v1):** everything above.
-- **Next:** retire.js vulnerable-library check; history/diff between scans of the same domain
+- **Done (tool parity pass):** version-aware Wordfence matching (core, themes, plugins) + latest-core check; recursive SPF inspector (10-lookup budget, void lookups, loops); DNSBL checks of mail/web IPs; PHP version + end-of-life; multi-resolver DNS propagation; AI-readiness score; retire.js vulnerable JS libraries; exposed-secret patterns in delivered code; DANE/TLS-RPT; domain expiry/age/lock. Results live on `Report` (`php`, `aiReadiness`, `vulnerableLibraries`, `exposedSecrets`, `domainChecks`, `blocklists`, `propagation`, `cms.vulnerabilities`, `dns.spf`) and are shown in the new UI.
+- **Done (UI redesign):** web-utility look built on the farhan.app UI library tokens; tool pages (`/tools/<slug>`) that show a focused view of the same scan; report with overview cards, section nav, SPF tree and propagation matrix.
+- **Needs a key:** `WORDFENCE_API_KEY` (free, wordfence.com > Integrations) for WordPress vulnerability matching; the v2 feed was removed.
+- **Deliberately not built:** exposed `.git`/`.env`/backup probing, port scanning, IIS probing and CORS probing (active; against the safety rules above); inbox tester (needs a mailbox).
+- **Next:** history/diff between scans of the same domain
   ("what changed"); compare two sites; JSON export polish and a documented public API with keys;
   scheduled re-scans + webhooks for owner-chosen domains; MCP server exposing
   `analyse_website` / `get_technology_stack` / `get_changes`.

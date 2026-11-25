@@ -1,0 +1,20 @@
+/* DNS propagation matrix. Class prefix: ss-. */
+@layer app {
+  /* propagation matrix */
+  .ss-prop { overflow-x: auto; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); }
+  .ss-prop table { border-collapse: collapse; width: 100%; font-size: var(--text-sm); }
+  .ss-prop th { text-align: left; padding: var(--space-2) var(--space-3); font: var(--weight-regular) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); background: var(--bg); border-bottom: 1px solid var(--border-subtle); white-space: nowrap; }
+  .ss-prop td { padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border-subtle); font-family: var(--font-mono); vertical-align: top; overflow-wrap: anywhere; min-width: 110px; }
+  .ss-prop tr:first-child td { border-top: 0; }
+  .ss-prop td.ty { font-weight: var(--weight-medium); color: var(--text-primary); white-space: nowrap; min-width: 0; }
+  .ss-prop td.none { color: var(--text-subtle); }
+  .ss-prop .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; background: var(--success); } .ss-prop .dot.off { background: var(--text-subtle); } .ss-prop .dot.diff { background: var(--warning); }
+
+  .ss-subs { display: flex; flex-wrap: wrap; gap: var(--space-1-5); }
+  .ss-subs span { font: var(--weight-regular) var(--text-sm)/1 var(--font-mono); padding: 5px 8px; border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); background: var(--bg); color: var(--text-secondary); overflow-wrap: anywhere; }
+  .ss-subs span.gone { color: var(--text-subtle); text-decoration: line-through; }
+
+  .ss-checkrow { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-2-5) 0; border-top: 1px solid var(--border-subtle); }
+  .ss-checkrow:first-child { border-top: 0; padding-top: 0; }
+  .ss-checkrow .pts { margin-left: auto; font: var(--weight-regular) var(--text-xs)/1 var(--font-mono); color: var(--text-muted); white-space: nowrap; padding-top: 4px; }
+}

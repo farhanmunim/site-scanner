@@ -6,6 +6,8 @@ import type { ParsedHtml } from './html.js';
 const VENDORS: [RegExp, string, string][] = [
   [/(^|\.)google-analytics\.com$|(^|\.)analytics\.google\.com$/, 'Google Analytics', 'Analytics'],
   [/(^|\.)googletagmanager\.com$/, 'Google Tag Manager', 'Tag managers'],
+  [/^stats\.g\.doubleclick\.net$/, 'Google Analytics (Google Signals)', 'Analytics'],
+  [/^www\.google\.[a-z.]{2,6}$/, 'Google Analytics (audience ping)', 'Analytics'],
   [/(^|\.)googlesyndication\.com$|(^|\.)doubleclick\.net$|(^|\.)googleadservices\.com$/, 'Google Ads', 'Advertising'],
   [/(^|\.)fonts\.googleapis\.com$|(^|\.)fonts\.gstatic\.com$/, 'Google Fonts', 'Font scripts'],
   [/(^|\.)maps\.googleapis\.com$|(^|\.)maps\.gstatic\.com$/, 'Google Maps', 'Maps'],

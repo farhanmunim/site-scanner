@@ -142,7 +142,10 @@ function testValue(pattern: string, value: string, source: EvidenceSource, key?:
     return { confidence: cp.confidence, version: null, evidence: { source, key, value: snippet(value), pattern: '(present)' } };
   }
   if (!cp.regex) return null;
-  const m = cp.regex.exec(value);
+  // Fingerprint patterns are third-party regexes run on attacker-controlled text; many are quadratic.
+  // Bounding the input bounds the worst case (the worker also runs analyse() under a hard deadline).
+  const cap = source === 'script-src' || source === 'url' ? 2048 : source === 'script-content' ? 30_000 : 400_000;
+  const m = cp.regex.exec(value.length > cap ? value.slice(0, cap) : value);
   if (!m) return null;
   return { confidence: cp.confidence, version: resolveVersion(cp.version, m), evidence: { source, key, value: snippet(m[0] || value), pattern: cp.raw } };
 }
@@ -275,7 +278,9 @@ export function detectTechnologies(input: DetectInput, db: FingerprintDb, catego
           for (const r of records) {
             const hit = testValue(p, r, 'dns', type.toUpperCase());
             if (hit) {
-              add(name, hit);
+              // A TXT "…-verification=" record only proves the owner once used that service (Notion, Canva,
+              // Lovable…), not that the site is built with it, so it is never more than a weak hint.
+              add(name, type.toUpperCase() === 'TXT' && /verification/i.test(p) ? { ...hit, confidence: Math.min(hit.confidence, 20) } : hit);
               break;
             }
           }
@@ -346,6 +351,13 @@ export function detectTechnologies(input: DetectInput, db: FingerprintDb, catego
           }
         }
       }
+    }
+  }
+
+  // A technology seen *only* inside someone else's script (e.g. "/wp-content" in gtag.js) is noise.
+  if (input.thirdPartyScripts?.size) {
+    for (const [name, h] of [...hits.entries()]) {
+      if (h.score < 50 && h.evidence.every((e) => e.source === 'script-content' && input.thirdPartyScripts!.has(e.key ?? ''))) hits.delete(name);
     }
   }
 

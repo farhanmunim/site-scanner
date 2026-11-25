@@ -1,0 +1,119 @@
+/* =============================================================================
+   TOKENS · tier 1 — scales (theme independent)
+   Components never use raw px for spacing, type, radius or motion: they use
+   these. Three global knobs re-scale a whole scale at once:
+
+     --space-unit    density      (4px default; 3px = compact, 5px = roomy)
+     --radius-scale  roundness    (1 default;  0 = square, 1.5 = softer)
+     --type-scale    text size    (1 default)
+   ========================================================================== */
+@layer tokens {
+  :root {
+    /* knobs */
+    --space-unit: 4px;
+    --radius-scale: 1;
+    --type-scale: 1;
+
+    /* spacing — multiples of --space-unit */
+    --space-0-5: calc(var(--space-unit) * .5);
+    --space-1: var(--space-unit);
+    --space-1-5: calc(var(--space-unit) * 1.5);
+    --space-2: calc(var(--space-unit) * 2);
+    --space-2-5: calc(var(--space-unit) * 2.5);
+    --space-3: calc(var(--space-unit) * 3);
+    --space-3-5: calc(var(--space-unit) * 3.5);
+    --space-4: calc(var(--space-unit) * 4);
+    --space-4-5: calc(var(--space-unit) * 4.5);
+    --space-5: calc(var(--space-unit) * 5);
+    --space-6: calc(var(--space-unit) * 6);
+    --space-7: calc(var(--space-unit) * 7);
+    --space-8: calc(var(--space-unit) * 8);
+    --space-10: calc(var(--space-unit) * 10);
+    --space-12: calc(var(--space-unit) * 12);
+    --space-16: calc(var(--space-unit) * 16);
+
+    /* type */
+    --font-sans: 'Geist','Geist Sans','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+    --font-mono: 'JetBrains Mono','Fira Code',ui-monospace,monospace;
+    --text-2xs: calc(10px * var(--type-scale));
+    --text-xs: calc(11px * var(--type-scale));
+    --text-sm: calc(12px * var(--type-scale));
+    --text-base: calc(13px * var(--type-scale));
+    --text-md: calc(14px * var(--type-scale));
+    --text-lg: calc(16px * var(--type-scale));
+    --text-xl: calc(18px * var(--type-scale));
+    --text-2xl: calc(20px * var(--type-scale));
+    --text-3xl: calc(24px * var(--type-scale));
+    --text-4xl: calc(32px * var(--type-scale));
+    --text-5xl: calc(40px * var(--type-scale));
+    --text-6xl: calc(56px * var(--type-scale));
+    --weight-regular: 400;
+    --weight-medium: 500;
+    --weight-semibold: 600;
+    --weight-bold: 700;
+    --leading-tight: 1.2;
+    --leading-snug: 1.4;
+    --leading-normal: 1.5;
+    --leading-relaxed: 1.65;
+    --tracking-tight-heading: -0.035em;
+    --tracking-snug: -0.02em;
+    --tracking-body: -0.011em;
+    --tracking-eyebrow: .1em;
+
+    /* radius */
+    --radius-2xs: calc(2px * var(--radius-scale));
+    --radius-xs: calc(4px * var(--radius-scale));
+    --radius-sm: calc(6px * var(--radius-scale));
+    --radius-md: calc(8px * var(--radius-scale));
+    --radius-lg: calc(12px * var(--radius-scale));
+    --radius-xl: calc(16px * var(--radius-scale));
+    --radius-2xl: calc(20px * var(--radius-scale));
+    --radius-3xl: calc(28px * var(--radius-scale));
+    --radius-full: 9999px;
+
+    /* motion — CSS fallbacks for the JS spring engine (see EUI.springs) */
+    --duration-instant: .1s;
+    --duration-fast: .15s;
+    --duration-base: .2s;
+    --duration-slow: .3s;
+    --duration-slower: .5s;
+    --ease-soft: cubic-bezier(.16,1,.3,1);
+    --ease-fast: cubic-bezier(.2,0,0,1);
+    --ease-smooth: cubic-bezier(.22,1,.36,1);
+
+    /* sizing */
+    --control-h-sm: 30px;
+    --control-h-md: 36px;
+    --control-h-lg: 44px;
+    --icon-btn: 32px;
+    --blur-sm: 8px;
+    --blur-md: 12px;
+
+    /* stacking (only the page chrome — components stack inside their own stage) */
+    --z-sticky: 40;
+    --z-nav: 50;
+    --z-fullscreen: 100;
+  }
+}
+
+/* =============================================================================
+   TOKENS · tier 3 — semantic aliases (what a component *means*, not its size)
+   Re-point these to change a whole category, e.g. square controls only:
+       :root { --radius-control: var(--radius-xs); }
+   ========================================================================== */
+@layer tokens {
+  :root {
+    --radius-control: var(--radius-md);   /* buttons, inputs, tabs, chips   */
+    --radius-card: var(--radius-lg);      /* cards, panels, popovers        */
+    --radius-overlay: var(--radius-2xl);  /* modals, sheets, docks          */
+    --radius-badge: var(--radius-xs);     /* tags, kbd, small labels        */
+    --radius-pill: var(--radius-full);
+
+    --field-h: var(--control-h-md);
+    --field-px: var(--space-3);
+    --card-pad: var(--space-4);
+    --stack-gap: var(--space-2);          /* default gap between related items */
+    --section-gap: var(--space-6);
+    --focus-offset: 2px;
+  }
+}

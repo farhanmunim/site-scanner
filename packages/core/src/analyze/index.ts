@@ -1,5 +1,10 @@
 import type { GatheredData, Report, StageName, TechnologyDetection } from '../types.js';
 import { REPORT_VERSION } from '../types.js';
+import { detectPlatform } from './platform.js';
+import { extractSocial } from './social.js';
+import { auditEol, auditExposure, auditReputation, mergeOsv } from './exposure.js';
+import { evaluateEol } from '../external/enrich.js';
+import { identifyLibraries } from '../external/retire.js';
 import { parseHtml, type ParsedHtml } from './html.js';
 import { detectTechnologies, loadFingerprints, type DetectInput } from './detect/index.js';
 import { summariseInfra } from './infra.js';
@@ -9,6 +14,12 @@ import { analyseRobots, analyseSeo } from './audits/seo.js';
 import { summariseThirdParties } from './thirdparties.js';
 import { analyseShopify, analyseWordPress } from './wordpress.js';
 import { auditPrivacy } from './privacy.js';
+import { detectPhp } from './php.js';
+import { analyseAiReadiness } from './ai.js';
+import { findExposedSecrets } from './secrets.js';
+import { auditDomain } from './domain.js';
+import { findVulnerableLibraries } from '../external/retire.js';
+import { planFor } from '../scope.js';
 import type { TlsInfo } from '../gather/stages/tls.js';
 
 export { parseHtml } from './html.js';
@@ -20,6 +31,19 @@ export { analyseRobots, analyseSeo } from './audits/seo.js';
 export { summariseThirdParties, classifyHost } from './thirdparties.js';
 export { analyseWordPress, analyseShopify, cmpVer } from './wordpress.js';
 export { auditPrivacy } from './privacy.js';
+export { extractSocial } from './social.js';
+export { auditExposure, auditEol, auditReputation, mergeOsv } from './exposure.js';
+export { detectPhp, PHP_EOL, phpBranch } from './php.js';
+export { analyseAiReadiness } from './ai.js';
+export { findExposedSecrets } from './secrets.js';
+export { auditDomain } from './domain.js';
+export { affectsVersion, fixedIn } from './wordpress.js';
+export { scoreReport, scoreTone, gradeFor, cwvVerdict, vitals, CWV_THRESHOLDS, PENALTY_OVERRIDES, SECTION_LABELS, SECTION_WEIGHTS } from './score.js';
+import { scoreReport } from './score.js';
+import { explainFailure } from './reasons.js';
+export { explainFailure } from './reasons.js';
+import { applyProfile, profileSite } from './profile.js';
+export { profileSite, applyProfile, PROFILE_LABELS } from './profile.js';
 
 /**
  * Turn gathered data into the canonical Report. Pure and deterministic given the input
@@ -69,22 +93,47 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     technologies = detectTechnologies(input, db, categories);
   }
 
-  const infra = summariseInfra(technologies, data.ips ?? [], data.dns ?? null, http?.challenge ?? browser?.blocked ?? null);
+  const infra = summariseInfra(technologies, data.ips ?? [], data.dns ?? null, http?.challenge ?? browser?.blocked ?? null, data.target.registrableDomain);
   const robots = data.files ? analyseRobots(data.files.robots, baseUrl) : null;
   const seo = parsed && final ? analyseSeo(parsed, baseUrl, robots, data.files?.sitemap ?? null, final.headers) : null;
   const cookies = browser?.cookies ?? [];
-  const security = http ? auditSecurityHeaders(http, tls, parsed, browser ? cookies : null, technologies) : [];
-  const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain) : [];
+  const rawSecurity = http ? auditSecurityHeaders(http, tls, parsed, browser ? cookies : null, technologies) : [];
+  const xhrSameOrigin = browser ? browser.requests.filter((r) => (r.type === 'xhr' || r.type === 'fetch') && r.host === new URL(baseUrl).hostname).length : 0;
+  // A bot-challenge page tells us nothing about the real site, so don't profile it.
+  const blocked = !!(http?.challenge || browser?.blocked);
+  const profile = parsed && !blocked ? profileSite({ technologies, html: parsed, cookies, xhrSameOrigin, security: rawSecurity }) : undefined;
+  const security = profile ? applyProfile(rawSecurity, profile) : rawSecurity;
+  const email = data.dns ? auditEmail(data.dns, data.target.registrableDomain, data.external?.blocklists) : [];
   const thirdParties = summariseThirdParties(parsed, browser?.requests ?? null, new URL(baseUrl).hostname, technologies);
-  const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}) ?? analyseShopify(rawHtml || renderedHtml, technologies);
-  const privacy = auditPrivacy(technologies, thirdParties, cookies, robots);
+  const cms = analyseWordPress(rawHtml || renderedHtml, data.files ?? null, technologies, data.external, final?.headers ?? {}, baseUrl) ?? analyseShopify(rawHtml || renderedHtml, technologies);
+  const privacy = final || browser ? auditPrivacy(technologies, thirdParties, cookies, robots) : [];
+
+  const cookieNames = [...(final?.cookies ?? []), ...cookies.map((c) => `${c.name}=`)];
+  const php = final ? detectPhp(final.headers, cookieNames, parsed, technologies) : null;
+  const aiReadiness = final ? analyseAiReadiness({ robots, llms: data.files?.llmsTxt ?? null, sitemap: data.files?.sitemap ?? null, rawHtml: rawHtml || renderedHtml, parsed, seo }) : null;
+  const scriptSources = [{ source: 'page', text: rawHtml }, ...(data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, text: f.body! }))];
+  const exposedSecrets = final ? findExposedSecrets(scriptSources) : [];
+  const scriptBodies = (data.files?.scripts ?? []).filter((f) => f.body).map((f) => ({ source: f.path, body: f.body! }));
+  const libUrls = [...new Set([...(parsed?.scriptSrc ?? []), ...scriptBodies.map((b) => b.source)])];
+  const retireLibs = data.external?.retire ? findVulnerableLibraries(data.external.retire, libUrls, scriptBodies) : null;
+  const vulnerableLibraries = mergeOsv(retireLibs, data.external?.osv, data.external?.retire ? identifyLibraries(data.external.retire, libUrls, scriptBodies) : []);
+  const eolItems = evaluateEol(technologies, data.external?.eolTables);
+  const eol = data.external?.eolTables ? { items: eolItems, findings: auditEol(eolItems) } : null;
+  const sharedEdge = !!infra.cdn || !!infra.waf || (data.ips ?? []).some((i) => /cloudflare|fastly|akamai|cloudfront|incapsula|imperva|sucuri|stackpath/i.test(i.asnOrg ?? ''));
+  const exposure = auditExposure(data.external?.internetDb, { sharedEdge, rank: data.external?.tranco ?? null, geo: data.external?.geo ?? null });
+  const domainChecks = auditDomain(data.rdap ?? null);
 
   if (data.external?.safeBrowsing?.threats.length) {
     security.unshift({ id: 'safe-browsing', title: 'Google Safe Browsing', status: 'bad', observed: `Flagged: ${data.external.safeBrowsing.threats.join(', ')}.`, detail: 'Google currently lists this URL as unsafe. Browsers may show a warning page.' });
   }
 
-  const stageStatuses = Object.values(data.stages).map((s) => s.status);
-  const quality: Report['scan']['quality'] = !final && !browser ? 'failed' : http?.challenge || browser?.blocked ? 'restricted' : stageStatuses.some((s) => s === 'failed' || s === 'restricted') ? 'partial' : 'complete';
+  const scope = data.scan.scope ?? 'full';
+  const focused = scope !== 'full';
+  const plan = planFor(scope);
+  // A focused scan is judged on the stages it ran: an email check has no page, and that is not a failure.
+  const ranStatuses = (Object.entries(data.stages) as [StageName, { status: string }][]).filter(([k]) => plan.stages.includes(k)).map(([, v]) => v.status);
+  const needsPage = plan.stages.includes('http');
+  const quality: Report['scan']['quality'] = needsPage && !final && !browser ? 'failed' : http?.challenge || browser?.blocked ? 'restricted' : ranStatuses.some((s) => s === 'failed' || s === 'restricted') ? 'partial' : 'complete';
 
   const psi = data.external?.psi ?? null;
   const screenshot = browser?.screenshot && opts.screenshotUrl ? { url: opts.screenshotUrl(browser.screenshot.path), width: browser.screenshot.width, height: browser.screenshot.height } : psi?.screenshotDataUrl ? { dataUrl: psi.screenshotDataUrl } : null;
@@ -104,7 +153,7 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     dns: data.dns ?? null,
     domain: data.rdap ?? null,
     cert: tls ? { issuer: tls.issuer, subject: tls.subject, notBefore: tls.notBefore, notAfter: tls.notAfter, sans: tls.sans, source: tls.source } : null,
-    tls: tls ? { protocol: tls.protocol, alpn: tls.alpn, authorized: tls.authorized, authorizationError: tls.authorizationError, source: tls.source } : null,
+    tls: tls ? { protocol: tls.protocol, alpn: tls.alpn, authorized: tls.authorized, authorizationError: tls.authorizationError, source: tls.source, cipher: tls.cipher ?? null, chain: tls.chain ?? [] } : null,
     http: http
       ? {
           finalUrl: final?.url ?? null,
@@ -116,7 +165,9 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
           compression,
           http3: /h3/.test(final?.headers['alt-svc'] ?? ''),
           cacheHeaders,
-          challenge: http.challenge
+          challenge: http.challenge,
+          timingMs: final?.timingMs ?? null,
+          htmlBytes: final ? (final.contentLength ?? new TextEncoder().encode(final.body).length) : null
         }
       : null,
     security,
@@ -125,13 +176,29 @@ export function analyse(data: GatheredData, opts: { screenshotUrl?: (path: strin
     robots,
     thirdParties,
     cms,
+    platform: detectPlatform(technologies),
+    social: parsed && final ? extractSocial(parsed, final.url, data.files?.media, opts.screenshotUrl) : null,
+    exposure,
+    eol,
+    fieldHistory: data.external?.crux ?? null,
+    reputation: data.external?.reputation ? { data: data.external.reputation, findings: auditReputation(data.external.reputation) } : null,
+    php,
+    aiReadiness,
+    vulnerableLibraries,
+    exposedSecrets,
+    domainChecks,
+    blocklists: data.external?.blocklists ?? null,
+    propagation: data.external?.propagation ?? null,
     wellKnown: { securityTxt: data.files?.securityTxt?.status === 200, adsTxt: data.files?.adsTxt?.status === 200, llmsTxt: data.files?.llmsTxt?.status === 200 },
     cookies,
     privacy,
     performance: psi,
     screenshot,
     safeBrowsing: data.external?.safeBrowsing ?? null,
-    external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null }
+    external: { wayback: data.external?.wayback?.firstSeen ?? null, greenHosting: data.external?.greenHosting ?? null, subdomains: data.external?.subdomains ?? null },
+    // A focused scan has no scores: sections it did not run would read as a perfect 100.
+    scores: focused ? undefined : scoreReport({ security, email, privacy, seo, performance: psi, quality, failureReason: quality === 'failed' ? explainFailure(data.stages.http?.note) : null }),
+    profile
   };
 }
 

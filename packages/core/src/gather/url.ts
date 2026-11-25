@@ -61,8 +61,9 @@ export function normaliseTarget(input: string): NormalisedTarget {
     throw new TargetError('ip-literal', 'Enter a domain name rather than an IP address.');
   }
 
-  const parsed = parseDomain(host, { allowPrivateDomains: false });
-  if (!parsed.domain || !parsed.isIcann) {
+  const parsed = parseDomain(host, { allowPrivateDomains: true });
+  // Private suffixes (github.io, vercel.app, ...) are separate sites: treat them as registrable.
+  if (!parsed.domain || !(parsed.isIcann || parsed.isPrivate)) {
     throw new TargetError('tld', 'Enter a public domain name (for example example.com).');
   }
 

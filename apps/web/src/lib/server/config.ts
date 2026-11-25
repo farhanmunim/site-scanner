@@ -27,6 +27,12 @@ const publicSiteUrl = siteUrl(env.PUBLIC_SITE_URL || env.SERVICE_URL_WEB || env.
 const adminPassword = env.ADMIN_PASSWORD ?? '';
 const dbPassword = env.POSTGRES_PASSWORD ?? env.SERVICE_PASSWORD_POSTGRES ?? '';
 
+/** Blank or non-numeric values fall back to the default (an empty variable must never read as 0). */
+function num(v: string | undefined, fallback: number): number {
+  const n = v === undefined || v.trim() === '' ? NaN : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 export const config = {
   databaseUrl: env.DATABASE_URL ?? '',
   redisUrl: env.REDIS_URL ?? 'redis://localhost:6379',
@@ -44,11 +50,18 @@ export const config = {
   turnstileSecret: env.TURNSTILE_SECRET_KEY ?? '',
   ipHashSalt: env.IP_HASH_SALT || env.SERVICE_PASSWORD_IPSALT || derived('ip-salt', adminPassword, dbPassword),
   screenshotDir: env.SCREENSHOT_DIR ?? '/data/screenshots',
+  pdfDir: env.PDF_DIR ?? (env.SCREENSHOT_DIR ?? '/data/screenshots') + '/pdf',
   /** Trust Cloudflare's CF-Connecting-IP header (safe when the site is proxied through Cloudflare). */
+  /** Optional: value of an `X-Origin-Secret` header that your Cloudflare Transform Rule adds; when set, CF-Connecting-IP is trusted only with it. */
+  originSecret: env.ORIGIN_SECRET ?? '',
   behindCloudflare: env.BEHIND_CLOUDFLARE !== 'false',
-  maxQueueDepth: Number(env.MAX_QUEUE_DEPTH ?? 20),
-  abuseContact: env.ABUSE_CONTACT || (env.ADMIN_EMAIL ?? '').trim(),
-  siteName: env.SITE_NAME ?? 'Site Scanner'
+  maxQueueDepth: num(env.MAX_QUEUE_DEPTH, 20),
+  /** Public contact shown on /bot and /privacy. Only ever ABUSE_CONTACT; the admin email is never published. */
+  abuseContact: (env.ABUSE_CONTACT ?? '').trim(),
+  siteName: env.SITE_NAME ?? 'Site Scan',
+  /** Optional self-hosted Umami analytics for the scanner's own pages. */
+  umamiScriptUrl: env.UMAMI_SCRIPT_URL ?? '',
+  umamiWebsiteId: env.UMAMI_WEBSITE_ID ?? ''
 };
 
 export const SCAN_QUEUE = 'scan';

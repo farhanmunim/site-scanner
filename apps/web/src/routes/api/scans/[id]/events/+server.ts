@@ -1,28 +1,45 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { eq, scans } from '@site-scanner/db';
 import { getDb } from '$lib/server/db.js';
+import { withScores } from '$lib/server/report-compat.js';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Server-sent events: pushes {status, stages, report} whenever they change, until the scan finishes. */
-export const GET: RequestHandler = async ({ params }) => {
+/** Server-sent events: pushes {status, stages, report} whenever they change, until the scan finishes. ?lite=1 omits the report. */
+export const GET: RequestHandler = async ({ params, url }) => {
   if (!UUID.test(params.id!)) return new Response('not found', { status: 404 });
   const id = params.id!;
+  const lite = url.searchParams.get('lite') === '1';
   const db = getDb();
   const encoder = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   const stream = new ReadableStream({
     start(controller) {
       let last = '';
+      let lastSig = '';
       let ticks = 0;
       const tick = async () => {
         try {
-          const [row] = await db.select({ status: scans.status, stages: scans.stages, report: scans.report, error: scans.error }).from(scans).where(eq(scans.id, id)).limit(1);
-          if (!row) {
+          // Cheap poll first (status + stages are tiny); the full report is only read when something changed.
+          const [meta] = await db.select({ status: scans.status, stages: scans.stages, error: scans.error }).from(scans).where(eq(scans.id, id)).limit(1);
+          if (!meta) {
             controller.enqueue(encoder.encode('event: gone\ndata: {}\n\n'));
             return close();
           }
-          const payload = JSON.stringify(row);
+          const sig = JSON.stringify(meta);
+          const changed = sig !== lastSig;
+          lastSig = sig;
+          let row: { status: typeof meta.status; stages: typeof meta.stages; error: string | null; report: unknown } = { ...meta, report: null };
+          if (!lite && changed) {
+            const [full] = await db.select({ status: scans.status, stages: scans.stages, report: scans.report, error: scans.error }).from(scans).where(eq(scans.id, id)).limit(1);
+            if (full) row = full;
+          } else if (!lite) {
+            // unchanged: fall through to the keepalive below without re-serialising the report
+            if (ticks % 15 === 0) controller.enqueue(encoder.encode(': keepalive\n\n'));
+            if (!['queued', 'running'].includes(meta.status) || ++ticks > 240) return close();
+            return;
+          }
+          const payload = JSON.stringify(lite ? { status: row.status, stages: row.stages, error: row.error } : withScores(row as Parameters<typeof withScores>[0]));
           if (payload !== last) {
             last = payload;
             controller.enqueue(encoder.encode(`data: ${payload}\n\n`));

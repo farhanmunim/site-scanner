@@ -30,12 +30,14 @@ export const LIMITS = {
   maxScansPerDomainPerHour: 6,
   /** Scans allowed per client IP per hour. */
   maxScansPerIpPerHour: 20,
+  /** All visitors together, per UTC day: the backstop that keeps the free APIs inside their allowances. */
+  maxScansPerDay: 1500,
   /** Cool-down applied to a domain after a 403/429/challenge. */
   restrictedCooldownMs: 60 * 60 * 1000
 } as const;
 
 export const USER_AGENT = (siteUrl: string) =>
-  `Mozilla/5.0 (compatible; SiteScannerBot/1.0; +${siteUrl.replace(/\/$/, '')}/bot)`;
+  `Mozilla/5.0 (compatible; SiteScanBot/1.0; +${siteUrl.replace(/\/$/, '')}/bot)`;
 
 /** Paths we may request relative to the site root, independent of what we found. */
 export const WELL_KNOWN_PATHS = [
@@ -65,7 +67,7 @@ export interface PathPermission {
 export function isPathAllowed(
   candidate: string,
   target: { host: string; url: string },
-  context: { discoveredScripts?: Set<string>; wordpress?: boolean; discoveredCmsFiles?: Set<string> } = {}
+  context: { discoveredScripts?: Set<string>; wordpress?: boolean; discoveredCmsFiles?: Set<string>; discoveredMedia?: Set<string> } = {}
 ): PathPermission {
   let u: URL;
   try {
@@ -78,14 +80,14 @@ export function isPathAllowed(
   const onTargetSite = sameSite(u.hostname, target.host);
   if (!onTargetSite) {
     // Off-site fetches are limited to script files the page itself referenced.
-    if (context.discoveredScripts?.has(candidate)) return { allowed: true };
+    if (context.discoveredScripts?.has(candidate) || context.discoveredMedia?.has(candidate)) return { allowed: true };
     return { allowed: false, reason: 'off-site' };
   }
 
   const path = u.pathname;
   if (candidate === target.url || candidate.split('#')[0] === target.url) return { allowed: true };
   if ((WELL_KNOWN_PATHS as readonly string[]).includes(path) && u.search === '') return { allowed: true };
-  if (context.discoveredScripts?.has(candidate)) return { allowed: true };
+  if (context.discoveredScripts?.has(candidate) || context.discoveredMedia?.has(candidate)) return { allowed: true };
   if (context.discoveredCmsFiles?.has(candidate)) return { allowed: true };
   if (context.wordpress) {
     if ((WORDPRESS_PATHS as readonly string[]).includes(path) && u.search === '') return { allowed: true };

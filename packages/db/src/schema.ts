@@ -1,4 +1,5 @@
-import { boolean, index, integer, jsonb, pgTable, serial, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core';
+import { boolean, index, integer, jsonb, pgTable, serial, text, timestamp, uniqueIndex, uuid, varchar } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import type { GatheredData, Report, StageMeta, StageName } from '@site-scanner/core/types';
 
 /**
@@ -19,6 +20,8 @@ export const scans = pgTable(
     inputUrl: text('input_url').notNull(),
     url: text('url').notNull(),
     finalUrl: text('final_url'),
+    /** "full" or the focused tool this scan was run for (see core scope.ts). */
+    scope: varchar('scope', { length: 32 }).notNull().default('full'),
     status: varchar('status', { length: 16 }).$type<ScanStatus>().notNull().default('queued'),
     scannerVersion: varchar('scanner_version', { length: 32 }),
     fingerprintsVersion: varchar('fingerprints_version', { length: 64 }),
@@ -34,7 +37,7 @@ export const scans = pgTable(
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     durationMs: integer('duration_ms')
   },
-  (t) => [index('scans_host_created_idx').on(t.host, t.createdAt), index('scans_url_created_idx').on(t.url, t.createdAt), index('scans_domain_idx').on(t.registrableDomain), index('scans_created_idx').on(t.createdAt)]
+  (t) => [index('scans_host_created_idx').on(t.host, t.createdAt), index('scans_url_created_idx').on(t.url, t.createdAt), index('scans_domain_idx').on(t.registrableDomain), index('scans_created_idx').on(t.createdAt), index('scans_status_created_idx').on(t.status, t.createdAt), uniqueIndex('scans_one_active_per_url_scope').on(t.url, t.scope).where(sql`${t.status} in ('queued','running')`)]
 );
 
 /** Every lookup request, including cache hits and refusals. This is the "searches" log. */
@@ -57,7 +60,7 @@ export const lookups = pgTable(
     referrer: text('referrer'),
     source: varchar('source', { length: 16 }).notNull().default('web') // web | api | admin
   },
-  (t) => [index('lookups_created_idx').on(t.createdAt), index('lookups_domain_idx').on(t.registrableDomain), index('lookups_ip_hash_idx').on(t.ipHash)]
+  (t) => [index('lookups_created_idx').on(t.createdAt), index('lookups_domain_idx').on(t.registrableDomain), index('lookups_ip_hash_idx').on(t.ipHash), index('lookups_host_idx').on(t.host)]
 );
 
 /** Flattened detections for faceted queries in the admin console. */

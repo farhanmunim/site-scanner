@@ -1,0 +1,14 @@
+/* Certificate chain. Class prefix: ss-. */
+@layer app {
+  /* certificate chain */
+  .ss-chain { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ss-chain .l { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: var(--space-3); padding-bottom: var(--space-4); position: relative; }
+  .ss-chain .l:not(:last-child)::before { content: ""; position: absolute; left: 11px; top: 24px; bottom: 0; width: 1px; background: var(--border); }
+  .ss-chain .ic { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--success) 18%, var(--surface)); color: var(--success); border: 1px solid color-mix(in srgb, var(--success) 40%, var(--border)); }
+  .ss-chain .ic.warn { background: color-mix(in srgb, var(--warning) 18%, var(--surface)); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 40%, var(--border)); }
+  .ss-chain .ic.fail { background: color-mix(in srgb, var(--danger) 18%, var(--surface)); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--border)); }
+  .ss-chain b { font-weight: var(--weight-medium); font-size: var(--text-base); overflow-wrap: anywhere; }
+  .ss-chain .role { font: var(--weight-regular) var(--text-2xs)/1 var(--font-mono); text-transform: uppercase; letter-spacing: .1em; color: var(--text-muted); margin-right: var(--space-2); }
+  .ss-chain .d { display: block; font-size: var(--text-sm); color: var(--text-muted); margin-top: 2px; overflow-wrap: anywhere; }
+  .ss-chain .d.ok { color: var(--success); } .ss-chain .d.bad { color: var(--danger); } .ss-chain .d.warn { color: var(--warning); }
+}

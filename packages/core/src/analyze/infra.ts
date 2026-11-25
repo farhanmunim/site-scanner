@@ -1,3 +1,4 @@
+import { parse as parseDomain } from 'tldts';
 import type { Confidence, DnsRecords, Evidence, InfraSummary, IpInfo, TechnologyDetection } from '../types.js';
 
 /**
@@ -77,7 +78,7 @@ const EDGE_PLATFORMS = /^(Vercel|Netlify|Cloudflare Pages|Cloudflare Workers|Ren
 const CDN_EVIDENCE_KEYS = /^(server|via|x-cache|x-served-by|cf-ray|cf-cache-status|x-amz-cf-id|x-amz-cf-pop|x-vercel-id|x-vercel-cache|x-nf-request-id|x-akamai-transformed|x-iinfo|x-cdn|x-sucuri-id|x-fastly-request-id|fastly-debug-digest|x-edgeconnect-midmile-rtt|x-github-request-id|x-azure-ref|x-ec-debug|x-bunny-cache|x-kinsta-cache|CNAME|NS)$/i;
 const WAF_NAMES = /Cloudflare|Akamai|Imperva|Incapsula|Sucuri|DataDome|Wordfence|Fastly|AWS WAF|Cloudfront|Barracuda|F5|Fortinet|Kona|Reblaze|PerimeterX|HUMAN|Shield/i;
 
-export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns: DnsRecords | null, challenge: { vendor: string; evidence: string } | null): InfraSummary {
+export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns: DnsRecords | null, challenge: { vendor: string; evidence: string } | null, ownDomain?: string): InfraSummary {
   const ev = (t: TechnologyDetection): Evidence[] => t.evidence.slice(0, 4);
 
   // CDN: technology in CDN category with real (non-implied) evidence, or ASN of the IPs.
@@ -94,7 +95,7 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   const wafTech = techs.find((t) => !t.implied && t.categories.some((c) => c.id === 16) && WAF_NAMES.test(t.name));
   if (challenge) waf = { name: challenge.vendor, evidence: [{ source: 'html', value: challenge.evidence }] };
   else if (wafTech) waf = { name: wafTech.name, evidence: ev(wafTech) };
-  else if (cdn && /Cloudflare|Akamai|Imperva|Sucuri|Fastly/i.test(cdn.name)) waf = { name: `${cdn.name} (edge security available; configuration not observable)`, evidence: [] };
+  else if (cdn && /Cloudflare|Akamai|Imperva|Sucuri|Fastly/i.test(cdn.name)) waf = { name: cdn.name, evidence: [{ source: 'implied', value: `${cdn.name} sits in front of the site; whether its firewall/bot protection is switched on is not observable from outside` }] };
 
   // DNS provider from NS records.
   let dnsProvider: InfraSummary['dnsProvider'] = null;
@@ -135,7 +136,14 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   nsMatch(/name\.com$|name-services/i, 'Name.com DNS');
   nsMatch(/porkbun/i, 'Porkbun DNS');
   nsMatch(/netlify/i, 'Netlify DNS');
-  if (!dnsProvider && ns.length) dnsProvider = { name: ns[0]!.split('.').slice(-2).join('.'), evidence: [{ source: 'dns', key: 'NS', value: ns.join(', ') }] };
+  nsMatch(/livedns\.co\.uk$/i, 'Fasthosts DNS');
+  nsMatch(/ui-dns\.(com|de|org|biz)$|1and1|ionos|hosteurope/i, 'IONOS DNS');
+  nsMatch(/123-reg\.co\.uk$/i, '123 Reg DNS');
+  if (!dnsProvider && ns.length) {
+    const nsDomain = parseDomain(ns[0]!).domain ?? ns[0]!;
+    const name = ownDomain && nsDomain.toLowerCase() === ownDomain.toLowerCase() ? `Self-hosted (${nsDomain})` : `${nsDomain} nameservers`;
+    dnsProvider = { name, evidence: [{ source: 'dns', key: 'NS', value: ns.join(', ') }] };
+  }
 
   // Email provider from MX.
   let emailProvider: InfraSummary['emailProvider'] = null;
@@ -161,7 +169,12 @@ export function summariseInfra(techs: TechnologyDetection[], ips: IpInfo[], dns:
   mxMatch(/hostinger/i, 'Hostinger Email');
   mxMatch(/improvmx/i, 'ImprovMX');
   mxMatch(/forwardemail/i, 'Forward Email');
-  if (!emailProvider && mx.length) emailProvider = { name: mx[0]!.exchange.split('.').slice(-2).join('.'), evidence: [{ source: 'dns', key: 'MX', value: mx.map((m) => m.exchange).join(', ') }] };
+  mxMatch(/livemail\.co\.uk$/i, 'Fasthosts Email');
+  if (!emailProvider && mx.length) {
+    const mxDomain = parseDomain(mx[0]!.exchange).domain ?? mx[0]!.exchange;
+    const name = ownDomain && mxDomain.toLowerCase() === ownDomain.toLowerCase() ? `Self-hosted (${mxDomain})` : `${mxDomain} mail servers`;
+    emailProvider = { name, evidence: [{ source: 'dns', key: 'MX', value: mx.map((m) => m.exchange).join(', ') }] };
+  }
 
   // Hosting. Managed-host headers beat ASN; ASN is meaningless behind a CDN.
   let hosting: InfraSummary['hosting'] = null;

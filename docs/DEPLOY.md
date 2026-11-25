@@ -1,6 +1,6 @@
 # Deploying on Coolify (behind Cloudflare)
 
-The whole stack runs from one `docker-compose.yml`: `web` (SvelteKit), `worker` (scanner +
+The whole stack runs from one `docker-compose.yaml`: `web` (SvelteKit), `worker` (scanner +
 Chromium), `postgres`, `redis`. Only `web` is exposed; Cloudflare proxies it and the VPS firewall
 accepts web traffic from Cloudflare only.
 
@@ -30,27 +30,64 @@ Because only Cloudflare can reach the origin, the app trusts `CF-Connecting-IP` 
 ## 3. Coolify
 
 1. **Projects → New resource → Docker Compose** from this Git repository, branch `main`
-   (base directory `/`, compose file `/docker-compose.yml`).
+   (base directory `/`, compose file `/docker-compose.yaml`).
 2. Set the domain on the `web` service: `https://scanner.example.com` (port `3000`).
 3. **Environment Variables** — only three are required:
 
    | Variable | Value |
    |---|---|
-   | `ADMIN_EMAIL` | your email (shown as the contact on `/bot` and `/privacy`) |
+   | `ADMIN_EMAIL` | your email (private; never shown on the site) |
+   | `ABUSE_CONTACT` | optional public contact for `/bot` and `/privacy`; leave unset to show none |
    | `ADMIN_USERNAME` | e.g. `admin` |
    | `ADMIN_PASSWORD` | a long password (8+ chars, 16+ recommended) |
 
    Recommended, all free: `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` (Cloudflare → Turnstile),
-   `GOOGLE_API_KEY` (PageSpeed Insights + Safe Browsing). Optional: `OWN_IPS` (your VPS IPs).
+   `GOOGLE_API_KEY` (PageSpeed Insights + Safe Browsing + Chrome UX Report history; enable those three APIs for the key's project), `WORDFENCE_API_KEY` (free, wordfence.com → Integrations; enables WordPress vulnerability matching). Optional: `OWN_IPS` (your VPS IPs).
 
    Coolify generates `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_SESSION`,
    `SERVICE_PASSWORD_IPSALT` and `SERVICE_URL_WEB` itself — leave them alone.
-4. Deploy. The worker applies database migrations on start.
+   Reputation sources (each optional, each free; a source without its key is simply skipped):
+
+   | Variable | Where to get it |
+   |---|---|
+   | `VIRUSTOTAL_API_KEY` | virustotal.com → profile menu → **API key** (free tier: 4 lookups a minute, 500 a day) |
+   | `ABUSEIPDB_API_KEY` | abuseipdb.com → **Account → API** → Create key (free tier: 1,000 checks a day) |
+   | `OTX_API_KEY` | otx.alienvault.com → profile menu → **Settings → OTX Key** |
+   | `URLHAUS_AUTH_KEY` | auth.abuse.ch → sign in → **Auth-Key** (one key also works for the other abuse.ch services) |
+
+   Set them on the **worker** service in Coolify, then redeploy.
+
+   Optional tuning (all have sensible defaults):
+
+   | Variable | Meaning |
+   |---|---|
+   | `ORIGIN_SECRET` | If the origin is reachable without Cloudflare, anyone can forge `CF-Connecting-IP` and dodge the rate limits. Set this to a random string and add a Cloudflare Transform Rule that sets request header `X-Origin-Secret` to the same value; the app then trusts `CF-Connecting-IP` only when it matches. Better still, firewall the origin to Cloudflare's IP ranges. |
+   | `BEHIND_CLOUDFLARE` | `false` to ignore `CF-Connecting-IP` entirely (not proxied through Cloudflare). |
+   | `DATA_RETENTION_DAYS` | Lookups and finished scans older than this are deleted (default 365, `0` keeps everything). The latest result per domain is kept. |
+   | `IP_RETENTION_DAYS`, `SCREENSHOT_RETENTION_DAYS` | Raw IP addresses are blanked after 30 days; screenshots and PDFs deleted after 90. |
+   | `SCAN_CONCURRENCY`, `SCAN_TIMEOUT_MS`, `MAX_QUEUE_DEPTH` | Parallel scans per worker (2), per-scan time limit (150 s), and queued+running scans before new requests are refused (20). |
+   | `OWN_HOSTS`, `OWN_IPS`, `DENYLIST_EXTRA` | Extra hosts/IPs/suffixes the scanner must never touch. |
+
+4. Deploy. Both the web app and the worker apply database migrations on start, serialised by a
+   Postgres advisory lock, so starting them together is safe.
 5. Open `/health` (expects `{"status":"ok"}`) and `/admin/health` (worker heartbeat present).
+
+### Changing the domain
+
+Everything host-specific is derived at runtime from `PUBLIC_SITE_URL` (defaults to Coolify's
+`SERVICE_URL_WEB`), so a rename needs no code change. Checklist:
+
+1. Point the new name at Coolify in Cloudflare (proxied) and set it as the `web` service domain.
+   If you set `PUBLIC_SITE_URL` explicitly, update it too, then redeploy.
+2. Cloudflare → Turnstile: add the new hostname to the widget's domains, or the scan form will
+   fail verification.
+3. Add a Cloudflare redirect rule from the old host to the new one (same path) so shared report
+   links keep working.
+4. Previously generated PDFs keep the old address in their footer until re-rendered.
 
 ### Resources
 
-Defaults in `docker-compose.yml`: web 512 MB, worker 2 GB (Chromium), Postgres 512 MB, Redis 160 MB. A 4 GB VPS runs it comfortably with `SCAN_CONCURRENCY=2`. If memory is tight, set `BROWSER_ENABLED=false` (screenshots then come from PageSpeed Insights instead) and the worker needs ~300 MB.
+Defaults in `docker-compose.yaml`: web 512 MB, worker 2 GB (Chromium), Postgres 512 MB, Redis 160 MB. A 4 GB VPS runs it comfortably with `SCAN_CONCURRENCY=2`. If memory is tight, set `BROWSER_ENABLED=false` (screenshots then come from PageSpeed Insights instead) and the worker needs ~300 MB.
 
 ### Free API keys (optional)
 

@@ -1,4 +1,4 @@
-import { LIMITS, USER_AGENT, isPathAllowed, type RequestBudget } from './policy.js';
+import { LIMITS, USER_AGENT, checkDenylist, isPathAllowed, type RequestBudget } from './policy.js';
 import { checkIp } from './ip.js';
 import { resolveAddresses } from './doh.js';
 import type { HttpResponseInfo, RedirectHop } from '../types.js';
@@ -16,8 +16,12 @@ export interface SafeFetchOptions {
   timeoutMs?: number;
   method?: 'GET' | 'HEAD';
   accept?: string;
+  /** Read the body as bytes (images); `body` stays empty and `bytes` is set. */
+  binary?: boolean;
   /** Skip the DoH pre-check when the caller already resolved + validated the host. */
   preResolved?: Map<string, boolean>;
+  /** Denylist inputs re-applied to every URL fetched (redirect hops and third-party scripts included). */
+  deny?: { extraSuffixes?: string[]; blockedDomains?: Iterable<string>; ownHosts?: Iterable<string> };
 }
 
 export class FetchDenied extends Error {
@@ -31,6 +35,8 @@ export class FetchDenied extends Error {
 }
 
 export interface SafeResponse {
+  /** Set instead of `body` when the request asked for binary. */
+  bytes?: Uint8Array;
   status: number;
   headers: Record<string, string>;
   cookies: string[];
@@ -68,6 +74,29 @@ function headersToRecord(h: Headers): { headers: Record<string, string>; cookies
     headers[k] = headers[k] ? headers[k] + ', ' + value : value;
   });
   return { headers, cookies };
+}
+
+async function readCappedBytes(res: Response, maxBytes: number): Promise<{ bytes: Uint8Array; truncated: boolean }> {
+  if (!res.body) return { bytes: new Uint8Array(0), truncated: false };
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let truncated = false;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (total + value.length > maxBytes) {
+      truncated = true;
+      await reader.cancel().catch(() => {});
+      break;
+    }
+    chunks.push(value);
+    total += value.length;
+  }
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) (out.set(c, o), (o += c.length));
+  return { bytes: out, truncated };
 }
 
 async function readCapped(res: Response, maxBytes: number): Promise<{ body: string; truncated: boolean }> {
@@ -132,9 +161,18 @@ export async function assertPublicHost(host: string, opts: Pick<SafeFetchOptions
 export async function safeFetch(url: string, opts: SafeFetchOptions): Promise<SafeResponse> {
   const perm = isPathAllowed(url, opts.target, opts.context);
   if (!perm.allowed) throw new FetchDenied('policy', `Refusing to fetch ${url}: ${perm.reason}`);
+  const parsedUrl = new URL(url);
+  const host = parsedUrl.hostname;
+  // Every URL, not just the first: no IP literals, only standard web ports, and the same denylist/opt-out list.
+  if (host.startsWith('[') || /^[0-9.]+$/.test(host)) throw new FetchDenied('policy', 'Refusing to fetch an IP address');
+  const port = parsedUrl.port ? Number(parsedUrl.port) : parsedUrl.protocol === 'https:' ? 443 : 80;
+  if (![80, 443, 8080, 8443].includes(port)) throw new FetchDenied('policy', `Refusing to fetch port ${port}`);
+  if (opts.deny) {
+    const d = checkDenylist(host, opts.deny);
+    if (d.denied) throw new FetchDenied('policy', d.reason ?? 'This host is not scanned');
+  }
   if (!opts.budget.take()) throw new FetchDenied('budget', 'Per-scan request budget exhausted');
 
-  const host = new URL(url).hostname;
   await assertPublicHost(host, opts);
 
   const fetchImpl = opts.fetchImpl ?? fetch;
@@ -153,6 +191,10 @@ export async function safeFetch(url: string, opts: SafeFetchOptions): Promise<Sa
     ...({ cf: { cacheTtl: 0, cacheEverything: false } } as object)
   });
   const { headers, cookies } = headersToRecord(res.headers);
+  if (opts.binary) {
+    const { bytes, truncated } = await readCappedBytes(res, opts.maxBytes ?? LIMITS.maxFileBytes);
+    return { status: res.status, headers, cookies, body: '', bytes, truncated, url, timingMs: Date.now() - started };
+  }
   const { body, truncated } = opts.method === 'HEAD' ? { body: '', truncated: false } : await readCapped(res, opts.maxBytes ?? LIMITS.maxFileBytes);
   return { status: res.status, headers, cookies, body, truncated, url, timingMs: Date.now() - started };
 }

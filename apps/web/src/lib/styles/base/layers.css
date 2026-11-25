@@ -1,0 +1,13 @@
+/* Vendored from ui-library.farhan.app (tokens, theme, base, primitives). Keep in sync with the library; app styles live in ui.css. */
+/* =============================================================================
+   UI Library — cascade layers
+   Order = precedence (later wins). Anything you write OUTSIDE a layer beats all
+   of them, so a theme is just an un-layered :root { --token: value } block.
+
+     tokens      design tokens (scales, semantic colours, knobs)
+     base        reset + element defaults
+     primitives  shared building blocks (.eui-btn, .eui-input, .eui-tag …)
+     shell       the showcase page chrome (not part of the component library)
+     components  every component's scoped styles (injected at runtime)
+   ========================================================================== */
+@layer tokens, base, primitives, shell, components, app;

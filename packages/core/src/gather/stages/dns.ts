@@ -1,9 +1,10 @@
 import { dohQuery, cleanTxt, type RRType } from '../doh.js';
+import { inspectSpf } from './spf.js';
 import { checkIp, ipVersion, reverseName } from '../ip.js';
 import type { DnsRecords, IpInfo } from '../../types.js';
 
 /** Common DKIM selectors; a hit is informational only ("DKIM appears configured"). */
-const DKIM_SELECTORS = ['default', 'google', 'selector1', 'selector2', 'k1', 'k2', 'mail', 'dkim', 'smtp', 's1', 's2', 'mandrill', 'mailchimp', 'pm', 'protonmail', 'zoho', 'mailgun', 'sendgrid', 'amazonses', 'fm1', 'everlytickey1', 'krs'];
+const DKIM_SELECTORS = ['default', 'google', 'google2', 'selector1', 'selector2', 'k1', 'k2', 'k3', 'mail', 'dkim', 'dkim1', 'smtp', 's1', 's2', 's1024', 'sig1', 'sig2', 'cm', 'mandrill', 'mailchimp', 'pm', 'protonmail', 'protonmail2', 'zoho', 'zmail', 'mailgun', 'mg', 'sendgrid', 'ses', 'amazonses', 'fm1', 'fm2', 'fm3', 'mailjet', 'brevo', 'sendinblue', 'postmark', 'hs1', 'mte1', 'zendesk1', 'everlytickey1', 'krs'];
 
 export interface DnsStageResult {
   records: DnsRecords;
@@ -43,6 +44,11 @@ export async function gatherDns(host: string, registrable: string, fetchImpl?: t
     })
   );
 
+  const mxHosts = mx.data.map((m) => (m.split(/\s+/)[1] ?? '').replace(/\.$/, '')).filter(Boolean).slice(0, 3);
+  const [tlsRpt, tlsaEntries] = await Promise.all([q(`_smtp._tls.${registrable}`, 'TXT', f), Promise.all(mxHosts.map(async (h) => [h, (await q(`_25._tcp.${h}`, 'TLSA', f)).data] as const))]);
+  const txtRecords = txt.data.map(cleanTxt);
+  const spf = await inspectSpf(registrable, txtRecords).catch(() => null);
+
   const records: DnsRecords = {
     A: a.data,
     AAAA: aaaa.data,
@@ -54,14 +60,17 @@ export async function gatherDns(host: string, registrable: string, fetchImpl?: t
       })
       .sort((x, y) => x.priority - y.priority),
     NS: ns.data.map((n) => n.replace(/\.$/, '')).sort(),
-    TXT: txt.data.map(cleanTxt),
+    TXT: txtRecords,
     CAA: caa.data,
     SOA: soa.data[0] ?? null,
     dnssec: a.ad,
     dmarc: dmarc.data.map(cleanTxt),
     mtaSts: mtaSts.data.map(cleanTxt),
     dkimSelectors: dkim.filter((s): s is string => !!s),
-    bimi: bimi.data.map(cleanTxt)
+    bimi: bimi.data.map(cleanTxt),
+    tlsRpt: tlsRpt.data.map(cleanTxt).filter((t) => /^v=TLSRPTv1/i.test(t)),
+    tlsa: Object.fromEntries(tlsaEntries.filter(([, v]) => v.length)),
+    spf
   };
 
   const ips = await enrichIps([...records.A, ...records.AAAA], f);
